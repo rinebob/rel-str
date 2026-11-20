@@ -6,7 +6,7 @@
  */
 import { Component, ChangeDetectionStrategy, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, ValidationErrors } from '@angular/forms';
 import { DsDialogRef } from '../../../../shared/ds/ds-dialog';
 import { DS_DIALOG_DATA } from '../../../../shared/ds/ds-dialog';
 
@@ -159,8 +159,7 @@ export class StrategyBuilderFormComponent {
     frequency: [StrategyFrequency.DAILY, [Validators.required]],
     openTimePT: ['12:00', [Validators.required, Validators.pattern(StrategyBuilderFormComponent.OPEN_TIME_PATTERN)]],
     targetDelta: [0.2, [Validators.required, Validators.min(0.01), Validators.max(1)]],
-    dteMin: [21, [Validators.required, Validators.min(0)]],
-    dteMax: [30, [Validators.required, Validators.min(0)]],
+    dte: [30, [Validators.required, Validators.min(1), Validators.pattern(/^\d+$/)]],
     targetGainPct: [null as number | null],
     dteExitThreshold: [null as number | null],
     stopLossPct: [null as number | null],
@@ -173,7 +172,7 @@ export class StrategyBuilderFormComponent {
      *  from the shared DEFAULT_TRAILING_STOP_KEY. */
     variantFamily: [DEFAULT_GOV.family as 'none' | PickerVariantFamily, [Validators.required]],
     variantParam: [DEFAULT_GOV.param as number | null],
-  }, { validators: [dteMaxGreaterThanMin, variantParamValid] });
+  }, { validators: [variantParamValid] });
 
   /** Selected exit policies (multi-select). Defaults to HOLD_TO_EXPIRATION. */
   readonly selectedExitPolicies = signal<ExitPolicy[]>([ExitPolicy.HOLD_TO_EXPIRATION]);
@@ -218,11 +217,12 @@ export class StrategyBuilderFormComponent {
 
   private updateIdPreview(): void {
     const v = this.form.value;
-    if (!v.symbol || !v.frequency || !v.spreadType || v.targetDelta == null || v.dteMin == null || v.dteMax == null) {
+    if (!v.symbol || !v.frequency || !v.spreadType || v.targetDelta == null || v.dte == null) {
       this.idPreview.set('—');
       return;
     }
-    const phases: StrategyInstancePhase[] = [{ spreadType: v.spreadType, targetDelta: v.targetDelta, dteMin: v.dteMin, dteMax: v.dteMax }];
+    const optionType = v.spreadType === PositionSpreadType.CASH_SECURED_PUT ? OptionType.PUT : OptionType.CALL;
+    const phases: StrategyInstancePhase[] = [{ spreadType: v.spreadType, targetDelta: signedDelta(v.targetDelta, optionType), dte: v.dte }];
     try {
       this.idPreview.set(generateInstanceId(new Date(), v.symbol, phases, v.frequency, v.openTimePT ?? '12:00'));
     } catch {
@@ -262,9 +262,8 @@ export class StrategyBuilderFormComponent {
       symbol: instance.symbol,
       frequency: instance.frequency,
       openTimePT: instance.openTimePT,
-      targetDelta: phase?.targetDelta ?? 0.2,
-      dteMin: phase?.dteMin ?? 21,
-      dteMax: phase?.dteMax ?? 30,
+      targetDelta: Math.abs(phase?.targetDelta ?? 0.2),
+      dte: phase?.dte ?? 30,
     });
     // governingVariant key → family + param controls. Only terminal
     // families are selectable (US4) — a stored non-terminal or unparseable
@@ -301,12 +300,11 @@ export class StrategyBuilderFormComponent {
   private buildConfig(): InstanceInput {
     const v = this.form.value;
     const spreadType = v.spreadType!;
-    const targetDelta = v.targetDelta!;
-    const dteMin = v.dteMin!;
-    const dteMax = v.dteMax!;
-
-    const phase: StrategyInstancePhase = { spreadType, targetDelta, dteMin, dteMax };
     const optionType = spreadType === PositionSpreadType.CASH_SECURED_PUT ? OptionType.PUT : OptionType.CALL;
+    const targetDelta = signedDelta(v.targetDelta!, optionType);
+    const dte = v.dte!;
+
+    const phase: StrategyInstancePhase = { spreadType, targetDelta, dte };
     const side = TradeSide.SHORT;
 
     const exitPolicies: ExitPolicyConfig[] = this.selectedExitPolicies().map((policy) => {
@@ -330,8 +328,7 @@ export class StrategyBuilderFormComponent {
       optionType,
       side,
       targetDelta,
-      dteMin,
-      dteMax,
+      dte,
       phases: [phase],
       frequency: v.frequency!,
       openTimePT: v.openTimePT!,
@@ -393,12 +390,9 @@ export class StrategyBuilderFormComponent {
   }
 }
 
-/** Custom validator: DTE max must be strictly greater than DTE min. */
-function dteMaxGreaterThanMin(group: FormGroup): { [key: string]: boolean } | null {
-  const min = group.get('dteMin')?.value;
-  const max = group.get('dteMax')?.value;
-  if (min != null && max != null && max <= min) {
-    return { dteRange: true };
-  }
-  return null;
+/** Config deltas are signed (OptionLeg vocabulary): puts carry the
+ *  negative of the form's unsigned magnitude; calls stay positive. */
+function signedDelta(magnitude: number, optionType: OptionType): number {
+  const abs = Math.abs(magnitude);
+  return optionType === OptionType.PUT ? -abs : abs;
 }

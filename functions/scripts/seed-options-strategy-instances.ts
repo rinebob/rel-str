@@ -25,15 +25,13 @@ const symbol = 'QQQM';
 const phases = [
   {
     spreadType: PositionSpreadType.CASH_SECURED_PUT,
-    targetDelta: 0.2,
-    dteMin: 21,
-    dteMax: 30,
+    targetDelta: -0.2,
+    dte: 26,
   },
   {
     spreadType: PositionSpreadType.COVERED_CALL,
     targetDelta: 0.3,
-    dteMin: 21,
-    dteMax: 30,
+    dte: 26,
   },
 ];
 
@@ -50,9 +48,8 @@ const instance = {
   symbol,
   optionType: OptionType.PUT,
   side: TradeSide.SHORT,
-  targetDelta: 0.2,
-  dteMin: 21,
-  dteMax: 30,
+  targetDelta: -0.2,
+  dte: 26,
   phases,
   frequency: StrategyFrequency.DAILY,
   openTimePT: '12:00',

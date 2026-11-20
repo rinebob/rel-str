@@ -19,7 +19,7 @@ const INSTANCE: StStrategyInstance = {
   symbol: 'ADPT',
   optionType: OptionType.PUT,
   side: TradeSide.SHORT,
-  phases: [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: 0.3, dteMin: 30, dteMax: 60 }],
+  phases: [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: -0.3, dte: 45 }],
   frequency: StrategyFrequency.DAILY,
   openTimePT: '13:00',
   exitPolicies: [],

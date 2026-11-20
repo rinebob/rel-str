@@ -17,7 +17,7 @@ export interface PositionIdConfig {
   optionType: OptionType;
   side: TradeSide;
   targetDelta?: number;
-  dteMax?: number;
+  dte?: number;
   frequency: StrategyFrequency;
   openTimePT: string;
 }
@@ -32,8 +32,8 @@ export function buildPositionId(
 ): string {
   const datePart = openDate.slice(2).replace(/-/g, '');
   const strat = stratType(config.optionType, config.side);
-  const delta = String(Math.round((config.targetDelta ?? 0) * 100)).padStart(3, '0');
-  const dte = String(config.dteMax ?? 0);
+  const delta = String(Math.round(Math.abs(config.targetDelta ?? 0) * 100)).padStart(3, '0');
+  const dte = String(config.dte ?? 0);
   const freq = config.frequency === StrategyFrequency.DAILY ? 'D' : 'W';
   const time = config.openTimePT.replace(':', '');
   return `${datePart}-${config.symbol}-${strat}-${delta}-${dte}-${freq}-${time}`;

@@ -77,15 +77,13 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
     symbol: 'QQQM',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
-    targetDelta: 0.2,
-    dteMin: 21,
-    dteMax: 30,
+    targetDelta: -0.2,
+    dte: 30,
     phases: [
       {
         spreadType: PositionSpreadType.CASH_SECURED_PUT,
-        targetDelta: 0.2,
-        dteMin: 21,
-        dteMax: 30,
+        targetDelta: -0.2,
+        dte: 30,
       },
     ],
     frequency: StrategyFrequency.DAILY,
@@ -165,8 +163,7 @@ describe('StrategyBuilderFormComponent', () => {
       symbol: 'QQQM',
       frequency: StrategyFrequency.DAILY,
       targetDelta: 0.2,
-      dteMin: 21,
-      dteMax: 30,
+      dte: 30,
     });
     const preview = component.idPreview();
     expect(preview).toContain('QQQM');
@@ -188,8 +185,7 @@ describe('StrategyBuilderFormComponent', () => {
       frequency: StrategyFrequency.DAILY,
       openTimePT: '07:30',
       targetDelta: 0.3,
-      dteMin: 30,
-      dteMax: 45,
+      dte: 45,
     });
     const preview = component.idPreview();
     expect(preview).toContain('-0730');
@@ -201,19 +197,12 @@ describe('StrategyBuilderFormComponent', () => {
     await configureWithStore();
     const native = fixture.nativeElement as HTMLElement;
     expect(native.querySelector('input[formControlName="targetDelta"]')).toBeTruthy();
-    expect(native.querySelector('input[formControlName="dteMin"]')).toBeTruthy();
-    expect(native.querySelector('input[formControlName="dteMax"]')).toBeTruthy();
+    expect(native.querySelector('input[formControlName="dte"]')).toBeTruthy();
   });
 
-  it('validates DTE max must be greater than DTE min', async () => {
+  it('accepts a concrete target dte', async () => {
     await configureWithStore();
-    component.form.patchValue({ dteMin: 30, dteMax: 20 });
-    expect(component.form.invalid).toBe(true);
-  });
-
-  it('accepts DTE max greater than DTE min', async () => {
-    await configureWithStore();
-    component.form.patchValue({ dteMin: 21, dteMax: 30, symbol: 'QQQM' });
+    component.form.patchValue({ dte: 26, symbol: 'QQQM' });
     expect(component.form.valid).toBe(true);
   });
 
@@ -357,13 +346,56 @@ describe('StrategyBuilderFormComponent', () => {
       frequency: StrategyFrequency.DAILY,
       openTimePT: '12:00',
       targetDelta: 0.2,
-      dteMin: 21,
-      dteMax: 30,
+      dte: 30,
     });
     component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
     fixture.detectChanges();
     await component.save();
     expect(mockStore.create).toHaveBeenCalled();
+  });
+
+  it('writes signed targetDelta + concrete dte for a cash-secured put', async () => {
+    await configureWithStore();
+    component.form.patchValue({
+      spreadType: PositionSpreadType.CASH_SECURED_PUT,
+      symbol: 'QQQM',
+      frequency: StrategyFrequency.DAILY,
+      openTimePT: '12:00',
+      targetDelta: 0.2,
+      dte: 30,
+    });
+    component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
+    fixture.detectChanges();
+    await component.save();
+    expect(mockStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetDelta: -0.2,
+        dte: 30,
+        phases: [expect.objectContaining({ targetDelta: -0.2, dte: 30 })],
+      }),
+    );
+  });
+
+  it('writes positive targetDelta for a covered call', async () => {
+    await configureWithStore();
+    component.form.patchValue({
+      spreadType: PositionSpreadType.COVERED_CALL,
+      symbol: 'QQQM',
+      frequency: StrategyFrequency.DAILY,
+      openTimePT: '12:00',
+      targetDelta: 0.3,
+      dte: 14,
+    });
+    component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
+    fixture.detectChanges();
+    await component.save();
+    expect(mockStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        targetDelta: 0.3,
+        dte: 14,
+        phases: [expect.objectContaining({ targetDelta: 0.3, dte: 14 })],
+      }),
+    );
   });
 
   it('calls store.update() on save in edit mode', async () => {
@@ -383,8 +415,7 @@ describe('StrategyBuilderFormComponent', () => {
       frequency: StrategyFrequency.DAILY,
       openTimePT: '12:00',
       targetDelta: 0.2,
-      dteMin: 21,
-      dteMax: 30,
+      dte: 30,
     });
     component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
     fixture.detectChanges();
@@ -401,8 +432,7 @@ describe('StrategyBuilderFormComponent', () => {
       frequency: StrategyFrequency.DAILY,
       openTimePT: '12:00',
       targetDelta: 0.2,
-      dteMin: 21,
-      dteMax: 30,
+      dte: 30,
     });
     component.selectedExitPolicies.set([ExitPolicy.HOLD_TO_EXPIRATION]);
     fixture.detectChanges();
@@ -421,8 +451,7 @@ describe('StrategyBuilderFormComponent', () => {
       phases: [{
         spreadType: PositionSpreadType.COVERED_CALL,
         targetDelta: 0.3,
-        dteMin: 7,
-        dteMax: 14,
+        dte: 14,
       }],
       exitPolicies: [{ policy: ExitPolicy.STOP_LOSS, stopLossPct: 10 }],
     });
@@ -432,9 +461,22 @@ describe('StrategyBuilderFormComponent', () => {
     expect(component.form.controls.openTimePT.value).toBe('09:30');
     expect(component.form.controls.spreadType.value).toBe(PositionSpreadType.COVERED_CALL);
     expect(component.form.controls.targetDelta.value).toBe(0.3);
-    expect(component.form.controls.dteMin.value).toBe(7);
-    expect(component.form.controls.dteMax.value).toBe(14);
+    expect(component.form.controls.dte.value).toBe(14);
     expect(component.isEditMode()).toBe(true);
+  });
+
+  it('pre-fills magnitude from a signed negative put delta and re-signs on save (#1501 r1)', async () => {
+    // Stored -0.2 must surface as unsigned 0.2 — without Math.abs the form
+    // would hold -0.2, fail Validators.min(0.01), and be unsaveable.
+    const instance = makeInstance(); // CSP fixture already carries -0.2
+    await configureWithStore({}, { instance });
+    expect(component.form.controls.targetDelta.value).toBe(0.2);
+    expect(component.form.valid).toBe(true);
+
+    await component.save();
+    const written = mockStore.update.mock.calls[0][1];
+    expect(written.targetDelta).toBe(-0.2);
+    expect(written.phases?.[0]?.targetDelta).toBe(-0.2);
   });
 
   it('is in create mode when no instance provided', async () => {
@@ -466,8 +508,7 @@ describe('StrategyBuilderFormComponent', () => {
       frequency: StrategyFrequency.DAILY,
       openTimePT: '12:00',
       targetDelta: 0.2,
-      dteMin: 21,
-      dteMax: 30,
+      dte: 30,
       variantFamily: 'trailing-stop',
       variantParam: 15,
     });

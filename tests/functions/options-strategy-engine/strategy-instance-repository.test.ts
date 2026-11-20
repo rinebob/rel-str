@@ -40,15 +40,13 @@ function makeInstance(overrides: Partial<StStrategyInstance> = {}): StStrategyIn
     symbol: 'QQQM',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
-    targetDelta: 0.2,
-    dteMin: 21,
-    dteMax: 30,
+    targetDelta: -0.2,
+    dte: 30,
     phases: [
       {
         spreadType: PositionSpreadType.CASH_SECURED_PUT,
-        targetDelta: 0.2,
-        dteMin: 21,
-        dteMax: 30,
+        targetDelta: -0.2,
+        dte: 30,
       },
     ],
     frequency: StrategyFrequency.DAILY,
@@ -292,5 +290,56 @@ describe('strategy-instance-repository', () => {
 
     assert.ok(result);
     assert.equal(result!.enabled, false);
+  });
+
+  it('rejects a targetDelta whose sign contradicts optionType (#1501 r1)', async () => {
+    // An unsigned put target (+0.3) would argmin the least-negative put —
+    // a near-zero-delta contract — every night with no warning. The doc
+    // must be rejected, not mis-selected.
+    const fakeDb = createFakeFirestore({
+      [CANONICAL]: [
+        createFakeDoc('unsigned-put', makeInstance({
+          id: 'unsigned-put',
+          targetDelta: 0.3,
+        })),
+        createFakeDoc('signed-call', makeInstance({
+          id: 'signed-call',
+          optionType: OptionType.CALL,
+          targetDelta: -0.3,
+          phases: [{
+            spreadType: PositionSpreadType.COVERED_CALL,
+            targetDelta: -0.3,
+            dte: 30,
+          }],
+        })),
+        createFakeDoc('ok-1', makeInstance({ id: 'ok-1' })),
+      ],
+    }) as unknown as RepoDb;
+
+    assert.equal(await getInstance('unsigned-put', fakeDb), null);
+    assert.equal(await getInstance('signed-call', fakeDb), null);
+    assert.ok(await getInstance('ok-1', fakeDb));
+  });
+
+  it('rejects non-positive, non-integer, and non-finite dte/targetDelta (#1501 r1)', async () => {
+    // dte: 0 would admit same-day-expiring contracts (the selector accepts
+    // dte >= 0 rows) and feed timeToExpiration = 0 into the overnight sim;
+    // NaN makes every selector comparison fail so the first row wins.
+    const fakeDb = createFakeFirestore({
+      [CANONICAL]: [
+        createFakeDoc('zero-dte', makeInstance({ id: 'zero-dte', dte: 0 })),
+        createFakeDoc('neg-dte', makeInstance({ id: 'neg-dte', dte: -5 })),
+        createFakeDoc('frac-dte', makeInstance({ id: 'frac-dte', dte: 30.5 })),
+        createFakeDoc('nan-dte', makeInstance({ id: 'nan-dte', dte: NaN })),
+        createFakeDoc('nan-delta', makeInstance({ id: 'nan-delta', targetDelta: NaN })),
+        createFakeDoc('zero-delta', makeInstance({ id: 'zero-delta', targetDelta: 0 })),
+        createFakeDoc('ok-1', makeInstance({ id: 'ok-1' })),
+      ],
+    }) as unknown as RepoDb;
+
+    for (const id of ['zero-dte', 'neg-dte', 'frac-dte', 'nan-dte', 'nan-delta', 'zero-delta']) {
+      assert.equal(await getInstance(id, fakeDb), null, id);
+    }
+    assert.ok(await getInstance('ok-1', fakeDb));
   });
 });

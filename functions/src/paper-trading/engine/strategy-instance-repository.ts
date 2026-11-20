@@ -111,16 +111,27 @@ function isValidInstance(id: string, data: unknown): data is StrategyInstanceCon
     firstSpreadType === PositionSpreadType.COVERED_CALL;
 
   if (isSinglePhase) {
-    if (typeof d?.targetDelta !== 'number') {
-      log.warn(`Instance ${id} skipped: missing or non-numeric targetDelta`);
+    const targetDelta = d?.targetDelta;
+    if (typeof targetDelta !== 'number' || !Number.isFinite(targetDelta)) {
+      log.warn(`Instance ${id} skipped: missing or non-finite targetDelta`);
       return false;
     }
-    if (typeof d?.dteMin !== 'number') {
-      log.warn(`Instance ${id} skipped: missing or non-numeric dteMin`);
+    // Signed-delta parity: puts carry negative targetDelta, calls positive.
+    // An unsigned put target (e.g. a console edit writing +0.3) argmins
+    // against the wrong side of the chain and silently picks a near-zero-
+    // delta contract every night — reject the doc rather than mis-select.
+    const expectedSign = d.optionType === OptionType.PUT ? -1 : 1;
+    if (Math.sign(targetDelta) !== expectedSign) {
+      log.warn(
+        `Instance ${id} skipped: targetDelta ${targetDelta} sign does not match optionType ${String(d.optionType)}`,
+      );
       return false;
     }
-    if (typeof d?.dteMax !== 'number') {
-      log.warn(`Instance ${id} skipped: missing or non-numeric dteMax`);
+    // Positive-integer floor: the coordinate selector admits dte >= 0 rows,
+    // so a 0 target would select same-day-expiring contracts and feed
+    // timeToExpiration = 0 into the overnight simulation grid.
+    if (typeof d?.dte !== 'number' || !Number.isInteger(d.dte) || d.dte <= 0) {
+      log.warn(`Instance ${id} skipped: missing or non-positive-integer dte`);
       return false;
     }
   }

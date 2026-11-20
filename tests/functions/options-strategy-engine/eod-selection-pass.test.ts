@@ -35,9 +35,8 @@ function makeConfig(
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
-    dteMin: 2,
-    dteMax: 5,
-    targetDelta: 0.3,
+    dte: 3,
+    targetDelta: -0.3,
     overnightGridRangePct: 0.025,
     overnightGridStepPct: 0.005,
     ...overrides,
@@ -46,7 +45,7 @@ function makeConfig(
 
 
 describe('runEodSelectionPass', () => {
-  it('selects the put closest to the absolute delta target', async () => {
+  it('selects the put closest to the signed delta target within the nearest-DTE expiry', async () => {
     const contracts = [
       makeContract({
         contractID: 'SPY250817P00770000',
@@ -82,9 +81,11 @@ describe('runEodSelectionPass', () => {
     assert.equal(result.quote.type, 'put');
     assert.equal(result.quote.side, TradeSide.SHORT);
     assert.equal(result.dte, 3);
+    assert.equal(result.selected.contractId, 'SPY250817P00770000');
+    assert.equal(result.selected.delta, -0.25);
   });
 
-  it('prefers the DTE closest to the midpoint of the band', async () => {
+  it('picks the expiration nearest the configured dte', async () => {
     const contracts = [
       makeContract({
         contractID: 'SPY250815P00770000',
@@ -104,20 +105,20 @@ describe('runEodSelectionPass', () => {
 
     const result = await runEodSelectionPass(
       '2025-08-14',
-      makeConfig({ dteMin: 1, dteMax: 5 }),
+      makeConfig({ dte: 1 }),
       provider,
     );
 
     assert.ok(result);
-    assert.equal(result.quote.contractID, 'SPY250817P00770000');
+    assert.equal(result.quote.contractID, 'SPY250815P00770000');
   });
 
-  it('returns null when no contract matches the DTE range', async () => {
+  it('returns null when the chain has no eligible contract', async () => {
     const contracts = [
       makeContract({
-        contractID: 'SPY250821P00770000',
-        expiration: '2025-08-21',
-        delta: '-0.30',
+        contractID: 'SPY250817C00770000',
+        delta: '0.25',
+        type: OptionType.CALL,
       }),
     ];
 
@@ -127,7 +128,7 @@ describe('runEodSelectionPass', () => {
 
     const result = await runEodSelectionPass(
       '2025-08-14',
-      makeConfig({ dteMin: 1, dteMax: 3 }),
+      makeConfig(),
       provider,
     );
 
@@ -153,5 +154,109 @@ describe('runEodSelectionPass', () => {
     );
 
     assert.equal(result, null);
+  });
+
+  it('returns null when the config lacks a concrete coordinate', async () => {
+    const contracts = [makeContract()];
+
+    const provider = {
+      getEodChain: async () => contracts,
+    };
+
+    const result = await runEodSelectionPass(
+      '2025-08-14',
+      makeConfig({ dte: undefined, targetDelta: undefined }),
+      provider,
+    );
+
+    assert.equal(result, null);
+  });
+
+  it('skips candidates with unparseable delta rather than fabricating', async () => {
+    const contracts = [
+      makeContract({
+        contractID: 'SPY250817P00770000',
+        delta: 'junk',
+      }),
+      makeContract({
+        contractID: 'SPY250817P00780000',
+        strike: '78',
+        delta: '-0.30',
+      }),
+    ];
+
+    const provider = {
+      getEodChain: async () => contracts,
+    };
+
+    const result = await runEodSelectionPass(
+      '2025-08-14',
+      makeConfig(),
+      provider,
+    );
+
+    assert.ok(result);
+    assert.equal(result.quote.contractID, 'SPY250817P00780000');
+  });
+
+  it('selects the call closest to the signed delta target for a covered-call config', async () => {
+    const contracts = [
+      makeContract({
+        contractID: 'SPY250817C00770000',
+        type: OptionType.CALL,
+        delta: '0.32',
+      }),
+      makeContract({
+        contractID: 'SPY250817C00780000',
+        type: OptionType.CALL,
+        strike: '78',
+        delta: '0.60',
+      }),
+    ];
+
+    const provider = {
+      getEodChain: async () => contracts,
+    };
+
+    const result = await runEodSelectionPass(
+      '2025-08-14',
+      makeConfig({ optionType: OptionType.CALL, targetDelta: 0.3 }),
+      provider,
+    );
+
+    assert.ok(result);
+    assert.equal(result.selected.contractId, 'SPY250817C00770000');
+    assert.equal(result.selected.delta, 0.32);
+  });
+
+  it('throws when the argmin winner carries no price fields — the coordinate pick is not negotiable (#1501 r1)', async () => {
+    // Mark is fill-time data, not a selection criterion — the selector
+    // deliberately drops the old requireMark eligibility. But the quote
+    // mapper still cannot fabricate a price: an unpriceable winner fails
+    // loudly (orchestrator catches per-instance) rather than silently
+    // picking the next-best contract.
+    const contracts = [
+      makeContract({
+        contractID: 'SPY250817P00770000',
+        delta: '-0.30',
+        mark: undefined,
+        bid: undefined,
+        ask: undefined,
+        last: undefined,
+      }),
+      makeContract({
+        contractID: 'SPY250817P00780000',
+        strike: '78',
+        delta: '-0.28',
+      }),
+    ];
+
+    const provider = {
+      getEodChain: async () => contracts,
+    };
+
+    await assert.rejects(() =>
+      runEodSelectionPass('2025-08-14', makeConfig(), provider),
+    );
   });
 });

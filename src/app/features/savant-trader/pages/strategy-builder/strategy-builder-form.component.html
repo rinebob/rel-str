@@ -47,19 +47,10 @@
         </label>
 
         <label class="dse-field field-sm">
-          <span class="field-label">DTE Min</span>
-          <input class="field-input" type="number" formControlName="dteMin" min="0" />
-        </label>
-
-        <label class="dse-field field-sm">
-          <span class="field-label">DTE Max</span>
-          <input class="field-input" type="number" formControlName="dteMax" min="0" />
+          <span class="field-label">Target DTE</span>
+          <input class="field-input" type="number" formControlName="dte" min="1" step="1" />
         </label>
       </div>
-
-      @if (form.errors?.['dteRange']) {
-        <div class="validation-error">DTE Max must be greater than DTE Min</div>
-      }
 
       <!-- Section: Exit policies -->
       <div class="form-row">

@@ -47,7 +47,7 @@ export function generateInstanceId(
   const symbolPart = symbol.toUpperCase();
   const strategyPart = SPREAD_TYPE_CODES[phase.spreadType] ?? phase.spreadType;
   const deltaPart = formatDelta(phase.targetDelta);
-  const dtePart = formatDte(phase.dteMax);
+  const dtePart = formatDte(phase.dte);
   const timePart = formatOpenTime(openTimePT);
   const freqPart = frequency === StrategyFrequency.DAILY ? 'D' : 'W';
 

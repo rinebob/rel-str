@@ -15,10 +15,9 @@ const DEFAULT_OPEN_TIME = '12:00';
 function makePhase(
   spreadType: PositionSpreadType,
   targetDelta: number,
-  dteMax: number,
-  dteMin = 7,
+  dte: number,
 ): StrategyInstancePhase {
-  return { spreadType, targetDelta, dteMin, dteMax };
+  return { spreadType, targetDelta, dte };
 }
 
 describe('generateInstanceId', () => {
@@ -26,7 +25,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'QQQM',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 28)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.2, 28)],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -49,7 +48,7 @@ describe('generateInstanceId', () => {
       new Date('2025-08-16'),
       'QQQM',
       [
-        makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 28),
+        makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.2, 28),
         makePhase(PositionSpreadType.COVERED_CALL, 0.3, 21),
       ],
       StrategyFrequency.DAILY,
@@ -62,7 +61,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'SPY',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.18, 7)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.18, 7)],
       StrategyFrequency.WEEKLY,
       DEFAULT_OPEN_TIME,
     );
@@ -73,7 +72,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'NVDA',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.05, 14)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.05, 14)],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -84,7 +83,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'SPY',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 7)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.2, 7)],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -107,7 +106,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'qqqm',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.2, 28)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.2, 28)],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -129,7 +128,7 @@ describe('generateInstanceId', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'SPY',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 1.5, 28)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -1.5, 28)],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -137,11 +136,11 @@ describe('generateInstanceId', () => {
     expect(id).toBe('250816-SPY-CSP-150-28-D-1200');
   });
 
-  it('accepts dteMin = dteMax (single DTE target)', () => {
+  it('uses the phase\'s concrete dte in the ID', () => {
     const id = generateInstanceId(
       new Date('2025-08-16'),
       'SPY',
-      [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: 0.2, dteMin: 14, dteMax: 14 }],
+      [{ spreadType: PositionSpreadType.CASH_SECURED_PUT, targetDelta: -0.2, dte: 14 }],
       StrategyFrequency.DAILY,
       DEFAULT_OPEN_TIME,
     );
@@ -152,14 +151,14 @@ describe('generateInstanceId', () => {
     const id0730 = generateInstanceId(
       new Date('2026-08-19'),
       'SCHB',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.3, 45)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.3, 45)],
       StrategyFrequency.DAILY,
       '07:30',
     );
     const id1200 = generateInstanceId(
       new Date('2026-08-19'),
       'SCHB',
-      [makePhase(PositionSpreadType.CASH_SECURED_PUT, 0.3, 45)],
+      [makePhase(PositionSpreadType.CASH_SECURED_PUT, -0.3, 45)],
       StrategyFrequency.DAILY,
       '12:00',
     );

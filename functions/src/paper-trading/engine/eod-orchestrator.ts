@@ -40,7 +40,7 @@ export interface EodNightlySelectionDependencies {
 /**
  * Run the full nightly EOD selection workflow for one strategy instance.
  *
- * @returns `null` when no contract satisfies the delta/DTE rules.
+ * @returns `null` when no contract satisfies the configured coordinate.
  */
 export async function runEodNightlySelection(
   marketDate: string,

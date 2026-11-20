@@ -24,9 +24,8 @@ function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): Strategy
     phases: [
       {
         spreadType: PositionSpreadType.CASH_SECURED_PUT,
-        targetDelta: 0.2,
-        dteMin: 21,
-        dteMax: 30,
+        targetDelta: -0.2,
+        dte: 30,
       },
     ],
     frequency: StrategyFrequency.DAILY,
@@ -73,7 +72,7 @@ describe('StrategyInstanceConfig', () => {
     const instance = makeInstance();
     assert.equal(instance.symbol, 'QQQM');
     assert.equal(instance.phases[0].spreadType, PositionSpreadType.CASH_SECURED_PUT);
-    assert.equal(instance.phases[0].targetDelta, 0.2);
+    assert.equal(instance.phases[0].targetDelta, -0.2);
     assert.equal(instance.lifecycleState, LifecycleState.ACTIVE);
   });
 
@@ -82,15 +81,13 @@ describe('StrategyInstanceConfig', () => {
       phases: [
         {
           spreadType: PositionSpreadType.CASH_SECURED_PUT,
-          targetDelta: 0.2,
-          dteMin: 21,
-          dteMax: 30,
+          targetDelta: -0.2,
+          dte: 30,
         },
         {
           spreadType: PositionSpreadType.COVERED_CALL,
           targetDelta: 0.3,
-          dteMin: 7,
-          dteMax: 14,
+          dte: 14,
         },
       ],
     });

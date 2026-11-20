@@ -17,9 +17,8 @@ function makeConfig(
     symbol: 'SPY',
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
-    dteMin: 2,
-    dteMax: 5,
-    targetDelta: 0.3,
+    dte: 5,
+    targetDelta: -0.3,
     ...overrides,
   } as StrategyInstanceConfig;
 }

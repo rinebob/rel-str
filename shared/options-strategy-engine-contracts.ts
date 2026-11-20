@@ -96,9 +96,11 @@ export interface OvernightDeltaSimulation {
  */
 export interface StrategyInstancePhase {
   spreadType: PositionSpreadType;
+  /** Signed delta target (SA convention — puts negative, calls positive). */
   targetDelta: number;
-  dteMin: number;
-  dteMax: number;
+  /** Concrete target days to expiration, calendar days — one value, not a
+   *  window (OptionLeg vocabulary). */
+  dte: number;
 }
 
 // ── Exit policy ─────────────────────────────────────────────────────────────
@@ -168,13 +170,15 @@ export enum MarketRegime {
 // ── Unified strategy instance config ────────────────────────────────────────
 
 /**
- * Canonical strategy instance config stored on `options-strategy-instances/{instanceId}`.
+ * Canonical strategy instance config stored on `st-strategy-instances/{instanceId}`.
  *
  * Used by both BE (registry, passes) and FE (Strategy Builder UI CRUD).
  *
  * Two field groups serve different strategy shapes:
- * - **Flat fields** (`optionType`, `side`, `targetDelta`, `dteMin`, `dteMax`):
- *   the config for single-phase strategies. Passes read these directly.
+ * - **Flat fields** (`optionType`, `side`, `targetDelta`, `dte`): the config
+ *   for single-phase strategies — a concrete leg coordinate in `OptionLeg`
+ *   vocabulary (signed `targetDelta`, one `dte` value; the `dteMin`/`dteMax`
+ *   window is retired). Passes read these directly.
  * - **`phases` array**: the source of truth for multi-phase (wheel) strategies.
  *   For wheel strategies, `phases[0]` mirrors the flat fields and subsequent
  *   phases describe later legs (e.g., covered call after assignment).
@@ -188,9 +192,10 @@ export interface StrategyInstanceConfig {
   // Single-phase config (consumed by pass functions)
   optionType: OptionType;
   side: TradeSide;
+  /** Signed delta target (SA convention — puts negative, calls positive). */
   targetDelta?: number;
-  dteMin?: number;
-  dteMax?: number;
+  /** Concrete target days to expiration, calendar days (not a window). */
+  dte?: number;
   // Multi-phase config (wheel strategies; phases[0] mirrors flat fields)
   phases: StrategyInstancePhase[];
   // Instance-level config
