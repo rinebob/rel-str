@@ -5,10 +5,15 @@
   height: 100%;
 }
 
+// border-box: the 8px padding must live INSIDE the 100% — with content-box
+// the section runs 16px past the host, that leak overflows the outer
+// .pd-tab-content pane, and the pane's own scroll drags the sticky thead
+// up with it. Bounded exactly, .pd-table-wrap is the only scroller.
 .pd-section {
   display: flex;
   flex-direction: column;
   height: 100%;
+  box-sizing: border-box;
   padding: 8px 0;
 }
 
@@ -16,6 +21,10 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  // Reserve the vertical scrollbar's gutter permanently — an appearing
+  // scrollbar then adds no new width constraint, so the 13-column table
+  // is never pinched into a horizontal scrollbar it didn't already need.
+  scrollbar-gutter: stable;
 }
 
 .pd-table {
@@ -27,6 +36,21 @@
   th,
   td {
     white-space: nowrap;
+  }
+
+  // Tighter side-padding vs. the dense-table 10px — ~90px reclaimed
+  // across 11 columns so min-content stays inside the wrap and the
+  // horizontal scrollbar never appears. Same specificity as the mixin
+  // rules + later source order wins.
+  thead th {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  tbody td,
+  tfoot td {
+    padding-left: 6px;
+    padding-right: 6px;
   }
 }
 
