@@ -74,6 +74,7 @@ const scripts = [
   'options-replay-start-forms-1498.ts',
   'options-replay-worker-1499.ts',
   'options-analysis-position-1500.ts',
+  'options-engine-eod-selection-1501.ts',
 ];
 
 let passed = 0;

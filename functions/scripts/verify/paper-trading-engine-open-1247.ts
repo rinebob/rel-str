@@ -100,15 +100,13 @@ function makeConfig(
     symbol,
     optionType: OptionType.PUT,
     side: TradeSide.SHORT,
-    dteMin: 20,
-    dteMax: 33, // distinctive — position ids can't collide with live 30/45
-    targetDelta: 0.11,
+    dte: 33, // distinctive — position ids can't collide with live 30/45
+    targetDelta: -0.11,
     phases: [
       {
         spreadType: PositionSpreadType.CASH_SECURED_PUT,
-        targetDelta: 0.11,
-        dteMin: 20,
-        dteMax: 33,
+        targetDelta: -0.11,
+        dte: 33,
       },
     ],
     frequency: StrategyFrequency.DAILY,
