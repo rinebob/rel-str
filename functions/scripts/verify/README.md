@@ -148,6 +148,15 @@ verified against were deleted. Replacement: `verify/data-pipeline-legacy-roots-1
 (pre-delete inventory/parity) + `scripts/archive-legacy-roots-1013.ts` (archive+delete ops,
 dry-run default). -->
 
+<!-- #1566 — `scripts/purge-legacy-stats-docs-1566.ts` (one-shot ops; dry-run
+default lists candidates, `--apply` deletes + post-verify) removes stale
+legacy stats docs (stats-ALL + stats-{unprefixed-instanceId}) from
+st-paper-trading/stats/items so listStats stops surfacing ghost scopes.
+Run --apply ONLY after the #1565 deploy removes the legacy readers.
+Same task repointed paper-trading-read-apis-565.ts's trade/stats/account
+refs to stPaperTradingDocPath — its legacy paper-trading/* literals made
+every check fail against the dead root post-#1007 (now 20/20 on prod). -->
+
 <!-- #1019 ship retired the #1000/#1001/#1019/#1159 parity relays — their legacy evidence
 (savant-trader/data/symbols incl. run-ids + signal-history) was archived to
 functions/scripts/output/legacy-archive-1013/savant-trader-symbols.json and deleted.

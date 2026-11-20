@@ -33,6 +33,10 @@ import {
   type PaperTrade,
 } from '../../../shared/paper-trading-contracts';
 import { buildAccountId, buildStatsId } from '../../../shared/paper-trading-ids';
+import {
+  StPaperTradingKind,
+  stPaperTradingDocPath,
+} from '../../../shared/st-collections';
 import { db } from '../../src/firebase-admin-init';
 import {
   handleGetPaperAccount,
@@ -122,11 +126,14 @@ const ACCOUNT: PaperAccount = {
   updatedAt: NOW,
 };
 
+// All three kinds live under `st-paper-trading` post-#1007 — the
+// legacy `paper-trading/…` literals this script used to hardcode made
+// every check fail (or pass vacuously) against the dead root (#1566).
 const tradeRef = (id: string) =>
-  db.doc(`paper-trading/trades/items/${id}`);
+  db.doc(stPaperTradingDocPath(StPaperTradingKind.TRADE, id));
 const statsRef = (id: string) =>
-  db.doc(`paper-trading/stats/items/${id}`);
-const acctRef = db.doc(`paper-trading/accounts/items/${ACCOUNT.id}`);
+  db.doc(stPaperTradingDocPath(StPaperTradingKind.STATS, id));
+const acctRef = db.doc(stPaperTradingDocPath(StPaperTradingKind.ACCOUNT, ACCOUNT.id));
 
 const NAMESPACED_SCOPES = [
   `inst-${PFX}-inst`,
@@ -146,19 +153,22 @@ async function readStats(scope: string): Promise<PaperStats | null> {
 }
 
 async function cleanup() {
-  // Delete seeds, then re-run the pass so shared scopes (all + any var-*
-  // that still has real trades) recompute WITHOUT our seeds. var-* docs
-  // that only exist because of this run are never re-written by the
-  // healed pass — delete those explicitly.
+  // Delete seeds + the verify-namespaced stats docs FIRST — a failed
+  // heal pass below must not strand canonical-prefixed ghosts. Then
+  // re-run the pass so shared scopes (all + any var-* that still has
+  // real trades) recompute WITHOUT our seeds. var-* docs that only
+  // exist because of this run are never re-written by the healed pass
+  // — delete those explicitly, but keep a doc the heal itself minted
+  // (a real trade for that variant created since the pre-run snapshot).
   const batch = db.batch();
   for (const t of TRADES) batch.delete(tradeRef(t.id));
   batch.delete(acctRef);
+  for (const scope of NAMESPACED_SCOPES) batch.delete(statsRef(buildStatsId(scope)));
   await batch.commit();
-  await runPaperStatsPass(DATE, createPaperStatsPassDeps());
+  const healed = await runPaperStatsPass(DATE, createPaperStatsPassDeps());
   const batch2 = db.batch();
-  for (const scope of NAMESPACED_SCOPES) batch2.delete(statsRef(buildStatsId(scope)));
   for (const scope of VAR_SCOPES) {
-    if (!varScopeExisted.get(scope)) {
+    if (!varScopeExisted.get(scope) && !healed.scopesWritten.includes(scope)) {
       batch2.delete(statsRef(buildStatsId(scope)));
     }
   }
