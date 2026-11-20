@@ -7,9 +7,9 @@
 **Topic Parent:** #619  
 **Domain:** DEV-TOOLS  
 **Type:** TEST  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-19  
-**Last Updated:** 2026-11-19  
+**Last Updated:** 2026-11-20  
 
 # BE TEST — lazy-loading callables: topic index + per-topic subtree
 
@@ -99,5 +99,6 @@ index in seconds; click → subtree).
 
 - `cd functions && npm run test:gh-lifecycle`
 - `cd functions && npm run build`
-- Callable-name parity: `index.ts` exports ↔ FE `CallableName` entries
-  (existing parity coverage).
+- Callable-name parity: `index.ts` exports ↔ FE `CallableName` entries —
+  asserted at the FE seam in #1637/#1638 (no automated parity check
+  exists yet; FE registration is that task's acceptance criterion).

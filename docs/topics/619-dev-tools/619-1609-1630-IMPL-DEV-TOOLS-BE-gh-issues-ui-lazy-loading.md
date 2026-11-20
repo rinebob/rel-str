@@ -7,9 +7,9 @@
 **Topic Parent:** #619  
 **Domain:** DEV-TOOLS  
 **Type:** IMPL  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-19  
-**Last Updated:** 2026-11-19  
+**Last Updated:** 2026-11-20  
 
 # BE IMPL — lazy-loading callables: topic index + per-topic subtree
 
@@ -38,10 +38,15 @@ Both reuse the existing `Gql` injectable transport, `resolveSupportedRepo`,
 
 ## Boundary
 
-- **`functions/src/gh-lifecycle/github-client.ts`** — fetch mechanics:
-  a slim `ISSUE_FIELDS_CORE` (shared by `ISSUE_FIELDS`/`INDEX_NODES_BATCH`), new `fetchTopicIndexData`, and the BFS
-  entry point refactored so `fetchLifecycleData` and
-  `fetchTopicSubtreeData` share it.
+- **`functions/src/gh-lifecycle/github-client.ts`** — transports only
+  (Gql/Rest/GitHubApiError/githubGql/githubRest/fetchFileText); the
+  fetch shell was split out at this task's file-size gate.
+- **`functions/src/gh-lifecycle/lifecycle-fetch.ts`** (new, #1636) —
+  fetch mechanics: `ISSUE_FIELDS_CORE` (shared by
+  `ISSUE_FIELDS`/`INDEX_NODES_BATCH`), `fetchTopicIndexData`,
+  `fetchTopicRootRef` (probe), `fetchTopicSubtreeData`, and the shared
+  `walkSubtree` BFS both `fetchLifecycleData` and the per-topic path
+  delegate to.
 - **`functions/src/gh-lifecycle/callables.ts`** — two new handlers +
   `onCall` wrappers, sharing `resolveSupportedRepo`/`internalGuard`.
 - **`functions/src/index.ts`** — export registrations (callable-name
@@ -51,7 +56,8 @@ Both reuse the existing `Gql` injectable transport, `resolveSupportedRepo`,
 
 ## Files
 
-- `functions/src/gh-lifecycle/github-client.ts` (modified)
+- `functions/src/gh-lifecycle/github-client.ts` (modified — transports only after the #1636 split)
+- `functions/src/gh-lifecycle/lifecycle-fetch.ts` (new — BFS shell extracted here at the 400-line gate)
 - `functions/src/gh-lifecycle/callables.ts` (modified)
 - `functions/src/index.ts` (modified)
 - `shared/lifecycle-contracts.ts` (modified — request type only)
@@ -92,7 +98,8 @@ export interface LifecycleTopicTreeRequest extends LifecycleRepoRequest {
   `invalid-argument`; unknown issue → `not-found`.
 - Callable names: `getLifecycleTopicIndex`, `getLifecycleTopicTree` —
   registered in `functions/src/index.ts` and the FE `CallableName`
-  surface (parity check is existing coverage).
+  surface (parity is verified at the FE seam in #1637/#1638 — no
+  automated parity check exists yet).
 - `getLifecycleTree` is **retained and deployed** but no longer called
   by the page — rollback path; retirement is a separate decision.
 
@@ -104,9 +111,12 @@ export interface LifecycleTopicTreeRequest extends LifecycleRepoRequest {
   required: stage chips, group classification, search-by-label, and
   closed styling all read them at index level.
 - **Root probe, not search-refs replay** — `getLifecycleTopicTree`
-  resolves the root via `repository.issue(number: N) { id title state }`:
+  resolves the root via `repository.issue(number: N) { number id title }`:
   one cheap node lookup, then `isTopicRoot(title)` as the guard. Cheaper
   and more direct than re-running the topic search to find an id.
+  GitHub answers an unknown number with a `NOT_FOUND` GraphQL *error*
+  (not `issue: null`) — `GitHubApiError.gqlType` carries `errors[0].type`
+  so the probe collapses it to `null` → `not-found`.
 - **BFS refactored, not duplicated** — the subtree walk extracts to a
   shared body so the monolith and the per-topic path can never diverge
   on truncation/paging semantics.
