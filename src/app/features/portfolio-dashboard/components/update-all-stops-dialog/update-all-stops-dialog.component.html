@@ -1,0 +1,150 @@
+<h2 class="title">
+  <span class="dse-icon">policy</span>
+  Audit Stops
+</h2>
+
+<div class="content">
+  @switch (step()) {
+    @case ('input') {
+      <div class="status-section">
+        <p>
+          Check every protective stop against its position's highest price
+          since entry. A stop left more than the giveback below the peak is
+          exposed — it gets ratcheted up to exactly that giveback. Stops
+          already within the giveback are left alone.
+        </p>
+        <label class="trail-field">
+          Max giveback from peak
+          <span class="trail-input">
+            <input
+              type="number"
+              class="dse-input"
+              [(ngModel)]="givebackPct"
+              min="0.01"
+              max="90"
+              step="0.5"
+            />
+            <span class="trail-unit">%</span>
+          </span>
+        </label>
+        @if (!givebackPctValid()) {
+          <p class="trail-error">Enter a giveback between 0 and 90%.</p>
+        }
+        @if (data.peaksPending) {
+          <p class="m-muted">Position peaks are still deriving — try again in a moment.</p>
+        }
+      </div>
+    }
+
+    @case ('preview') {
+      <div class="status-section">
+        <p>
+          {{ givebackPct() }}% giveback — {{ updateCount() }} of
+          {{ candidates().length }} stops are exposed.
+        </p>
+        <ul class="candidate-list">
+          @for (c of candidates(); track c.order.orderId) {
+            <li class="candidate-item" [class.skip]="c.disposition !== 'update'">
+              <span class="c-symbol">{{ c.symbol }}</span>
+              <span class="c-peak">
+                @if (c.peakPrice !== null) {
+                  peak {{ c.peakPrice | currency:'USD':'symbol':'1.2-2' }}
+                } @else {
+                  no peak
+                }
+              </span>
+              <span class="c-prices">
+                {{ c.currentStopPrice | currency:'USD':'symbol':'1.2-2' }}
+                <span class="dse-icon c-arrow">arrow_forward</span>
+                @if (c.disposition === 'update' && c.computedStopPrice !== null) {
+                  {{ c.computedStopPrice | currency:'USD':'symbol':'1.2-2' }}
+                } @else {
+                  —
+                }
+              </span>
+              <span class="c-expo" [class.exposed]="c.disposition === 'update'">
+                @if (c.exposurePct !== null) {
+                  {{ c.exposurePct }}% off peak
+                }
+              </span>
+              <span class="c-disp" [class.update]="c.disposition === 'update'">
+                {{ dispositionLabel(c) }}
+              </span>
+            </li>
+          }
+        </ul>
+        @if (updateCount() === 0) {
+          @if (skipCount() === 0) {
+            <p class="m-muted">Nothing exposed — every stop is within the giveback.</p>
+          } @else {
+            <p class="m-muted">
+              Nothing to tighten — {{ withinCount() }} within giveback,
+              {{ skipCount() }} skipped (no peak / no stop price / above market).
+            </p>
+          }
+        }
+      </div>
+    }
+
+    @case ('results') {
+      <div class="status-section">
+        @if (svc.status() === 'running') {
+          <p>
+            <span class="dse-icon spinner">progress_activity</span>
+            Updating {{ svc.currentSymbol() || '…' }}…
+          </p>
+        } @else {
+          <p>
+            {{ svc.status() === 'done' ? 'Update run complete' : 'Run aborted — remaining orders were not attempted' }} —
+            {{ resultCounts().tightened }} tightened · {{ resultCounts().failed }} failed · {{ resultCounts().notRun }} not attempted.
+          </p>
+        }
+        <ul class="candidate-list">
+          @for (r of svc.results(); track r.candidate.order.orderId) {
+            <li class="candidate-item" [class.failed]="r.status === 'failed'" [class.skip]="r.status === 'skipped' || r.status === 'not-run'">
+              <span class="c-symbol">{{ r.candidate.symbol }}</span>
+              <span class="c-prices">
+                {{ r.candidate.currentStopPrice | currency:'USD':'symbol':'1.2-2' }}
+                <span class="dse-icon c-arrow">arrow_forward</span>
+                @if (r.candidate.computedStopPrice !== null && r.status !== 'skipped') {
+                  {{ r.candidate.computedStopPrice | currency:'USD':'symbol':'1.2-2' }}
+                } @else {
+                  —
+                }
+              </span>
+              <span class="c-disp" [class.update]="r.status === 'updated'" [class.err]="r.status === 'failed'">
+                {{ outcomeLabel(r) }}
+              </span>
+              @if (settled() && svc.canRetry(r)) {
+                <button type="button" class="ds-btn outline c-retry" (click)="onRetryOne(r)">Retry</button>
+              }
+            </li>
+            @if (r.status === 'failed' && r.error) {
+              <li class="row-error">{{ r.error }}</li>
+            }
+          }
+        </ul>
+      </div>
+    }
+  }
+</div>
+
+<div class="actions" align="end">
+  @switch (step()) {
+    @case ('input') {
+      <button class="ds-btn outline" (click)="ref.close()">Cancel</button>
+      <button class="ds-btn fill" [disabled]="!givebackPctValid() || !!data.peaksPending" (click)="onPreview()">Audit</button>
+    }
+    @case ('preview') {
+      <button class="ds-btn outline" (click)="onBack()">Back</button>
+      <button class="ds-btn fill" [disabled]="updateCount() === 0" (click)="onConfirm()">
+        Tighten {{ updateCount() }} Stop{{ updateCount() === 1 ? '' : 's' }}
+      </button>
+    }
+    @case ('results') {
+      <button class="ds-btn fill" [disabled]="svc.status() === 'running'" (click)="onClose()">
+        Done
+      </button>
+    }
+  }
+</div>

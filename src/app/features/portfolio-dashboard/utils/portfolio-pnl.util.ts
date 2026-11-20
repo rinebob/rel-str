@@ -7,6 +7,7 @@
 
 import { BrokerOrder, EquityPosition, OrderState, OrderType } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { TERMINAL_ORDER_STATES } from './order-states.util';
+import type { PositionPeak } from './position-peak.util';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -212,6 +213,109 @@ export function protectiveStopsBySymbol(
     }
   }
   return grouped;
+}
+
+// ---------------------------------------------------------------------------
+// computeStopUpdateCandidates (#890) — Stop Audit batch ratchet
+// ---------------------------------------------------------------------------
+
+/** One updatable stop's audit row: how much of the position's peak the
+ *  stop currently gives back, the proposed floor, and whether it moves. */
+export interface StopUpdateCandidate {
+  order: BrokerOrder;
+  symbol: string;
+  /** The resting stop's price — null when the order carries no stopPrice. */
+  currentStopPrice: number | null;
+  /** The audit anchor — `PositionPeak.lifetime.price`, the highest
+   *  day-bar high since entry; null when no peak is derivable (e.g. a
+   *  transferred position with no observed entry). */
+  peakPrice: number | null;
+  /** `(peak − stop) / peak × 100` to a tenth — the giveback the stop
+   *  leaves exposed; null without both legs. Negative means the stop
+   *  sits above the recorded peak (set after a new high, or a peak the
+   *  derive couldn't see). */
+  exposurePct: number | null;
+  /** `peak × (1 − givebackPct/100)` rounded to cents — the audit's
+   *  proposed floor; null when no peak. */
+  computedStopPrice: number | null;
+  /** 'update' when the stop is exposed beyond the giveback (the floor
+   *  tightens it); 'within-policy' otherwise; 'skip-no-peak' /
+   *  'skip-no-price' when the audit has no basis; 'skip-above-market'
+   *  when the proposed floor sits at/above the current mark — the
+   *  position already blew through the giveback and a sell-stop there
+   *  triggers immediately on placement, so the batch leaves it for a
+   *  manual decision. 'update' requires computed > current — the batch
+   *  never loosens a stop. */
+  disposition:
+    | 'update'
+    | 'within-policy'
+    | 'skip-no-peak'
+    | 'skip-no-price'
+    | 'skip-above-market';
+}
+
+/**
+ * Preview rows for the Stop Audit ratchet — one per updatable stop
+ * (the `updatableStopsBySymbol` gate: equity, live, protective, not
+ * stop-limit, held long position). Each row is audited against the
+ * position's peak since entry (`PositionPeak.lifetime`): exposure =
+ * `(peak − stop) / peak`; a stop exposed by more than `givebackPct`
+ * gets proposed at `peak × (1 − givebackPct/100)`. Compared at cent
+ * precision — the ticket's `toFixed(2)` makes cents the effective
+ * unit, so a sub-cent edge is a no-op churn, not an update.
+ */
+export function computeStopUpdateCandidates(
+  positions: (Pick<EquityPosition, 'symbol' | 'quantity'> & {
+    currentPrice: number | null;
+  })[],
+  orders: BrokerOrder[],
+  peaks: Record<string, PositionPeak | undefined>,
+  givebackPct: number,
+): StopUpdateCandidate[] {
+  const candidates: StopUpdateCandidate[] = [];
+  // Contract-level clamp: a negative giveback would floor ABOVE the peak
+  // (a guaranteed immediate-trigger update). NaN still propagates into
+  // `computed` and settles 'within-policy' — never a harmful order.
+  const giveback = Math.max(0, givebackPct);
+  const markBySymbol = new Map(positions.map((p) => [p.symbol, p.currentPrice]));
+  // updatableStopsBySymbol is the eligibility gate — iterating its output
+  // guarantees the batch set can never drift from the per-row Update Stop set.
+  for (const [symbol, ordersForSymbol] of updatableStopsBySymbol(orders, positions)) {
+    const mark = markBySymbol.get(symbol) ?? null;
+    for (const order of ordersForSymbol) {
+      const currentStopPrice = order.stopPrice ?? null;
+      const peak = peaks[symbol]?.lifetime?.price ?? null;
+      const peakPrice = peak !== null && Number.isFinite(peak) ? peak : null;
+      const exposurePct =
+        peakPrice !== null && currentStopPrice !== null
+          ? Math.round(((peakPrice - currentStopPrice) / peakPrice) * 1000) / 10
+          : null;
+      const computed =
+        peakPrice !== null
+          ? Math.round(peakPrice * (1 - giveback / 100) * 100) / 100
+          : null;
+      const disposition: StopUpdateCandidate['disposition'] =
+        peakPrice === null
+          ? 'skip-no-peak'
+          : currentStopPrice === null || computed === null
+            ? 'skip-no-price'
+            : computed <= currentStopPrice
+              ? 'within-policy'
+              : mark !== null && computed >= mark
+                ? 'skip-above-market'
+                : 'update';
+      candidates.push({
+        order,
+        symbol,
+        currentStopPrice,
+        peakPrice,
+        exposurePct,
+        computedStopPrice: computed,
+        disposition,
+      });
+    }
+  }
+  return candidates;
 }
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ComponentType } from '@angular/cdk/portal';
 import { RouterLink } from '@angular/router';
-import { DsDialogService } from '../../shared/ds/ds-dialog';
+import { DsDialogConfig, DsDialogService } from '../../shared/ds/ds-dialog';
 
 import { DsToastService } from '../../shared/ds/ds-toast.service';
 
@@ -37,6 +37,7 @@ import { ClosePositionDialogComponent, ClosePositionDialogData } from './compone
 import { ConfirmDialogComponent } from '../../shared/ds/confirm-dialog.component';
 import { ModifyOrderDialogComponent } from './components/modify-order-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
+import { UpdateAllStopsDialogComponent, UpdateAllStopsDialogData } from './components/update-all-stops-dialog/update-all-stops-dialog.component';
 import { EquityPositionWithPnL } from './portfolio-dashboard.types';
 import { orderMark } from './utils/order-mark.util';
 
@@ -76,6 +77,9 @@ export class PortfolioDashboardComponent implements OnInit {
   /** Live equity stops eligible for Update Stop, grouped by symbol (#888). */
   readonly updatableStops = this.store.updatableStops;
   readonly updatableSymbols = computed(() => new Set(this.updatableStops().keys()));
+  /** Any updatable protective stop on the selected account — gates the
+   *  Update All Stops toolbar button (#890). */
+  readonly hasUpdatableStops = computed(() => this.updatableStops().size > 0);
   /** Display stop order per symbol — drives the positions-table Stop
    *  column (#1414); includes stop-limits (shown, not updatable). */
   readonly protectiveStops = this.store.protectiveStops;
@@ -217,6 +221,38 @@ export class PortfolioDashboardComponent implements OnInit {
     this.openThenRefresh(StopLossDialogComponent, data, 'orders');
   }
 
+  /** Audit Stops — peak-exposure audit of every updatable protective
+   *  stop (#890): each stop is measured against its position's peak
+   *  since entry; stops exposed beyond the giveback get tightened
+   *  sequentially through UpdateAllStopsService. Closes true when any
+   *  broker attempt ran → orders reconcile. */
+  onUpdateAllStops(): void {
+    const account = this.selectedAccount();
+    if (!account || !this.hasUpdatableStops()) return;
+    const peaksSection = account.positionPeaks;
+    const data: UpdateAllStopsDialogData = {
+      accountNumber: account.accountNumber,
+      positions: this.equityPositions(),
+      orders: this.openOrders(),
+      peaks: peaksSection?.data ?? null,
+      // Same contract as the per-row peakContext: no error yet and any
+      // covered symbol still missing a peak → deriving. Auditing now
+      // would report those rows 'skip-no-peak' under a misleading
+      // "within giveback" banner, so the dialog gates Audit on this.
+      peaksPending:
+        peaksSection?.error == null &&
+        [...this.updatableStops().keys()].some(
+          (s) => peaksSection?.data?.[s] === undefined,
+        ),
+    };
+    this.openThenRefresh(UpdateAllStopsDialogComponent, data, 'orders', {
+      // The preview's per-stop rows need more room than the 480px
+      // ds-dialog contract, but unconstrained the pane shrink-wraps the
+      // long input paragraph and sprawls — cap it.
+      maxWidth: '620px',
+    });
+  }
+
   /** Open a dialog that reports mutation via close(true) — reconcile store
    *  state with the broker. 'all' (default) runs the full dashboard refresh;
    *  'orders' silently refetches only the orders batch in the background —
@@ -226,9 +262,10 @@ export class PortfolioDashboardComponent implements OnInit {
     component: ComponentType<T>,
     data: unknown,
     scope: 'all' | 'orders' = 'all',
+    config: Partial<DsDialogConfig> = {},
   ): void {
     this.dialog
-      .open(component, { data })
+      .open(component, { data, ...config })
       .afterClosed()
       .subscribe((result) => {
         if (result !== true) return;

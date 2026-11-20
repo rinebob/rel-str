@@ -6,8 +6,10 @@ import {
   isUpdatableStopOrder,
   updatableStopsBySymbol,
   protectiveStopsBySymbol,
+  computeStopUpdateCandidates,
 } from './portfolio-pnl.util';
 import { BrokerOrder, EquityPosition } from '../../../core/robinhood-mcp/types/robinhood-mcp.types';
+import { PositionPeak } from './position-peak.util';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -656,5 +658,188 @@ describe('computeProtectedSymbols — long-only rule (#1414)', () => {
     const positions = [makePosition({ symbol: 'AMD', quantity: -50 })];
 
     expect(computeProtectedSymbols(orders, positions).size).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeStopUpdateCandidates (#890) — Stop Audit peak-exposure ratchet
+// ---------------------------------------------------------------------------
+
+describe('computeStopUpdateCandidates', () => {
+  const makePeak = (
+    lifetimePrice: number | null,
+    sinceLastFillPrice: number | null = null,
+  ): PositionPeak => ({
+    symbol: 'AAPL',
+    entryDate: '2026-01-05',
+    lastFillDate: '2026-01-05',
+    lifetime: lifetimePrice === null ? null : { price: lifetimePrice, date: '2026-02-10' },
+    sinceLastFill:
+      sinceLastFillPrice === null ? null : { price: sinceLastFillPrice, date: '2026-02-20' },
+  });
+
+  it('marks a stop for update when its exposure exceeds the giveback', () => {
+    // peak 200, giveback 8% → floor 184 > current stop 145 → tighten.
+    const order = makeOrder({ orderId: 's1', symbol: 'AAPL', stopPrice: 145 });
+    const positions = [{ ...makePosition({ symbol: 'AAPL' }), currentPrice: 190 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, 8);
+
+    expect(c.order).toBe(order);
+    expect(c.symbol).toBe('AAPL');
+    expect(c.currentStopPrice).toBe(145);
+    expect(c.peakPrice).toBe(200);
+    expect(c.exposurePct).toBeCloseTo(27.5, 1);
+    expect(c.computedStopPrice).toBe(184);
+    expect(c.disposition).toBe('update');
+  });
+
+  it('marks within-policy when the stop is already at or above the giveback floor', () => {
+    // peak 200, giveback 8% → floor 184 < current stop 190 → compliant.
+    const order = makeOrder({ stopPrice: 190 });
+    const positions = [{ ...makePosition(), currentPrice: 195 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, 8);
+
+    expect(c.computedStopPrice).toBe(184);
+    expect(c.exposurePct).toBe(5);
+    expect(c.disposition).toBe('within-policy');
+  });
+
+  it('marks within-policy at the exact boundary — computed equals current, no churn', () => {
+    // peak 200, giveback 8% → floor 184 = current stop → no-op avoided.
+    const order = makeOrder({ stopPrice: 184 });
+    const positions = [{ ...makePosition(), currentPrice: 190 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, 8);
+
+    expect(c.computedStopPrice).toBe(184);
+    expect(c.disposition).toBe('within-policy');
+  });
+
+  it('compares at cent precision — a sub-cent edge is not an update', () => {
+    // peak 161.116, giveback 10% → floor 145.0044 → rounds to 145.00,
+    // the ticket's effective price — equal to the resting 145.00.
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 150 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(161.116) }, 10);
+
+    expect(c.computedStopPrice).toBe(145);
+    expect(c.disposition).toBe('within-policy');
+  });
+
+  it('anchors to lifetime peak, not sinceLastFill — a lower post-add peak does not relax the audit', () => {
+    // lifetime 300, sinceLastFill 200, giveback 8% → floor must be
+    // computed off 300 (276), not 200 (184). A stop at 250 is exposed
+    // only when measured against the lifetime peak.
+    const order = makeOrder({ stopPrice: 250 });
+    const positions = [{ ...makePosition(), currentPrice: 280 }];
+    const peak = makePeak(300, 200);
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: peak }, 8);
+
+    expect(c.peakPrice).toBe(300);
+    expect(c.computedStopPrice).toBe(276);
+    expect(c.disposition).toBe('update');
+  });
+
+  it('emits one candidate per updatable stop, including a same-symbol ladder', () => {
+    const s1 = makeOrder({ orderId: 's1', symbol: 'AAPL', stopPrice: 140 });
+    const s2 = makeOrder({ orderId: 's2', symbol: 'AAPL', stopPrice: 150 });
+    const m1 = makeOrder({ orderId: 'm1', symbol: 'MSFT', stopPrice: 400 });
+    const positions = [
+      { ...makePosition({ symbol: 'AAPL' }), currentPrice: 200 },
+      { ...makePosition({ symbol: 'MSFT' }), currentPrice: 420 },
+    ];
+    const peaks = {
+      AAPL: makePeak(200),
+      MSFT: { ...makePeak(410), symbol: 'MSFT' },
+    };
+
+    const result = computeStopUpdateCandidates(positions, [s1, s2, m1], peaks, 10);
+
+    expect(result.map((c) => c.order.orderId)).toEqual(['s1', 's2', 'm1']);
+    // MSFT floor 410 × 0.9 = 369 < resting 400 → within policy.
+    expect(result[2].computedStopPrice).toBe(369);
+    expect(result[2].disposition).toBe('within-policy');
+  });
+
+  it('excludes non-updatable orders and stops on symbols with no held position', () => {
+    const limit = makeOrder({ orderId: 'sl', type: 'stop_limit' });
+    const orphan = makeOrder({ orderId: 'z1', symbol: 'ZZZZ' });
+    const positions = [{ ...makePosition(), currentPrice: 200 }];
+
+    const result = computeStopUpdateCandidates(positions, [limit, orphan], { AAPL: makePeak(200) }, 8);
+
+    expect(result).toEqual([]);
+  });
+
+  it('marks skip-no-peak when no peak is derivable for the symbol', () => {
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 200 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], {}, 8);
+
+    expect(c.peakPrice).toBeNull();
+    expect(c.exposurePct).toBeNull();
+    expect(c.computedStopPrice).toBeNull();
+    expect(c.disposition).toBe('skip-no-peak');
+  });
+
+  it('marks skip-no-peak when the peak record exists but lifetime is underived', () => {
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 200 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(null) }, 8);
+
+    expect(c.disposition).toBe('skip-no-peak');
+  });
+
+  it('marks skip-no-price when the order carries no stopPrice (stop_market with a bare trigger)', () => {
+    const order = makeOrder({ stopPrice: null });
+    const positions = [{ ...makePosition(), currentPrice: 200 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, 8);
+
+    expect(c.currentStopPrice).toBeNull();
+    expect(c.exposurePct).toBeNull();
+    expect(c.disposition).toBe('skip-no-price');
+  });
+
+  it('marks skip-above-market when the floor sits at/above the mark — the position already blew through the giveback', () => {
+    // peak 200, giveback 8% → floor 184, but mark has fallen to 175:
+    // a sell-stop at 184 triggers immediately on placement — the batch
+    // leaves it for a manual decision instead of firing it.
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 175 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, 8);
+
+    expect(c.computedStopPrice).toBe(184);
+    expect(c.disposition).toBe('skip-above-market');
+  });
+
+  it('clamps a negative giveback to zero — floor becomes the peak, never above it', () => {
+    // Contract-level defense: −5% unclamped would compute peak × 1.05 —
+    // a stop ABOVE the recorded peak. Clamped to 0 the floor is the peak.
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 210 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(200) }, -5);
+
+    expect(c.computedStopPrice).toBe(200);
+    expect(c.disposition).toBe('update');
+  });
+
+  it('marks skip-no-peak on a non-finite peak price — not the mislabeled no-price skip', () => {
+    const order = makeOrder({ stopPrice: 145 });
+    const positions = [{ ...makePosition(), currentPrice: 200 }];
+
+    const [c] = computeStopUpdateCandidates(positions, [order], { AAPL: makePeak(Infinity) }, 8);
+
+    expect(c.peakPrice).toBeNull();
+    expect(c.exposurePct).toBeNull();
+    expect(c.disposition).toBe('skip-no-peak');
   });
 });

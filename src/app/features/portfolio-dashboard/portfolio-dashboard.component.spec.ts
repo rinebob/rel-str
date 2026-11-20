@@ -19,6 +19,7 @@ import {
 import { BrokerOrder } from '../../core/robinhood-mcp/types/robinhood-mcp.types';
 import { ClosePositionDialogComponent, ClosePositionDialogData } from './components/close-position-dialog/close-position-dialog.component';
 import { StopLossDialogComponent, StopLossDialogData } from './components/stop-loss-dialog/stop-loss-dialog.component';
+import { UpdateAllStopsDialogComponent, UpdateAllStopsDialogData } from './components/update-all-stops-dialog/update-all-stops-dialog.component';
 import { OrderExecutionService } from '../savant-trader/services/order-execution.service';
 import { updatableStopsBySymbol, protectiveStopsBySymbol } from './utils/portfolio-pnl.util';
 
@@ -888,5 +889,158 @@ describe('PortfolioDashboardComponent', () => {
       { duration: 6000 },
     );
     expect(store.refresh).toHaveBeenCalled();
+  });
+});
+
+describe('PortfolioDashboardComponent — Update All Stops (#890)', () => {
+  let fixture: ComponentFixture<PortfolioDashboardComponent>;
+  let component: PortfolioDashboardComponent;
+  let store: StoreMock;
+  let dialog: { open: jasmine.Spy };
+
+  beforeEach(async () => {
+    localStorage.clear();
+    store = makeStoreMock();
+    dialog = {
+      open: jasmine.createSpy('open').and.returnValue({
+        afterClosed: () => of(true),
+      }),
+    };
+    await TestBed.configureTestingModule({
+      imports: [PortfolioDashboardComponent],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([]),
+        { provide: PortfolioDashboardStore, useValue: store },
+        { provide: DsDialogService, useValue: dialog },
+        { provide: DsToastService, useValue: { open: jasmine.createSpy('snack') } },
+        {
+          provide: OrderExecutionService,
+          useValue: {
+            cancelEquityOrder: jasmine.createSpy('cancelEquity').and.returnValue(Promise.resolve({ success: true })),
+            cancelOptionOrder: jasmine.createSpy('cancelOption').and.returnValue(Promise.resolve({ success: true })),
+            replaceEquityOrder: jasmine.createSpy('replaceEquity').and.returnValue(Promise.resolve({ success: true })),
+          },
+        },
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(PortfolioDashboardComponent);
+    component = fixture.componentInstance;
+  });
+
+  function seedUpdatableStop() {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([makeEquityPosition({ symbol: 'AAPL', quantity: 100, currentPrice: 175 })]);
+    store._setOpenOrders([
+      makeBrokerOrder({ orderId: 'stop-1', symbol: 'AAPL', side: 'sell', type: 'stop_market', stopPrice: 160, state: 'queued' }),
+    ]);
+  }
+
+  it('hasUpdatableStops reflects the updatable-stop map', () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+    expect(component.hasUpdatableStops()).toBe(false);
+
+    seedUpdatableStop();
+    fixture.detectChanges();
+    expect(component.hasUpdatableStops()).toBe(true);
+  });
+
+  it('renders the Update All Stops button on the Equities tab when agentic and stops exist', () => {
+    seedUpdatableStop();
+    fixture.detectChanges();
+
+    const btn = fixture.nativeElement.querySelector('.pd-update-all-stops') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    expect(btn.disabled).toBe(false);
+  });
+
+  it('disables the button when no updatable stops exist', () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    store._setEquityPositions([makeEquityPosition({ symbol: 'AAPL', quantity: 100 })]);
+    fixture.detectChanges();
+
+    const btn = fixture.nativeElement.querySelector('.pd-update-all-stops') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('hides the button entirely on a non-agentic account', () => {
+    seedUpdatableStop();
+    store._setAccounts([makeAccountState('Account A', '123456', { agenticAllowed: false })]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.pd-update-all-stops')).toBeNull();
+  });
+
+  it('opens UpdateAllStopsDialogComponent with the account, positions, live orders, and peaks', () => {
+    seedUpdatableStop();
+    const peak = {
+      symbol: 'AAPL',
+      entryDate: '2026-01-05',
+      lastFillDate: '2026-01-05',
+      lifetime: { price: 210, date: '2026-02-10' },
+      sinceLastFill: null,
+    };
+    store._setAccounts([
+      makeAccountState('Account A', '123456', {
+        positionPeaks: { data: { AAPL: peak }, loading: false, error: null },
+      }),
+    ]);
+    fixture.detectChanges();
+
+    component.onUpdateAllStops();
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+    const args = dialog.open.calls.mostRecent().args;
+    expect(args[0]).toBe(UpdateAllStopsDialogComponent);
+    const data = args[1]?.data as UpdateAllStopsDialogData;
+    expect(data.accountNumber).toBe('123456');
+    expect(data.positions.map((p) => p.symbol)).toEqual(['AAPL']);
+    expect(data.orders.map((o) => o.orderId)).toEqual(['stop-1']);
+    expect(data.peaks).toEqual({ AAPL: peak });
+    expect(data.peaksPending).toBe(false);
+  });
+
+  it('flags peaksPending while a covered symbol lacks a derived peak — the audit gates on it', () => {
+    seedUpdatableStop(); // no positionPeaks seeded → AAPL peak underived
+    fixture.detectChanges();
+
+    component.onUpdateAllStops();
+
+    const data = dialog.open.calls.mostRecent().args[1]?.data as UpdateAllStopsDialogData;
+    expect(data.peaksPending).toBe(true);
+  });
+
+  it('does not open the dialog when no updatable stops exist', () => {
+    store._setAccounts([makeAccountState('Account A', '123456')]);
+    fixture.detectChanges();
+
+    component.onUpdateAllStops();
+
+    expect(dialog.open).not.toHaveBeenCalled();
+  });
+
+  it('reconciles orders silently after the batch dialog dismisses with a ran attempt', () => {
+    seedUpdatableStop();
+    fixture.detectChanges();
+
+    store.refresh.calls.reset();
+    store.reconcileOrders.calls.reset();
+    component.onUpdateAllStops();
+
+    expect(store.reconcileOrders).toHaveBeenCalledTimes(1);
+    expect(store.reconcileOrders).toHaveBeenCalledWith(0);
+    expect(store.refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not reconcile when the dialog closes without a run', () => {
+    seedUpdatableStop();
+    dialog.open.and.returnValue({ afterClosed: () => of(undefined) });
+    fixture.detectChanges();
+
+    store.reconcileOrders.calls.reset();
+    component.onUpdateAllStops();
+
+    expect(store.reconcileOrders).not.toHaveBeenCalled();
   });
 });

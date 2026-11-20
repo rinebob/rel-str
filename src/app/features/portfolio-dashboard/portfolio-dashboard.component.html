@@ -127,7 +127,20 @@
           </div>
 
           @if (selectedSection() === 0) {
-          <div class="tab-body pd-tab-content" role="tabpanel" id="pd-panel-0" aria-labelledby="pd-tab-0">
+          <div class="tab-body pd-panel-col" role="tabpanel" id="pd-panel-0" aria-labelledby="pd-tab-0">
+              @if (agenticAllowed()) {
+                <div class="pd-section-toolbar">
+                  <button type="button" class="ds-btn outline pd-update-all-stops"
+                    [disabled]="!hasUpdatableStops()"
+                    [title]="hasUpdatableStops()
+                      ? 'Audit every updatable stop against its position peak (preview first)'
+                      : 'No updatable protective stops on this account'"
+                    (click)="onUpdateAllStops()">
+                    Audit Stops
+                  </button>
+                </div>
+              }
+              <div class="pd-tab-content">
               <app-equity-positions-table
                 [positions]="equityPositions()"
                 [loading]="sel.equityPositions.loading"
@@ -143,6 +156,7 @@
                 (addStopLoss)="onAddStopLoss($event)"
                 (updateStopLoss)="onUpdateStop($event)"
               />
+              </div>
           </div>
           }
 

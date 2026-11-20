@@ -69,6 +69,24 @@
   padding: 8px 0 16px;
 }
 
+/* Equities panel with the section toolbar — a column where the toolbar
+   is a fixed row and only the .pd-tab-content pane beneath it scrolls
+   (#890). Without this the pane wraps the toolbar too and the whole
+   panel double-scrolls. */
+.pd-panel-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Update All Stops toolbar — section-level batch action above the equity
+   table (#890). Fixed row — it does not participate in pane scrolling. */
+.pd-section-toolbar {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding: 0 0 8px;
+}
+
 .pd-tab-placeholder {
   color: var(--mat-sys-on-surface-variant);
   font-style: italic;
