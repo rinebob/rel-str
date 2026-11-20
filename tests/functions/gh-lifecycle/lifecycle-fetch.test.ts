@@ -8,8 +8,10 @@ import { describe, it } from 'node:test';
 import {
   fetchLifecycleData,
   fetchTopicIndexData,
-  type Gql,
-} from '../../../functions/src/gh-lifecycle/github-client';
+  fetchTopicRootRef,
+  fetchTopicSubtreeData,
+} from '../../../functions/src/gh-lifecycle/lifecycle-fetch';
+import { GitHubApiError, type Gql } from '../../../functions/src/gh-lifecycle/github-client';
 import type { SupportedRepo } from '../../../functions/src/gh-lifecycle/config';
 
 const REPO: SupportedRepo = { owner: 'rinebob', repo: 'rel-str', projectNumber: 1 };
@@ -38,6 +40,8 @@ interface Fx {
   extraSubPages: Map<number, number[][]>;
   /** Nodes whose subpage query returns repository.issue === null. */
   missingSubpage: Set<number>;
+  /** Probe overrides: issue-number → issue fields | null (not-found). */
+  probe: Map<number, { number: number; id: string; title: string } | null>;
   /** Search reports hasNextPage:true with a null endCursor (can't page). */
   searchStuck: boolean;
   searchPages: number; // how many search pages to spread roots over
@@ -90,6 +94,17 @@ function fakeGql(fx: Fx): Gql {
         },
       };
     }
+    // Root probe — issue(number) without a subIssues selection (#1636).
+    if (typeof v.issueNumber === 'number' && !query.includes('subIssues')) {
+      const n = v.issueNumber;
+      const ref = fx.probe.has(n)
+        ? fx.probe.get(n)
+        : (fx.issues.has(n)
+            ? { number: n, id: `I_${n}`, title: fx.issues.get(n)!.title }
+            : null);
+      fx.calls.push(`probe:${n}`);
+      return { repository: { issue: ref } };
+    }
     // Single-node subIssues pagination
     if (typeof v.issueNumber === 'number') {
       const n = v.issueNumber;
@@ -133,6 +148,7 @@ function fx(overrides: Partial<Fx> = {}): Fx {
     issues: new Map(),
     extraSubPages: new Map(),
     missingSubpage: new Set(),
+    probe: new Map(),
     searchStuck: false,
     searchPages: 1,
     calls: [],
@@ -454,5 +470,100 @@ describe('fetchTopicIndexData — lazy index (#1635)', () => {
     const res = await fetchTopicIndexData(REPO, fakeGql(f));
     assert.equal(res.roots.length, 51);
     assert.deepEqual(f.calls.filter(c => c.startsWith('nodes:')), ['nodes:50', 'nodes:1']);
+  });
+});
+
+describe('fetchTopicRootRef + fetchTopicSubtreeData — per-topic subtree (#1636)', () => {
+  it('a probe record missing required fields fails closed — malformed is not not-found', async () => {
+    const f = fx();
+    f.probe.set(7, { number: 7, id: '', title: 'Topic: x' } as any);
+    const err = await fetchTopicRootRef(REPO, 7, fakeGql(f)).catch(e => e);
+    assert.ok(err instanceof GitHubApiError);
+    assert.match(err.message, /malformed issue probe/);
+  });
+
+  it('repository:null without a GraphQL error resolves to null', async () => {
+    const gql: Gql = () => Promise.resolve({ repository: null });
+    assert.equal(await fetchTopicRootRef(REPO, 7, gql), null);
+  });
+
+  it('a NOT_FOUND GraphQL error on the probe resolves to null, not a throw', async () => {
+    // Live behavior: GitHub answers an unknown issue number with an
+    // errors[] entry of type NOT_FOUND, not issue:null. The probe must
+    // collapse that to null so the handler can emit not-found.
+    const gql: Gql = () =>
+      Promise.reject(new GitHubApiError(200, false, 'Could not resolve to an Issue', 'NOT_FOUND'));
+    assert.equal(await fetchTopicRootRef(REPO, 999999, gql), null);
+    // A non-NOT_FOUND failure still propagates.
+    const other: Gql = () =>
+      Promise.reject(new GitHubApiError(500, false, 'boom', 'INTERNAL'));
+    const err = await fetchTopicRootRef(REPO, 999999, other).catch(e => e);
+    assert.ok(err instanceof GitHubApiError);
+  });
+
+  it('probe returns the issue ref; unknown number → null', async () => {
+    const f = fx();
+    f.issues.set(7, fxIssue(7));
+    const ref = await fetchTopicRootRef(REPO, 7, fakeGql(f));
+    assert.deepEqual(ref, { number: 7, id: 'I_7', title: 'Topic: Issue 7' });
+    const missing = await fetchTopicRootRef(REPO, 8, fakeGql(f));
+    assert.equal(missing, null);
+  });
+
+  it('walks only the requested root subtree — other roots untouched', async () => {
+    const f = fx({ roots: [1, 2] });
+    f.issues.set(1, fxIssue(1, [10]));
+    f.issues.set(2, fxIssue(2, [20]));
+    f.issues.set(10, fxIssue(10)); f.issues.set(20, fxIssue(20));
+    const res = await fetchTopicSubtreeData(REPO, { number: 1, id: 'I_1' }, fakeGql(f));
+    assert.deepEqual(res.roots.map(r => r.number), [1]);
+    assert.deepEqual(res.childrenOf.get(1)!.map(c => c.number), [10]);
+    // Root 2's subtree was never fetched: no search, no probe of it,
+    // no nodes() call carrying I_2/I_20, no subpage.
+    assert.ok(!f.calls.some(c => c === 'search'), 'subtree fetch must not search');
+    assert.ok(!f.calls.some(c => c === 'probe:2'));
+    assert.ok(!f.calls.some(c => c === 'subpage:2'));
+    assert.equal(res.truncatedNodes, 0);
+  });
+
+  it('statusOf/childrenOf equal the monolith restricted to that subtree', async () => {
+    const f = fx({ roots: [1, 2] });
+    f.issues.set(1, fxIssue(1, [10]));
+    f.issues.set(2, fxIssue(2, [20]));
+    f.issues.set(10, fxIssue(10, [50], {
+      projectItems: {
+        nodes: [{
+          project: { number: 1 },
+          fieldValues: { nodes: [{ name: 'IN PROGRESS', field: { name: 'Status' } }] },
+        }],
+      },
+    }));
+    f.issues.set(20, fxIssue(20)); f.issues.set(50, fxIssue(50));
+    const one = await fetchTopicSubtreeData(REPO, { number: 1, id: 'I_1' }, fakeGql(f));
+    assert.deepEqual(one.childrenOf.get(10)!.map(c => c.number), [50]);
+    // Status decodes inside the subtree exactly as the monolith path does.
+    assert.equal(one.statusOf.get(10), 'IN PROGRESS');
+    // The other subtree's numbers never appear anywhere.
+    for (const key of [...one.childrenOf.keys(), ...one.statusOf.keys()]) {
+      assert.ok(![2, 20].includes(key));
+    }
+  });
+
+  it('subtree truncation propagates to truncatedNodes', async () => {
+    const f = fx();
+    f.issues.set(1, fxIssue(1, [2]));
+    f.issues.set(2, fxIssue(2));
+    f.issues.get(1)!.subIssues.pageInfo = { hasNextPage: true, endCursor: 'c1' };
+    f.missingSubpage.add(1);
+    const res = await fetchTopicSubtreeData(REPO, { number: 1, id: 'I_1' }, fakeGql(f));
+    assert.equal(res.truncatedNodes, 1);
+  });
+
+  it('a vanished root mid-walk (null nodes() slot) counts as truncated', async () => {
+    const f = fx();
+    f.probe.set(1, { number: 1, id: 'I_MISSING', title: 'Topic: gone' });
+    const res = await fetchTopicSubtreeData(REPO, { number: 1, id: 'I_MISSING' }, fakeGql(f));
+    assert.deepEqual(res.roots, []);
+    assert.equal(res.truncatedNodes, 1);
   });
 });

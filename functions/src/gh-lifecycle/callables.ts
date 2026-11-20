@@ -9,10 +9,11 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import type { CallableRequest } from 'firebase-functions/v2/https';
-import type { LifecycleRepoRequest, LifecycleTreeResponse } from '@lifecycle/contracts';
+import type { LifecycleRepoRequest, LifecycleTopicTreeRequest, LifecycleTreeResponse } from '@lifecycle/contracts';
 import {
   assignGroups,
   buildTree,
+  isTopicRoot,
   parseInventoryGroups,
   type LifecycleInventoryGroup,
 } from '@lifecycle/tree';
@@ -20,12 +21,17 @@ import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from '../paper-trading/engine/option
 import { SUPPORTED_REPOS, type SupportedRepo } from './config';
 import {
   fetchFileText,
-  fetchLifecycleData,
-  fetchTopicIndexData,
   githubGql,
   GitHubApiError,
-  type LifecycleFetchResult,
 } from './github-client';
+import {
+  fetchLifecycleData,
+  fetchTopicIndexData,
+  fetchTopicRootRef,
+  fetchTopicSubtreeData,
+  type LifecycleFetchResult,
+  type TopicRootRef,
+} from './lifecycle-fetch';
 
 const INVENTORY_PATH = 'docs/dev-notes/TOPICS-INVENTORY.md';
 
@@ -35,6 +41,10 @@ export interface GhLifecycleDeps {
   fetchData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>;
   /** Slim roots-only fetch for the topic index — no subIssues expansion. */
   fetchIndexData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>;
+  /** Root probe for the per-topic callable — null when the issue is gone. */
+  fetchTopicRef: (entry: SupportedRepo, topicNumber: number) => Promise<TopicRootRef | null>;
+  /** BFS over one root's subtree — identical semantics to the monolith walk. */
+  fetchSubtreeData: (entry: SupportedRepo, root: { number: number; id: string }) => Promise<LifecycleFetchResult>;
   /** Raw TOPICS-INVENTORY.md; null on 404. Throws for other failures. */
   fetchInventoryDoc: (entry: SupportedRepo) => Promise<string | null>;
 }
@@ -52,6 +62,8 @@ export function ghLifecycleDeps(): GhLifecycleDeps {
   return {
     fetchData: entry => fetchLifecycleData(entry, gql),
     fetchIndexData: entry => fetchTopicIndexData(entry, gql),
+    fetchTopicRef: (entry, topicNumber) => fetchTopicRootRef(entry, topicNumber, gql),
+    fetchSubtreeData: (entry, root) => fetchTopicSubtreeData(entry, root, gql),
     fetchInventoryDoc: entry => fetchFileText(token, entry, INVENTORY_PATH),
   };
 }
@@ -105,6 +117,13 @@ export async function handleGetLifecycleTopicIndex(
   return internalGuard('getLifecycleTopicIndex', () => handleIndex(request, deps));
 }
 
+export async function handleGetLifecycleTopicTree(
+  request: CallableRequest<LifecycleTopicTreeRequest>,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
+  return internalGuard('getLifecycleTopicTree', () => handleTopic(request, deps));
+}
+
 /** Shared validation for all gh-lifecycle callables — auth + repo pair. */
 export function resolveSupportedRepo(data: unknown): SupportedRepo {
   const { owner, repo } = (data ?? {}) as { owner?: unknown; repo?: unknown };
@@ -137,6 +156,41 @@ async function handleIndex(
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
   return fetchAndAssemble(entry, deps, deps.fetchIndexData);
+}
+
+/** Per-topic variant — same assembly pipeline after probe + topicNumber
+ *  validation: unknown issue → not-found; a real issue that isn't a
+ *  `Topic:` root → invalid-argument (never walks a non-topic subtree). */
+async function handleTopic(
+  request: CallableRequest<LifecycleTopicTreeRequest>,
+  deps: GhLifecycleDeps,
+): Promise<LifecycleTreeResponse> {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
+  const entry = resolveSupportedRepo(request.data);
+  const data = (request.data ?? {}) as { topicNumber?: unknown };
+  // GitHub's Int is signed 32-bit — a larger integer would pass
+  // Number.isInteger but coerce to a GraphQL error mid-probe.
+  if (
+    typeof data.topicNumber !== 'number'
+    || !Number.isSafeInteger(data.topicNumber)
+    || data.topicNumber <= 0
+    || data.topicNumber > 2_147_483_647
+  ) {
+    throw new HttpsError('invalid-argument', 'expected { owner, repo, topicNumber: positive integer }');
+  }
+  let ref: TopicRootRef | null;
+  try {
+    ref = await deps.fetchTopicRef(entry, data.topicNumber);
+  } catch (err) {
+    throw err instanceof GitHubApiError ? mapGitHubError(err) : err;
+  }
+  if (!ref) {
+    throw new HttpsError('not-found', `issue #${data.topicNumber} not found in ${entry.owner}/${entry.repo}`);
+  }
+  if (!isTopicRoot(ref.title)) {
+    throw new HttpsError('invalid-argument', `issue #${data.topicNumber} is not a Topic root`);
+  }
+  return fetchAndAssemble(entry, deps, e => deps.fetchSubtreeData(e, ref));
 }
 
 /** fetch → error-map → assemble — the post-validation body shared by
@@ -235,4 +289,18 @@ export const getLifecycleTopicIndex = onCall<LifecycleRepoRequest, Promise<Lifec
     memory: '512MiB',
   },
   (request) => handleGetLifecycleTopicIndex(request, ghLifecycleDeps()),
+);
+
+/** One topic's full subtree — probe + isTopicRoot guard + the monolith's
+ *  BFS seeded with a single root (#1636). Lazy-loaded on expand/click;
+ *  same 120s budget as the monolith since a fat topic still pages to
+ *  completion. */
+export const getLifecycleTopicTree = onCall<LifecycleTopicTreeRequest, Promise<LifecycleTreeResponse>>(
+  {
+    cors: OPTIONS_STRATEGY_ALLOWED_ORIGINS,
+    secrets: ['GITHUB_READ_TOKEN'],
+    timeoutSeconds: 120,
+    memory: '512MiB',
+  },
+  (request) => handleGetLifecycleTopicTree(request, ghLifecycleDeps()),
 );

@@ -236,6 +236,12 @@ const scripts: VerifyScript[] = [
     needsGh: true,
   },
   {
+    name: 'gh-lifecycle per-topic subtree',
+    file: 'dev-tools-gh-lifecycle-1636-topic-tree.ts',
+    needsAccount: false,
+    needsGh: true,
+  },
+  {
     name: 'workflow template conventions',
     file: 'workflows-template-647.ts',
     needsAccount: false,
