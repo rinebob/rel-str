@@ -10,7 +10,7 @@
 **Type:** UAT  
 **Status:** Complete  
 **Created:** 2026-11-18  
-**Last Updated:** 2026-11-18  
+**Last Updated:** 2026-11-20  
 
 # UAT — #1566 BE-CHORE: stale legacy stats doc cleanup + verification
 
@@ -35,6 +35,9 @@ below is the authoritative check).
 ## Results log
 
 - 2026-11-18 — all scenarios executed; see per-scenario results below.
+- 2026-11-20 — **post-ship:** `firebase deploy --only functions` landed
+  (incl. `getStrategyEquityCurve` delete — the last deployed `stats-ALL`
+  reader); `--apply` executed against prod — see Deferred section.
 
 ## Scenarios
 
@@ -118,7 +121,8 @@ below is the authoritative check).
   `stats-src-SIGNAL`, `stats-inst-*`, `stats-sym-*`, `stats-var-*`) and
   exactly the same 7 stale docs S3 listed. **Post-`--apply` assertion is
   built into the script** (re-enumerates + exits 1 on stragglers) —
-  deferred per AC3 until the #1565 deploy lands.
+  executed 2026-11-20 post-deploy: 7/7 deleted, all 728 remaining docs
+  canonical, exit 0.
 
 ### S7 — Regression suites
 
@@ -129,10 +133,16 @@ below is the authoritative check).
 
 ## Deferred (by design, not findings)
 
-- **`--apply` execution** — gated on the #1565 deploy (AC3): the
-  deployed `getStrategyEquityCurve` still reads `stats-ALL` until the
-  user pushes + deploys. The script + gate docs + post-apply assert
-  ship now; the delete itself runs post-deploy.
+- **`--apply` execution** — **executed 2026-11-20 post-deploy** (AC3
+  gate satisfied by the same `firebase deploy` push that deleted
+  `getStrategyEquityCurve`). Post-deploy dry-run reconfirmed the same
+  7 stale docs (735 total — the deployed `paperStatsPass` had added
+  ~12 canonical scopes since the 11-18 count). `--apply` then deleted
+  7/7 and its post-delete re-enumerate reported **all 728 remaining
+  docs canonical, exit 0** — AC4 proven against prod: `getPaperStats`
+  (no scope) now surfaces only canonical docs; the dashboard's
+  Population-selector ghosts (`ALL`, `SPY-WHEEL-INT`, `260819-*`) are
+  gone.
 - **Canonical-prefixed ghosts** (`stats-inst-verify-*` from crashed
   verify runs) — kept by design; documented in the script header.
 
