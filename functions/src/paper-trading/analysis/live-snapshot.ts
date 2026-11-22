@@ -181,7 +181,8 @@ export function tradeToRow(
     tradeId: t.id,
     signalId: t.signalId ?? t.ticket?.signalId ?? null,
     signalType: t.signalType ?? null,
-    cohortId: t.cohortId ?? null,
+    // Schema-pinned column name — carries the position-group id post-#1661.
+    cohortId: t.positionGroupId ?? t.cohortId ?? null,
     positionGroupId: t.positionGroupId ?? null,
     symbol: t.symbol,
     direction: t.order.side,

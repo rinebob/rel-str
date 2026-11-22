@@ -3,8 +3,8 @@
  *
  * Firestore repository for the `{root}/{anchor}/items/{id}` layout —
  * account/trade/stats/raw-quote on `st-paper-trading` since the #1007
- * cutover, analysis-* since #1158; instances/cohorts still on legacy
- * `paper-trading`.
+ * cutover, analysis-* since #1158; the cohort leg drained to
+ * `st-position-groups` in #1661 — every kind now resolves the st- root.
  * CRUD for all six record kinds plus the single-write embedded mutations the
  * passes use (`appendMark`, `appendFill`, `updateVariantRun`). All functions
  * take `db` as the first parameter so unit tests can inject a fake.
@@ -15,7 +15,6 @@ import { FieldPath } from 'firebase-admin/firestore';
 import { buildAccountId, buildRawQuoteId } from '@paper-trading/ids';
 import {
   isPaperAccount,
-  isPaperCohort,
   isPaperStats,
   isPaperTrade,
   isRawQuoteDoc,
@@ -25,7 +24,6 @@ import {
   PaperTradeStatus,
   type ListPaperTradesRequest,
   type PaperAccount,
-  type PaperCohort,
   type PaperFill,
   type PaperMark,
   type PaperStats,
@@ -117,7 +115,6 @@ export async function listTrades(
   if (filters.status) eq('status', filters.status);
   if (filters.source) eq('source', filters.source);
   if (filters.strategyInstanceId) eq('strategyInstanceId', filters.strategyInstanceId);
-  if (filters.cohortId) eq('cohortId', filters.cohortId);
   if (filters.signalId) eq('signalId', filters.signalId);
   if (filters.symbol) eq('symbol', filters.symbol);
   if (filters.expression) eq('expression', filters.expression);
@@ -131,15 +128,7 @@ export async function listTrades(
     .filter(isPaperTrade);
 }
 
-// ── Cohorts / instances / stats / raw quotes ────────────────────────────────
-
-export function getCohort(db: Firestore, cohortId: string): Promise<PaperCohort | null> {
-  return getItem(db, PaperTradingKind.COHORT, cohortId, isPaperCohort);
-}
-
-export function setCohort(db: Firestore, cohort: PaperCohort): Promise<void> {
-  return setItem(db, PaperTradingKind.COHORT, cohort);
-}
+// ── Instances / stats / raw quotes ──────────────────────────────────────────
 
 // Strategy instances live in the flat `st-strategy-instances` root (#1006;
 // canonical-only since #1013, when the legacy instances anchor retired).

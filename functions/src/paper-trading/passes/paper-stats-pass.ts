@@ -7,7 +7,7 @@
  *   all                    — every trade
  *   inst-{instanceId}      — strategy instance
  *   var-{variantKey}       — per variant run (governing + shadows)
- *   cohort-{cohortId}      — signal cohort group
+ *   cohort-{groupId}       — position group (cohort-* scope prefix kept)
  *   sig-{signalId}         — originating signal
  *   sym-{SYMBOL}           — underlying symbol
  *   src-{SOURCE}           — trade source family: STRATEGY|SIGNAL|MANUAL (#1562)
@@ -62,7 +62,8 @@ export function tradeScopes(trade: PaperTrade): string[] {
     statsScopeSource(trade.source),
   ];
   if (trade.strategyInstanceId) scopes.push(statsScopeInstance(trade.strategyInstanceId));
-  if (trade.cohortId) scopes.push(statsScopeCohort(trade.cohortId));
+  const groupRef = trade.positionGroupId ?? trade.cohortId;
+  if (groupRef) scopes.push(statsScopeCohort(groupRef));
   if (trade.signalId) scopes.push(statsScopeSignal(trade.signalId));
   for (const variantKey of trade.variantKeys) {
     scopes.push(statsScopeVariant(variantKey));

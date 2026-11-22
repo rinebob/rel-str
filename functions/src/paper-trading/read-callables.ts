@@ -4,7 +4,7 @@
  * Read-side callables for the paper-trading dashboard:
  *
  *   listPaperTrades   — trades filtered by AND-combined dims
- *                       (status, source, instance, cohort, signal, symbol,
+ *                       (status, source, instance, signal, symbol,
  *                       expression, variantKey)
  *   getPaperStats     — stats rollup doc(s): one scope or every scope
  *   getPaperAccount   — the caller's acct-{uid} doc (null when unopened)
@@ -66,7 +66,6 @@ export async function handleListPaperTrades(
     ...(f.status ? { status: f.status } : {}),
     ...(f.source ? { source: f.source } : {}),
     ...(f.strategyInstanceId ? { strategyInstanceId: f.strategyInstanceId } : {}),
-    ...(f.cohortId ? { cohortId: f.cohortId } : {}),
     ...(f.signalId ? { signalId: f.signalId } : {}),
     ...(f.symbol ? { symbol: f.symbol.toUpperCase() } : {}),
     ...(f.expression ? { expression: f.expression } : {}),

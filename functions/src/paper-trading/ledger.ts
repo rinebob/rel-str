@@ -74,7 +74,6 @@ export interface FillDimensions {
   /** All variant keys to seed; defaults to [governingVariant]. */
   variantKeys?: string[];
   strategyInstanceId?: string;
-  cohortId?: string;
   /** Owning `st-position-groups` doc id (#1004) — stamped at mint. */
   positionGroupId?: string;
   signalId?: string;
@@ -106,7 +105,6 @@ export type PaperTradeOverrides = Partial<
     PaperTrade,
     | 'userId'
     | 'strategyInstanceId'
-    | 'cohortId'
     | 'positionGroupId'
     | 'signalId'
     | 'symbol'
@@ -389,7 +387,6 @@ export async function applyEntryFill(
       governingVariant: input.dims.governingVariant,
       ...(input.dims.governingPolicy ? { governingPolicy: input.dims.governingPolicy } : {}),
       ...(input.dims.strategyInstanceId ? { strategyInstanceId: input.dims.strategyInstanceId } : {}),
-      ...(input.dims.cohortId ? { cohortId: input.dims.cohortId } : {}),
       ...(input.dims.positionGroupId ? { positionGroupId: input.dims.positionGroupId } : {}),
       ...(input.dims.signalId ? { signalId: input.dims.signalId } : {}),
       ...(input.dims.ticket ? { ticket: input.dims.ticket } : {}),
@@ -514,7 +511,6 @@ export async function createPendingTrade(
       expression: input.dims.expression,
       governingVariant: input.dims.governingVariant,
       ...(input.dims.strategyInstanceId ? { strategyInstanceId: input.dims.strategyInstanceId } : {}),
-      ...(input.dims.cohortId ? { cohortId: input.dims.cohortId } : {}),
       ...(input.dims.positionGroupId ? { positionGroupId: input.dims.positionGroupId } : {}),
       ...(input.dims.signalId ? { signalId: input.dims.signalId } : {}),
       ...(input.dims.ticket ? { ticket: input.dims.ticket } : {}),

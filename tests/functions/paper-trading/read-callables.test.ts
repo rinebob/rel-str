@@ -130,7 +130,6 @@ describe('handleListPaperTrades', () => {
     const filters: ListPaperTradesRequest = {
       status: PaperTradeStatus.OPEN,
       source: PaperTradeSource.SIGNAL,
-      cohortId: 'cohort-1',
       symbol: 'qqqm',
       expression: 'CSP',
       variantKey: 'trailing-20',

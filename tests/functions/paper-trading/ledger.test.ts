@@ -655,7 +655,7 @@ function pendingTrade(overrides: Partial<PaperTrade> = {}): PaperTrade {
     symbol: 'QQQM',
     expression: 'CSP',
     governingVariant: 'none',
-    cohortId: 'cohort-260924-QQQM-01',
+    positionGroupId: 'QQQM-260924-grp-01',
     signalId: 'sig-1',
     expressionTemplate: pendingTemplate(),
     order: { side: TradeSide.SHORT, type: 'MARKET', quantity: 1 },
@@ -689,7 +689,7 @@ describe('createPendingTrade', () => {
           expression: 'CSP',
           governingVariant: 'trailing-8',
           variantKeys: ['trailing-8', 'initial-stop-10', 'trailing-20', 'time-30d'],
-          cohortId: 'cohort-260924-QQQM-01',
+          positionGroupId: 'QQQM-260924-grp-01',
           signalId: 'sig-1',
           ticket: { signalId: 'sig-1', refId: 'ref-1', acceptedAt: NOW },
         },
@@ -707,7 +707,7 @@ describe('createPendingTrade', () => {
     assert.deepEqual(t.marks, {});
     assert.equal(t.variantRuns.length, 4);
     assert.equal(t.variantRuns.filter((r) => r.governing).length, 1);
-    assert.equal(t.cohortId, 'cohort-260924-QQQM-01');
+    assert.equal(t.positionGroupId, 'QQQM-260924-grp-01');
     assert.equal(t.signalId, 'sig-1');
     assert.equal(t.ticket?.refId, 'ref-1');
     assert.equal(t.expressionTemplate?.key, 'csp-030-45');

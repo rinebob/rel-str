@@ -70,7 +70,6 @@ function stagedTicket(overrides: Partial<StOrderTicket> = {}): StOrderTicket {
     refId: 'ref-1',
     accountTarget: 'acct-user1',
     userId: 'user1',
-    cohortId: 'cohort-260925-QQQM-01',
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),
     ...overrides,
@@ -224,7 +223,6 @@ describe('runExpressionFillPass — staged tickets (#1005)', () => {
     // lineage dims from the ticket
     assert.equal(entry.dims.source, PaperTradeSource.SIGNAL);
     assert.equal(entry.dims.expression, 'CSP');
-    assert.equal(entry.dims.cohortId, 'cohort-260925-QQQM-01');
     assert.equal(entry.dims.positionGroupId, 'QQQM-260925-grp-01');
     assert.equal(entry.dims.signalId, 'QQQM_2026-09-25_D_SIG');
     assert.equal(entry.dims.ticket?.ticketId, TICKET_ID);

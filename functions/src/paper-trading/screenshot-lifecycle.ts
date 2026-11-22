@@ -8,8 +8,8 @@
  *
  * - The carrier is the trade doc itself (`engine-position` kind) — the
  *   `capturedEvents` dedup ledger lands next to the lifecycle fields.
- * - `groupId` is `cohortId` for signal trades (all expressions of one
- *   cohort group under it) and the trade id for engine positions.
+ * - `groupId` is the `positionGroupId` for signal trades (all expressions
+ *   of one group under it) and the trade id for engine positions.
  * - `refId` falls through to the intake default `{positionId}-{event}`.
  *
  * This module stays import-light: the capture pipeline (admin init, resvg,
@@ -76,7 +76,7 @@ export function lifecycleInputFor(
 ): LifecycleCaptureInput {
   return {
     positionId: trade.id,
-    groupId: trade.cohortId ?? trade.id,
+    groupId: trade.positionGroupId ?? trade.cohortId ?? trade.id,
     event,
     symbol: trade.symbol,
     positionType: positionTypeForLegs(trade.legs),

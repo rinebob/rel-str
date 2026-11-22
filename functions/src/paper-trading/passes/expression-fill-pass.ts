@@ -516,9 +516,6 @@ async function fillStagedTicket(
           symbol,
           expression: expr,
           governingVariant: SIGNAL_GOVERNING_VARIANT,
-          // Soak bridges — cohortId rides the ticket until the FE re-points
-          // to position groups (#1013).
-          ...(ticket.cohortId ? { cohortId: ticket.cohortId } : {}),
           ...(ticket.origin.positionGroupId
             ? { positionGroupId: ticket.origin.positionGroupId }
             : {}),
