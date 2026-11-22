@@ -216,9 +216,13 @@ export interface PaperTrade extends PaperTradingDocBase {
   // dimension fields — rollup axes
   source: PaperTradeSource;
   strategyInstanceId?: string;
+  /** @deprecated #1661 — pre-cutover accept-flow stamp; the legacy
+   *  legacy cohort doc id. New trades never carry it; readers
+   *  resolve membership via `positionGroupId ?? cohortId` until the
+   *  backfill stamps positionGroupId on every accept-flow trade. */
   cohortId?: string;
   /** Owning position group (st-position-groups/{id}, #984) — supersedes
-   *  `cohortId` on new trades; both fields coexist during dual-write. */
+   *  `cohortId`; the only member-stamp on new trades. */
   positionGroupId?: string;
   signalId?: string;
   symbol: string;
@@ -438,19 +442,9 @@ export type GoverningPolicy = typeof CURATED_GOVERNING_POLICY;
  * One accepted-as-paper signal fanned out: the underlying trade plus one
  * trade per configured expression template.
  */
-export interface PaperCohort extends PaperTradingDocBase {
-  kind: PaperTradingKind.COHORT;
-  signalId: string;
-  symbol: string;
-  direction: TradeSide;
-  acceptedAt: string;
-  tradeIds: string[];
-  expressionTemplates: string[];
-}
-
 // ── Strategy instance ──────────────────────────────────────────────────────
 
-/** Strategy instance config housed under `paper-trading/instances/items`. */
+/** Strategy instance config — canonical home is `st-strategy-instances` (#1013). */
 export interface PaperStrategyInstance extends StrategyInstanceConfig {
   kind: PaperTradingKind.INSTANCE;
   paperAccountId: string;
@@ -540,7 +534,6 @@ export interface PaperSignalOrderRequest {
 }
 
 export interface PaperSignalOrderResponse {
-  cohortId: string;
   equityTradeId: string;
   /** Expression member ids — post-#1005 these are the staged-ticket seeds
    *  (the trade materializes under a contract-bearing id at fill); a retry
@@ -556,7 +549,6 @@ export interface ListPaperTradesRequest {
   status?: PaperTradeStatus;
   source?: PaperTradeSource;
   strategyInstanceId?: string;
-  cohortId?: string;
   signalId?: string;
   symbol?: string;
   expression?: string;
@@ -799,9 +791,6 @@ export function isPaperAccount(d: PaperTradingDoc): d is PaperAccount {
 }
 export function isPaperTrade(d: PaperTradingDoc): d is PaperTrade {
   return d.kind === PaperTradingKind.TRADE;
-}
-export function isPaperCohort(d: PaperTradingDoc): d is PaperCohort {
-  return d.kind === PaperTradingKind.COHORT;
 }
 export function isPaperStats(d: PaperTradingDoc): d is PaperStats {
   return d.kind === PaperTradingKind.STATS;

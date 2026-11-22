@@ -43,7 +43,6 @@ import {
 } from './st-collections';
 import {
   PaperTradingKind,
-  paperTradingItemsPath,
 } from './paper-trading-ids';
 import {
   PORTFOLIO_ATTRIBUTIONS_COLLECTION,
@@ -158,7 +157,8 @@ describe('st-paper-trading anchored paths', () => {
 
   it('throws for kinds with no st-paper-trading anchor (instance/cohort)', () => {
     expect(() => stPaperTradingItemsPath(PaperTradingKind.INSTANCE)).toThrow(/no anchor/);
-    expect(() => stPaperTradingItemsPath(PaperTradingKind.COHORT)).toThrow(/no anchor/);
+    // #1661 — PaperTradingKind.COHORT is deleted outright: 'cohort' can
+    // only arrive as a runtime string and is rejected by the own-property check.
   });
 
   it('throws for non-member strings incl. Object.prototype names', () => {
@@ -166,11 +166,17 @@ describe('st-paper-trading anchored paths', () => {
     expect(() => stPaperTradingItemsPath('toString' as StPaperTradingKind)).toThrow(/no anchor/);
   });
 
-  it('st- paths mirror legacy anchors (drift pin)', () => {
-    const stKinds = new Set<string>(Object.values(StPaperTradingKind));
-    const sharedKinds = Object.values(PaperTradingKind).filter((k) => stKinds.has(k));
-    for (const kind of sharedKinds) {
-      expect(stPaperTradingItemsPath(kind)).toBe(`st-${paperTradingItemsPath(kind)}`);
+  it('st- paths mirror the pre-#1661 legacy anchors (drift pin)', () => {
+    const LEGACY_ANCHORS: Record<string, string> = {
+      account: 'accounts',
+      trade: 'trades',
+      stats: 'stats',
+      'raw-quote': 'raw-quotes',
+      'analysis-dataset': 'analysis-datasets',
+      'analysis-slice': 'analysis-slices',
+    };
+    for (const kind of Object.values(StPaperTradingKind)) {
+      expect(stPaperTradingItemsPath(kind)).toBe(`st-paper-trading/${LEGACY_ANCHORS[kind]}/items`);
     }
     expect(stPortfolioItemsPath(StPortfolioKind.BUCKET)).toBe(
       PORTFOLIO_BUCKETS_COLLECTION.replace('portfolio/', 'st-portfolio/'),

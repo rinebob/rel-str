@@ -21,13 +21,11 @@ import {
   type PaperFill,
   isPaperAccount,
   isPaperTrade,
-  isPaperCohort,
   isPaperStats,
   isRawQuoteDoc,
   type PaperTradingDoc,
   type PaperAccount,
   type PaperTrade,
-  type PaperCohort,
   type PaperStats,
   type RawQuoteDoc,
   type PaperTradeLeg,
@@ -76,7 +74,7 @@ describe('paper-trading kind guards', () => {
     status: PaperTradeStatus.OPEN,
     source: PaperTradeSource.SIGNAL,
     signalId: 'sig-1',
-    cohortId: 'cohort-260924-QQQ-01',
+    positionGroupId: 'QQQ-260924-grp-01',
     symbol: 'QQQ',
     expression: 'EQ',
     governingVariant: 'trailing-20',
@@ -97,12 +95,6 @@ describe('paper-trading kind guards', () => {
     unrealizedPnl: 0,
   };
 
-  const cohort: PaperCohort = {
-    ...base(PaperTradingKind.COHORT, 'cohort-260924-QQQ-01'),
-    signalId: 'sig-1', symbol: 'QQQ', direction: TradeSide.LONG,
-    acceptedAt: NOW, tradeIds: [trade.id], expressionTemplates: ['BCS-015-40'],
-  };
-
   const stats: PaperStats = {
     ...base(PaperTradingKind.STATS, 'stats-all'),
     scope: 'all', totalRealizedPnl: 0, totalUnrealizedPnl: 0,
@@ -115,7 +107,7 @@ describe('paper-trading kind guards', () => {
     tradeId: trade.id, date: '2026-09-24', rawResponse: { bid: 1, ask: 2 },
   };
 
-  const docs: PaperTradingDoc[] = [account, trade, cohort, stats, raw];
+  const docs: PaperTradingDoc[] = [account, trade, stats, raw];
 
   it('every record carries a kind', () => {
     for (const d of docs) expect(d.kind).toBeTruthy();
@@ -124,7 +116,6 @@ describe('paper-trading kind guards', () => {
   it('each guard accepts its own kind and rejects the others', () => {
     expect(docs.filter(isPaperAccount)).toEqual([account]);
     expect(docs.filter(isPaperTrade)).toEqual([trade]);
-    expect(docs.filter(isPaperCohort)).toEqual([cohort]);
     expect(docs.filter(isPaperStats)).toEqual([stats]);
     expect(docs.filter(isRawQuoteDoc)).toEqual([raw]);
   });

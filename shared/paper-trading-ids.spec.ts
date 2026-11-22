@@ -11,17 +11,13 @@
  */
 
 import {
-  PAPER_TRADING_ROOT,
   PaperTradingKind,
-  paperTradingItemsPath,
-  paperTradingDocPath,
   buildAccountId,
   buildTradeId,
   EQUITY_TRADE_DESC,
   buildSpreadTradeDesc,
   signalTradeDesc,
   signalDedupeKey,
-  buildCohortId,
   buildStatsId,
   statsScopeAll,
   statsScopeInstance,
@@ -47,25 +43,6 @@ import { PaperTradeSource } from './paper-trading-contracts';
 const DAY = new Date('2026-09-24T18:30:00Z');
 
 describe('paper-trading collection paths', () => {
-  it('root collection is paper-trading', () => {
-    expect(PAPER_TRADING_ROOT).toBe('paper-trading');
-  });
-
-  it.each([
-    [PaperTradingKind.ACCOUNT, 'accounts'],
-    [PaperTradingKind.INSTANCE, 'instances'],
-    [PaperTradingKind.COHORT, 'cohorts'],
-    [PaperTradingKind.TRADE, 'trades'],
-    [PaperTradingKind.STATS, 'stats'],
-    [PaperTradingKind.RAW_QUOTE, 'raw-quotes'],
-  ])('items path for %s is paper-trading/%s/items', (kind, anchor) => {
-    expect(paperTradingItemsPath(kind)).toBe(`paper-trading/${anchor}/items`);
-  });
-
-  it('doc path appends the id under items', () => {
-    expect(paperTradingDocPath(PaperTradingKind.TRADE, '260924-sig-QQQ-EQ'))
-      .toBe('paper-trading/trades/items/260924-sig-QQQ-EQ');
-  });
 });
 
 describe('buildAccountId', () => {
@@ -107,13 +84,6 @@ describe('trade desc helpers', () => {
   });
 });
 
-describe('buildCohortId', () => {
-  it('builds cohort-YYMMDD-{SYMBOL}-{seq2}', () => {
-    expect(buildCohortId(DAY, 'qqq', 1)).toBe('cohort-260924-QQQ-01');
-    expect(buildCohortId(DAY, 'QQQ', 12)).toBe('cohort-260924-QQQ-12');
-  });
-});
-
 describe('buildStatsId and scopes', () => {
   it('stats-all for the global scope', () => {
     expect(buildStatsId(statsScopeAll())).toBe('stats-all');
@@ -129,7 +99,7 @@ describe('buildStatsId and scopes', () => {
   });
 
   it('per-cohort scope does not double the cohort- prefix', () => {
-    expect(buildStatsId(statsScopeCohort('cohort-260924-QQQ-01'))).toBe('stats-cohort-260924-QQQ-01');
+    expect(buildStatsId(statsScopeCohort('QQQ-260924-grp-01'))).toBe('stats-cohort-QQQ-260924-grp-01');
   });
 
   it('per-signal scope', () => {
@@ -150,7 +120,7 @@ describe('buildStatsId and scopes', () => {
     expect(isCanonicalStatsScope(statsScopeAll())).toBe(true);
     expect(isCanonicalStatsScope(statsScopeInstance('260924-QQQM-CSP-020-30-D-1200'))).toBe(true);
     expect(isCanonicalStatsScope(statsScopeVariant('trailing-20'))).toBe(true);
-    expect(isCanonicalStatsScope(statsScopeCohort('cohort-260924-QQQ-01'))).toBe(true);
+    expect(isCanonicalStatsScope(statsScopeCohort('QQQ-260924-grp-01'))).toBe(true);
     expect(isCanonicalStatsScope(statsScopeSignal('sig-123'))).toBe(true);
     expect(isCanonicalStatsScope(statsScopeSource(PaperTradeSource.SIGNAL))).toBe(true);
     expect(isCanonicalStatsScope(statsScopeSymbol('QQQ'))).toBe(true);

@@ -177,11 +177,6 @@ export interface StOrderTicket {
   bucketId?: string;
   /** Signal lineage migrated from legacy order-intents docs. */
   signalContext?: StTicketSignalContext;
-  /** Legacy cohort doc id the minted trade joins (`paper-trading/cohorts`)
-   *  — soak-window bridge stamped on staged expression tickets so the
-   *  #1005 fill pass can keep `trade.cohortId` populated until the FE
-   *  re-points to position groups (#1013 removes with the legacy roots). */
-  cohortId?: string;
   /** Screenshot-capture ledger fields read by functions/screenshot-capture
    *  tracking — preserved through the order-intents migration. */
   tracking?: OrderTicketTrackingFields;

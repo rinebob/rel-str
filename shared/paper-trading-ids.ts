@@ -1,70 +1,39 @@
 /**
  *
- * Paper-trading collection paths and human-readable ID builders.
+ * Paper-trading ID builders + the legacy→canonical group-id map.
  *
- * Layout (Blueprint #557): one root collection `paper-trading` holding a
- * small set of kind anchor docs; each anchor owns a single `items`
- * subcollection of records. Keeps the console navigable without scattering
- * types across root collections.
- *
- *   paper-trading/{anchor}/items/{docId}
- *
- * Since #1158 the analysis-* helpers in this module are the exception —
- * `analysisDatasetsPath()`/`analysisSlicesPath()` resolve canonical
- * `st-paper-trading` anchors, not the retired legacy root.
+ * Since #1661 every paper-trading record lives under `st-paper-trading`
+ * anchors; the legacy `paper-trading` root (and its cohorts/items path)
+ * is retired. `cohortIdToGroupId` below bridges pre-cutover trade docs
+ * whose `cohortId` predates the `positionGroupId` stamp.
  *
  * ID formats:
  *   account  acct-{userId}
  *   trade    YYMMDD-{origin}-{SYMBOL}-{desc}        origin: st|sig|man
  *            desc = EQ | EQV{n}{L|S} | {SPREAD}-{DELTA3}-{DTE2}
  *            collision suffix -HHMM
- *   cohort   cohort-YYMMDD-{SYMBOL}-{seq2}
  *   stats    stats-{scope}
  *   rawQuote rq-{tradeId}-{YYMMDD}
  *   instance reuses generateInstanceId (see shared/strategy-instance-id.ts)
  */
 
 import { formatDelta, formatDte, formatYYMMDD } from './id-format';
+import { stPositionGroupId } from './st-ids';
 import { TradeSide } from './common';
 import { stPaperTradingItemsPath, StPaperTradingKind } from './st-collections';
 // Type-only — paper-trading-contracts imports PaperTradingKind from this
 // module as a value, so a runtime import here would create a cycle.
 import type { PaperTradeSource } from './paper-trading-contracts';
 
-/** Root collection for all paper-trading records. */
-export const PAPER_TRADING_ROOT = 'paper-trading';
-
 /** Record kinds housed under the `paper-trading` root. */
 export enum PaperTradingKind {
   ACCOUNT = 'account',
   INSTANCE = 'instance',
-  COHORT = 'cohort',
   TRADE = 'trade',
   STATS = 'stats',
   RAW_QUOTE = 'raw-quote',
   ANALYSIS_DATASET = 'analysis-dataset',
   ANALYSIS_SLICE = 'analysis-slice',
-}
-
-const KIND_ANCHORS: Record<PaperTradingKind, string> = {
-  [PaperTradingKind.ACCOUNT]: 'accounts',
-  [PaperTradingKind.INSTANCE]: 'instances',
-  [PaperTradingKind.COHORT]: 'cohorts',
-  [PaperTradingKind.TRADE]: 'trades',
-  [PaperTradingKind.STATS]: 'stats',
-  [PaperTradingKind.RAW_QUOTE]: 'raw-quotes',
-  [PaperTradingKind.ANALYSIS_DATASET]: 'analysis-datasets',
-  [PaperTradingKind.ANALYSIS_SLICE]: 'analysis-slices',
-};
-
-/** Firestore collection path for a kind's `items` subcollection (odd segments). */
-export function paperTradingItemsPath(kind: PaperTradingKind): string {
-  return `${PAPER_TRADING_ROOT}/${KIND_ANCHORS[kind]}/items`;
-}
-
-/** Firestore document path for a record (even segments). */
-export function paperTradingDocPath(kind: PaperTradingKind, id: string): string {
-  return `${paperTradingItemsPath(kind)}/${id}`;
 }
 
 // ── Account ────────────────────────────────────────────────────────────────
@@ -149,12 +118,6 @@ export function parseTradeId(id: string): ParsedTradeId | null {
   return { date: m[1], origin: m[2] as TradeOrigin, symbol: m[3], desc: m[4], suffix: m[5] };
 }
 
-// ── Cohort ─────────────────────────────────────────────────────────────────
-
-export function buildCohortId(date: Date, symbol: string, seq: number): string {
-  return `cohort-${formatYYMMDD(date)}-${symbol.toUpperCase()}-${String(seq).padStart(2, '0')}`;
-}
-
 // ── Stats ──────────────────────────────────────────────────────────────────
 
 export function buildStatsId(scope: string): string {
@@ -167,6 +130,26 @@ export function statsScopeVariant(variantKey: string): string { return `var-${va
 export function statsScopeCohort(cohortId: string): string {
   // cohort ids already carry the 'cohort-' prefix — don't double it.
   return cohortId.startsWith('cohort-') ? cohortId : `cohort-${cohortId}`;
+}
+
+/**
+ * Maps a legacy cohort id to the canonical `st-position-groups` doc id:
+ * `cohort-{YYMMDD}-{SYM}-{NN}` → `{SYM}-{YYMMDD}-grp-{NN}` (#1661). Null
+ * on a malformed id; anything else (including a `grp-*` id, which is NOT
+ * a cohort id) is left for the caller to handle via the union reads.
+ */
+export function cohortIdToGroupId(cohortId: string | null | undefined): string | null {
+  const m = /^cohort-(\d{6})-(.+)-(\d+)$/.exec(cohortId ?? '');
+  if (!m) return null;
+  const [, yymmdd, symbol, seqStr] = m;
+  try {
+    const date = new Date(
+      `20${yymmdd.slice(0, 2)}-${yymmdd.slice(2, 4)}-${yymmdd.slice(4, 6)}T12:00:00Z`,
+    );
+    return stPositionGroupId(symbol, date, Number(seqStr));
+  } catch {
+    return null;
+  }
 }
 export function statsScopeSignal(signalId: string): string { return `sig-${signalId}`; }
 export function statsScopeSymbol(symbol: string): string { return `sym-${symbol.toUpperCase()}`; }
