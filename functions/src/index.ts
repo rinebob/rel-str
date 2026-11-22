@@ -173,6 +173,11 @@ export {
   generatePaperSignalTrades,
   deletePaperTrades,
 } from './paper-trading/signal-trade-callables';
+// Signal-selection review pane (#1650) — queue picker + per-symbol bundle
+export {
+  getSignalReviewQueue,
+  getSignalReviewBundle,
+} from './paper-trading/signal-review-callables';
 export { expressionFillPassTimer } from './paper-trading/passes/expression-fill-pass';
 
 // Paper trading — dashboard read APIs (#565)
