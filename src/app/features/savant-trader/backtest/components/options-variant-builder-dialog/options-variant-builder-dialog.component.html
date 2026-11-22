@@ -1,0 +1,139 @@
+<h2 class="title">Variant builder</h2>
+
+<div class="content">
+  <label class="dse-field field-mode">
+    <span class="field-label">Compose</span>
+    <select class="dse-select" data-testid="builder-mode" [value]="store.mode()" (change)="onModeChange($any($event.target).value)">
+      @for (m of modes; track m.id) {
+        <option [value]="m.id">{{ m.label }}</option>
+      }
+    </select>
+  </label>
+
+  @if (store.mode() === 'named') {
+    <label class="dse-field field-full">
+      <span class="field-label">Variant</span>
+      <select class="dse-select" data-testid="variant-select" [value]="store.variantId()" (change)="onVariantChange($any($event.target).value)">
+        @for (v of variants; track v.id) {
+          <option [value]="v.id">{{ v.name }} — {{ v.description }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  @if (store.mode() === 'shape') {
+    <label class="dse-field field-full">
+      <span class="field-label">Base template</span>
+      <select class="dse-select" data-testid="shape-select" [value]="store.shapeId()" (change)="onShapeChange($any($event.target).value)">
+        @for (s of shapes; track s.id) {
+          <option [value]="s.id">{{ s.name }} — {{ s.description }}</option>
+        }
+      </select>
+    </label>
+
+    <div class="leg-rows" data-testid="shape-legs">
+      @for (ctl of store.shapeLegControls(); track ctl.index) {
+        @if (ctl.kind === 'stock') {
+          <div class="leg-row leg-stock">
+            <span class="leg-role">{{ ctl.role }}</span>
+            <span class="leg-fixed">{{ ctl.side }} stock</span>
+          </div>
+        } @else {
+          <div class="leg-row">
+            <span class="leg-role">{{ ctl.role }} {{ ctl.type }} · {{ ctl.side }}</span>
+            <label class="dse-field leg-delta">
+              <span class="field-label">Δ%</span>
+              <select class="dse-select" [attr.data-testid]="'shape-delta-' + ctl.index" [value]="ctl.pick?.deltaMag" (change)="onDeltaPick(ctl.index, $any($event.target).value)">
+                @for (d of ctl.deltaOptions; track d) {
+                  <option [value]="d">{{ d }}</option>
+                }
+              </select>
+            </label>
+            <label class="dse-field leg-dte">
+              <span class="field-label">DTE</span>
+              <select class="dse-select" [attr.data-testid]="'shape-dte-' + ctl.index" [value]="ctl.pick?.dte" (change)="onDtePick(ctl.index, $any($event.target).value)">
+                @for (t of ctl.dteOptions; track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+      }
+    </div>
+  }
+
+  @if (store.mode() === 'scratch') {
+    <div class="leg-rows" data-testid="scratch-legs">
+      @for (row of store.scratchLegs(); track $index) {
+        <div class="leg-row leg-scratch">
+          <select class="dse-select" [attr.data-testid]="'scratch-kind-' + $index" [value]="row.kind" (change)="updateScratchLeg($index, { kind: $any($event.target).value })">
+            <option value="option">option</option>
+            <option value="stock">stock</option>
+          </select>
+          <select class="dse-select" [attr.data-testid]="'scratch-side-' + $index" [value]="row.side" (change)="updateScratchLeg($index, { side: $any($event.target).value })">
+            @for (s of sides; track s) {
+              <option [value]="s">{{ s }}</option>
+            }
+          </select>
+          @if (row.kind === 'option') {
+            <select class="dse-select" [attr.data-testid]="'scratch-type-' + $index" [value]="row.type" (change)="updateScratchLeg($index, { type: $any($event.target).value })">
+              @for (t of optionTypes; track t) {
+                <option [value]="t">{{ t }}</option>
+              }
+            </select>
+            <select class="dse-select" [attr.data-testid]="'scratch-delta-' + $index" [value]="row.deltaMag" (change)="updateScratchLeg($index, { deltaMag: +$any($event.target).value })">
+              @for (d of scratchDeltaOptions; track d) {
+                <option [value]="d">Δ{{ d }}</option>
+              }
+            </select>
+            <select class="dse-select" [attr.data-testid]="'scratch-dte-' + $index" [value]="row.dte" (change)="updateScratchLeg($index, { dte: +$any($event.target).value })">
+              @for (t of scratchDteOptions; track t) {
+                <option [value]="t">{{ t }}DTE</option>
+              }
+            </select>
+          }
+          <button class="icon-btn" type="button" title="Remove leg" [attr.data-testid]="'scratch-remove-' + $index" (click)="removeScratchLeg($index)">
+            <span class="dse-icon">close</span>
+          </button>
+        </div>
+      }
+      <button class="ds-btn outline" type="button" data-testid="scratch-add" [disabled]="store.scratchLegs().length >= 8" (click)="addScratchLeg()">Add leg</button>
+    </div>
+  }
+
+  <div class="preview" data-testid="legs-preview">
+    <span class="field-label">Composed legs</span>
+    @if (store.composedLegs().length === 0) {
+      <p class="form-note">No legs yet — add one or pick a template.</p>
+    } @else {
+      <ul class="preview-list">
+        @for (leg of store.composedLegs(); track $index) {
+          <li>{{ legLabel(leg) }}</li>
+        }
+      </ul>
+    }
+    @for (err of store.legErrors(); track err) {
+      <p class="field-error" data-testid="leg-error">{{ err }}</p>
+    }
+  </div>
+
+  <div class="row-fields">
+    @if (store.mode() !== 'named') {
+      <label class="dse-field field-name">
+        <span class="field-label">Variant name (optional)</span>
+        <input class="field-input" data-testid="variant-name" maxlength="200" [value]="store.variantName()" (input)="onVariantName($any($event.target).value)" placeholder="run label" />
+      </label>
+    }
+    <label class="dse-field field-export">
+      <span class="field-label">Registry id</span>
+      <input class="field-input" data-testid="export-id" [value]="store.exportId()" (input)="onExportId($any($event.target).value)" placeholder="my-variant-id" />
+    </label>
+  </div>
+</div>
+
+<div class="actions" align="end">
+  <button class="ds-btn" type="button" (click)="cancel()">Cancel</button>
+  <button class="ds-btn outline" type="button" data-testid="copy-json" [disabled]="!store.exportJson()" (click)="copyJson()">Copy JSON</button>
+  <button class="ds-btn fill" type="button" data-testid="builder-submit" [disabled]="!store.canSubmit()" (click)="submit()">{{ submitLabel }}</button>
+</div>
