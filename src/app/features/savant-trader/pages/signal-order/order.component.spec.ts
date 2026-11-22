@@ -85,7 +85,7 @@ describe('OrderComponent', () => {
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
       // Shared paper transaction (#755) — resolves the cohort response
       // by default; individual tests reject to exercise the failure path.
-      sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
+      sendTicketToPaper: jest.fn().mockResolvedValue({ positionGroupId: 'grp-1', expressionTradeIds: [] }),
       reconcileTerminalStatuses: jasmine.createSpy('reconcileTerminalStatuses'),
     };
 
@@ -739,7 +739,7 @@ describe('OrderComponent', () => {
       priceMock = TestBed.inject(EquityPriceService) as any;
       snack = TestBed.inject(DsToastService);
       storeMock.sendTicketToPaper.mockReset();
-      storeMock.sendTicketToPaper.mockResolvedValue({ cohortId: 'c1', expressionTradeIds: ['e1'] });
+      storeMock.sendTicketToPaper.mockResolvedValue({ positionGroupId: 'grp-1', expressionTradeIds: ['e1'] });
       priceMock.prices.set({});
     });
 
@@ -814,7 +814,7 @@ describe('OrderComponent', () => {
       fixture.detectChanges();
 
       storeMock.sendTicketToPaper
-        .mockResolvedValueOnce({ cohortId: 'c', expressionTradeIds: [] })
+        .mockResolvedValueOnce({ positionGroupId: 'grp-1', expressionTradeIds: [] })
         .mockRejectedValueOnce(new Error('boom'));
 
       await component.onSendTicketsToPaper(['1', '2']);
@@ -861,7 +861,7 @@ describe('OrderComponent', () => {
           '1': t,
           '2': { ...t2, status: OrderTicketStatus.SUBMITTED },
         });
-        return { cohortId: 'c', expressionTradeIds: [] };
+        return { positionGroupId: 'grp-1', expressionTradeIds: [] };
       });
 
       await component.onSendTicketsToPaper(['1', '2']);
@@ -887,7 +887,7 @@ describe('OrderComponent', () => {
       );
       const first = component.onSendTicketsToPaper(['1']);
       await component.onSendTicketsToPaper(['1']);
-      release({ cohortId: 'c', expressionTradeIds: [] });
+      release({ positionGroupId: 'grp-1', expressionTradeIds: [] });
       await first;
 
       expect(storeMock.sendTicketToPaper).toHaveBeenCalledTimes(1);

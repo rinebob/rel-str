@@ -3,7 +3,7 @@
  *
  * Paper trading dashboard. Reads the paper ledger via PaperTradingStore
  * (listPaperTrades / getPaperAccount) — client-side
- * group-by over the loaded trade list, expandable cohort sections,
+ * group-by over the loaded trade list, expandable group sections,
  * account header (negative cash visible).
  * #1067: sortable columns + sticky table headers; equity curve removed
  * (forensics surface moves to the trade-analysis work, Thread #1059).
@@ -26,7 +26,7 @@ import { LIFECYCLE_OPEN_TRADE_STATUSES, PaperTradeStatus } from '@paper-trading/
 import type { PaperTrade } from '@paper-trading/contracts';
 
 export type GroupByKey =
-  | 'all' | 'instance' | 'cohort' | 'variant' | 'expression' | 'symbol'
+  | 'all' | 'instance' | 'group' | 'variant' | 'expression' | 'symbol'
   | 'signalType' | 'direction' | 'sector' | 'industry' | 'capTier' | 'signalStatus';
 
 export type SortKey =
@@ -102,9 +102,9 @@ export class PaperTradingComponent implements OnInit {
    *  out of the chain (asc → desc → remove). */
   readonly sorts = signal<{ key: SortKey; dir: SortDir }[]>([]);
 
-  /** Cohort section expanded open (cohortId), or null — cohort sections
+  /** Group section expanded open (group key), or null — group sections
    *  render collapsed (header + stats only) until toggled. */
-  readonly selectedCohort = signal<string | null>(null);
+  readonly selectedGroup = signal<string | null>(null);
 
   /** Table columns — label + sort accessor; the thead iterates this. */
   protected readonly COLUMNS: { key: SortKey; label: string; acc: (t: PaperTrade) => string | number }[] = [
@@ -122,7 +122,7 @@ export class PaperTradingComponent implements OnInit {
    *  header label. */
   private readonly GROUP_DIMS: Partial<Record<GroupByKey, GroupDim>> = {
     instance: { map: () => this.store.tradesByInstance() },
-    cohort: { map: () => this.store.tradesByCohort() },
+    group: { map: () => this.store.tradesByGroup() },
     variant: { map: () => this.store.tradesByVariant() },
     expression: { map: () => this.store.tradesByExpression() },
     symbol: { map: () => this.store.tradesBySymbol() },
@@ -238,8 +238,8 @@ export class PaperTradingComponent implements OnInit {
     return i === -1 ? null : i + 1;
   }
 
-  toggleCohort(cohortId: string): void {
-    this.selectedCohort.set(this.selectedCohort() === cohortId ? null : cohortId);
+  toggleGroup(key: string): void {
+    this.selectedGroup.set(this.selectedGroup() === key ? null : key);
   }
 
   // ── Row actions + status filter (#671) ──────────────────────────────────

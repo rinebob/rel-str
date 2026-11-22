@@ -88,7 +88,7 @@ describe('OrderTicketStore', () => {
     attrService = { seedFromTicket$: jest.fn(() => of(null)) };
     paperTrading = {
       paperSignalOrder$: jest.fn().mockReturnValue(
-        of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: ['e1'] }),
+        of({ positionGroupId: 'grp-1', equityTradeId: 'eq-1', expressionTradeIds: ['e1'] }),
       ),
     };
     orderExecution = {
@@ -904,14 +904,14 @@ describe('OrderTicketStore', () => {
       const statuses: OrderTicketStatus[] = [];
       paperTrading.paperSignalOrder$.mockImplementation(() => {
         statuses.push(store.tickets()['ticket-1'].status);
-        return of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: [] });
+        return of({ positionGroupId: 'grp-1', equityTradeId: 'eq-1', expressionTradeIds: [] });
       });
 
       const res = await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);
 
       // Transient SUBMITTING guarded the callable window (C1, #709).
       expect(statuses).toEqual([OrderTicketStatus.SUBMITTING]);
-      expect(res.cohortId).toBe('c1');
+      expect(res.positionGroupId).toBe('grp-1');
       // The liv_ doc is consumed — never patched to mode:'paper' (the
       // {liv|pap}_ prefix must mirror mode). The callable's own
       // pap_{tradeId} lifecycle doc is the paper record.
@@ -1010,7 +1010,7 @@ describe('OrderTicketStore', () => {
       ticketService.deleteTicket.and.returnValue(throwError(() => new Error('write down')));
       store.stageTicket(signalTicket());
       paperTrading.paperSignalOrder$.mockReturnValue(
-        of({ cohortId: 'c1', equityTradeId: 'eq-1', expressionTradeIds: [] }),
+        of({ positionGroupId: 'grp-1', equityTradeId: 'eq-1', expressionTradeIds: [] }),
       );
 
       await store.sendTicketToPaper(store.tickets()['ticket-1'] as EquityOrderTicket, 7);

@@ -117,8 +117,8 @@ export const PaperTradingStore = signalStore(
     availableInstances: computed(() =>
       [...new Set(state.trades().map((t) => t.strategyInstanceId).filter((x): x is string => !!x))].sort(),
     ),
-    availableCohorts: computed(() =>
-      [...new Set(state.trades().map((t) => t.cohortId).filter((x): x is string => !!x))].sort(),
+    availableGroups: computed(() =>
+      [...new Set(state.trades().map((t) => t.positionGroupId ?? t.cohortId).filter((x): x is string => !!x))].sort(),
     ),
     availableSymbols: computed(() =>
       [...new Set(state.trades().map((t) => t.symbol))].sort(),
@@ -136,8 +136,8 @@ export const PaperTradingStore = signalStore(
     tradesByInstance: computed(() =>
       groupTradesBy(state.trades(), (t) => [t.strategyInstanceId ?? NO_GROUP]),
     ),
-    tradesByCohort: computed(() =>
-      groupTradesBy(state.trades(), (t) => [t.cohortId ?? NO_GROUP]),
+    tradesByGroup: computed(() =>
+      groupTradesBy(state.trades(), (t) => [(t.positionGroupId ?? t.cohortId) ?? NO_GROUP]),
     ),
     tradesByVariant: computed(() => groupTradesBy(state.trades(), (t) => t.variantKeys)),
     tradesBySymbol: computed(() => groupTradesBy(state.trades(), (t) => [t.symbol])),

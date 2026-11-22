@@ -94,7 +94,7 @@ describe('OrderTicketComponent', () => {
       stageTicket: jasmine.createSpy('stageTicket'),
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
       sendTicketToPaper: jasmine.createSpy('sendTicketToPaper').and.returnValue(
-        Promise.resolve({ cohortId: 'cohort-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
+        Promise.resolve({ positionGroupId: 'grp-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
       ),
     };
     dialog = {
@@ -110,7 +110,7 @@ describe('OrderTicketComponent', () => {
     };
     paperTrading = {
       paperSignalOrder$: jest.fn().mockReturnValue(of<PaperSignalOrderResponse>({
-        cohortId: 'cohort-9',
+        positionGroupId: 'grp-9',
         equityTradeId: 'eq-1',
         expressionTradeIds: ['exp-1', 'exp-2'],
       })),
@@ -498,7 +498,7 @@ describe('OrderTicketComponent — accept as paper', () => {
       stageTicket: jasmine.createSpy('stageTicket'),
       setTicketStatusLocal: jasmine.createSpy('setTicketStatusLocal'),
       sendTicketToPaper: jasmine.createSpy('sendTicketToPaper').and.returnValue(
-        Promise.resolve({ cohortId: 'cohort-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
+        Promise.resolve({ positionGroupId: 'grp-9', expressionTradeIds: ['exp-1', 'exp-2'] }),
       ),
     };
     dialog = {
@@ -594,7 +594,7 @@ describe('OrderTicketComponent — accept as paper', () => {
     });
     store.sendTicketToPaper.and.callFake(async () => {
       sendRanWithSavePending = !saveResolved;
-      return { cohortId: 'c', expressionTradeIds: [] };
+      return { positionGroupId: 'grp-1', expressionTradeIds: [] };
     });
 
     await component.onAcceptAsPaper();
@@ -644,7 +644,7 @@ describe('OrderTicketComponent — accept as paper', () => {
     expect(dialog.open).not.toHaveBeenCalled();
   });
 
-  it('delegates to the shared sendTicketToPaper transaction, then reports the cohort', async () => {
+  it('delegates to the shared sendTicketToPaper transaction, then reports the group', async () => {
     mount(signalTicket());
     await component.onAcceptAsPaper();
     // The store transaction owns request shape, SUBMITTING transient,
@@ -655,7 +655,7 @@ describe('OrderTicketComponent — accept as paper', () => {
       'Paper accept failed: ',
     );
     expect(snackBar.open).toHaveBeenCalledWith(
-      expect.stringContaining('cohort-9'),
+      expect.stringContaining('grp-9'),
       'Dismiss',
       expect.anything(),
     );

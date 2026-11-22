@@ -64,7 +64,7 @@ const SIGNAL_TRADE = makeTrade({
   id: 't-2',
   source: PaperTradeSource.SIGNAL,
   expression: 'LC',
-  cohortId: 'cohort-9',
+  positionGroupId: 'grp-9',
   signalId: 'sig-9',
   symbol: 'AAPL',
   variantKeys: ['trailing-20', 'time-9d'],
@@ -126,12 +126,12 @@ describe('PaperTradingStore', () => {
 
   it('loadTrades fetches with the active filter request', async () => {
     mockService.listPaperTrades$.mockReturnValue(of({ trades: [makeTrade(), SIGNAL_TRADE] }));
-    store.loadTrades({ cohortId: 'cohort-9', expression: 'CSP' });
+    store.loadTrades({ symbol: 'QQQM', expression: 'CSP' });
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ cohortId: 'cohort-9', expression: 'CSP', includeAutoPaper: true });
+    expect(mockService.listPaperTrades$).toHaveBeenCalledWith({ symbol: 'QQQM', expression: 'CSP', includeAutoPaper: true });
     expect(store.trades().length).toBe(2);
     expect(store.isLoadingTrades()).toBe(false);
-    expect(store.tradeFilters()).toEqual({ cohortId: 'cohort-9', expression: 'CSP' });
+    expect(store.tradeFilters()).toEqual({ symbol: 'QQQM', expression: 'CSP' });
   });
 
   it('setTradeFilters replaces the request and refetches', async () => {
@@ -182,9 +182,9 @@ describe('PaperTradingStore', () => {
     expect(store.tradesByVariant().get('trailing-20')?.length).toBe(3);
     expect(store.tradesByExpression().get('LC')?.map((t) => t.id)).toEqual(['t-2']);
     expect(store.tradesBySource().get('signal')?.map((t) => t.id)).toEqual(['t-2']);
-    expect(store.tradesByCohort().get('cohort-9')?.map((t) => t.id)).toEqual(['t-2']);
+    expect(store.tradesByGroup().get('grp-9')?.map((t) => t.id)).toEqual(['t-2']);
     expect(store.tradesByInstance().get('inst-1')?.map((t) => t.id)).toEqual(['t-3']);
-    expect(store.availableCohorts()).toEqual(['cohort-9']);
+    expect(store.availableGroups()).toEqual(['grp-9']);
     expect(store.availableInstances()).toEqual(['inst-1']);
     expect(store.availableVariantKeys()).toEqual(['time-9d', 'trailing-20']);
   });
@@ -319,7 +319,7 @@ describe('PaperTradingStore', () => {
     );
     store.loadTrades();
     await new Promise<void>((r) => setTimeout(r, 0));
-    expect(store.tradesByCohort().get('none')?.map((t) => t.id)).toEqual(['t-1']);
+    expect(store.tradesByGroup().get('none')?.map((t) => t.id)).toEqual(['t-1']);
     expect(store.tradesByInstance().get('none')?.map((t) => t.id)).toEqual(['t-1']);
     expect(store.tradesByExpression().get('none')?.map((t) => t.id)).toEqual(['t-1']);
   });

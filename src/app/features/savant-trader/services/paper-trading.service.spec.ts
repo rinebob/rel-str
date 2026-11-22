@@ -51,9 +51,9 @@ describe('PaperTradingService', () => {
   });
 
   it('listPaperTrades$ passes filters and defaults to {}', async () => {
-    await lastValueFrom(service.listPaperTrades$({ cohortId: 'c-1' }));
+    await lastValueFrom(service.listPaperTrades$({ signalId: 'sig-9' }));
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.LIST_PAPER_TRADES);
-    expect(mockCallable).toHaveBeenCalledWith({ cohortId: 'c-1' });
+    expect(mockCallable).toHaveBeenCalledWith({ signalId: 'sig-9' });
 
     await lastValueFrom(service.listPaperTrades$());
     expect(mockCallable).toHaveBeenCalledWith({});

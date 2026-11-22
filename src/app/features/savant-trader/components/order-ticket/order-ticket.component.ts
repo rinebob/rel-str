@@ -267,7 +267,7 @@ export class OrderTicketComponent {
 
   /** Whether the staged ticket can be accepted as paper — signal-pipeline
    *  equity/ETF tickets only (option tickets and non-signal sources have
-   *  no signal context to anchor the paper cohort to). The predicate is
+   *  no signal context to anchor the paper group to). The predicate is
    *  shared with the batch send-to-paper path (#709). */
   readonly canAcceptAsPaper = computed(() => isPaperEligibleTicket(this.ticket()));
 
@@ -697,7 +697,9 @@ export class OrderTicketComponent {
       const quantity = this.wholeQuantity() > 0 ? this.wholeQuantity() : undefined;
       const res = await this.stagingStore.sendTicketToPaper(i, quantity, 'Paper accept failed: ');
       this.snackBar.open(
-        `Accepted as paper — cohort ${res.cohortId} (${res.expressionTradeIds.length} expression trades)`,
+        res.positionGroupId
+          ? `Accepted as paper — group ${res.positionGroupId} (${res.expressionTradeIds.length} expression trades)`
+          : `Accepted as paper (${res.expressionTradeIds.length} expression trades)`,
         'Dismiss',
         { duration: 5000 },
       );

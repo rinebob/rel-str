@@ -21,7 +21,7 @@ import { canonicalOccurrenceDecisionId } from '../services/firestore-helpers';
 import { computePositionSize, ticketCostBasisPrice } from './position-sizing.util';
 
 /** A staged ticket is paper-eligible only when it's a signal-pipeline
- *  equity/ETF order with a signal context — the paper cohort anchors to
+ *  equity/ETF order with a signal context — the paper group anchors to
  *  the occurrence decision (signalId). Option tickets and manual tickets
  *  have no such context. Type-narrows away OptionOrderTicket so the
  *  request builder can read `symbol`. */

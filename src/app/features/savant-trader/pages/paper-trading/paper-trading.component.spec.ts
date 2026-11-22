@@ -92,7 +92,7 @@ describe('PaperTradingComponent', () => {
       openTrades: signal(TRADES.filter((t) => t.status === PaperTradeStatus.OPEN)),
       // Real Maps — the store's tradesBy* computeds return Map, not Record.
       tradesByInstance: signal(new Map([['none', TRADES]])),
-      tradesByCohort: signal(new Map<string, PaperTrade[]>([
+      tradesByGroup: signal(new Map<string, PaperTrade[]>([
         ['cohort-x', [TRADES[0], TRADES[1]]],
         ['cohort-y', [TRADES[2]]],
       ])),
@@ -180,9 +180,9 @@ describe('PaperTradingComponent', () => {
     expect(groups[0].getAttribute('data-group-key')).toBe('all');
   });
 
-  it('group-by cohort repivots the table into per-cohort sections', () => {
+  it('group-by group repivots the table into per-group sections', () => {
     fixture.detectChanges();
-    component.groupBy.set('cohort');
+    component.groupBy.set('group');
     fixture.detectChanges();
 
     const groups = [...fixture.nativeElement.querySelectorAll('.table-section')];
@@ -203,12 +203,12 @@ describe('PaperTradingComponent', () => {
     expect(keys).toContain('NVDA');
   });
 
-  it('toggling the same cohort collapses the drill-down', () => {
+  it('toggling the same group collapses the drill-down', () => {
     fixture.detectChanges();
-    component.toggleCohort('cohort-x');
-    expect(component.selectedCohort()).toBe('cohort-x');
-    component.toggleCohort('cohort-x');
-    expect(component.selectedCohort()).toBeNull();
+    component.toggleGroup('cohort-x');
+    expect(component.selectedGroup()).toBe('cohort-x');
+    component.toggleGroup('cohort-x');
+    expect(component.selectedGroup()).toBeNull();
   });
 
   it('clicking a column header sorts rows within the group; re-click flips direction', () => {
@@ -274,18 +274,18 @@ describe('PaperTradingComponent', () => {
 
   it('sort applies per-group when grouped by a dimension', () => {
     fixture.detectChanges();
-    component.groupBy.set('cohort');
-    component.toggleCohort('cohort-x'); // cohort sections render collapsed
+    component.groupBy.set('group');
+    component.toggleGroup('cohort-x'); // group sections render collapsed
     component.toggleSort('realized');
     component.toggleSort('realized'); // desc
     fixture.detectChanges();
 
-    const cohortX = [...fixture.nativeElement.querySelectorAll('.table-section')]
+    const groupX = [...fixture.nativeElement.querySelectorAll('.table-section')]
       .find((g) => g.getAttribute('data-group-key') === 'cohort-x');
-    const ids = [...cohortX!.querySelectorAll('tbody tr')].map(
+    const ids = [...groupX!.querySelectorAll('tbody tr')].map(
       (r: Element) => r.querySelector('.mono')!.textContent,
     );
-    // desc within cohort-x: csp (80) before eq (50)
+    // desc within group-x: csp (80) before eq (50)
     expect(ids).toEqual(['pt-aapl-sig-x-csp', 'pt-aapl-sig-x-eq']);
   });
 
@@ -311,9 +311,9 @@ describe('PaperTradingComponent', () => {
     expect(symbolTh.getAttribute('aria-sort')).toBe('descending');
   });
 
-  it('cohort sections render collapsed — table hidden until the expando opens', () => {
+  it('group sections render collapsed — table hidden until the expando opens', () => {
     fixture.detectChanges();
-    component.groupBy.set('cohort');
+    component.groupBy.set('group');
     fixture.detectChanges();
 
     const section = (key: string) =>
@@ -322,12 +322,12 @@ describe('PaperTradingComponent', () => {
 
     expect(section('cohort-x').querySelector('.trades-table')).toBeNull();
 
-    component.toggleCohort('cohort-x');
+    component.toggleGroup('cohort-x');
     fixture.detectChanges();
     expect(section('cohort-x').querySelector('.trades-table')).toBeTruthy();
     expect(section('cohort-y').querySelector('.trades-table')).toBeNull(); // accordion
 
-    component.toggleCohort('cohort-x');
+    component.toggleGroup('cohort-x');
     fixture.detectChanges();
     expect(section('cohort-x').querySelector('.trades-table')).toBeNull(); // closes
   });
@@ -465,10 +465,10 @@ describe('PaperTradingComponent', () => {
     expect(row.querySelector('[data-testid="close-trade"]')).toBeNull();
   });
 
-  it('cohort drill-down rows expose the same actions', () => {
+  it('group drill-down rows expose the same actions', () => {
     fixture.detectChanges();
-    component.groupBy.set('cohort');
-    component.toggleCohort('cohort-x');
+    component.groupBy.set('group');
+    component.toggleGroup('cohort-x');
     fixture.detectChanges();
 
     const section = [...fixture.nativeElement.querySelectorAll('.table-section')]

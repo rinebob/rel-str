@@ -206,7 +206,7 @@ describe('GalleryCardActionsService', () => {
         ticketStoreMock.tickets.update((m) => ({ ...m, [t.id]: t }));
         return true;
       }),
-      sendTicketToPaper: jest.fn().mockResolvedValue({ cohortId: 'c1', expressionTradeIds: [] }),
+      sendTicketToPaper: jest.fn().mockResolvedValue({ positionGroupId: 'grp-1', expressionTradeIds: [] }),
       removeTicket: jest.fn((id: string) => {
         ticketStoreMock.tickets.update((m) => {
           const next = { ...m };

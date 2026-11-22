@@ -40,7 +40,7 @@ export class PaperTradingService {
 
   /**
    * Accept a signal/order ticket as a paper trade — fills the equity leg
-   * on the acceptance quote, creates the cohort, and fans out PENDING
+   * on the acceptance quote, creates the position group, and fans out PENDING
    * expression trades.
    */
   paperSignalOrder$(request: PaperSignalOrderRequest): Observable<PaperSignalOrderResponse> {
@@ -49,7 +49,7 @@ export class PaperTradingService {
 
   /**
    * List paper trades with AND-combined filters (status, source, instance,
-   * cohort, signal, symbol, expression, variantKey). Empty request → all.
+   * signal, symbol, expression, variantKey). Empty request → all.
    */
   listPaperTrades$(request: ListPaperTradesRequest = {}): Observable<ListPaperTradesResponse> {
     return this.call(CallableName.LIST_PAPER_TRADES, request);
