@@ -10,7 +10,8 @@
  *   (e.g., "call debit spread: long leg 35–55Δ, short leg 25–45Δ, 25–45 DTE").
  * - **Manage Variant** — the concrete instantiation: a template plus a
  *   pinned Δ/DTE per leg, given a descriptive name (e.g., "call debit
- *   spread 50-40 30" = long 50Δ, short 40Δ, 30 DTE).
+ *   spread 30 50-40" = 30 DTE, long 50Δ, short 40Δ — dte-first, same
+ *   segment order as the variant and instance ids).
  *
  * Most variants are authored in bulk outside the app and arrive via the
  * catalog artifact (#1541); ad hoc variants are composed in-app via
@@ -65,12 +66,18 @@ export interface ManageTemplateOptionLeg {
   role: string;
   type: OptionType;
   side: TradeSide;
-  /** Signed-delta band, e.g. -0.35..-0.15 for a short put leg. */
-  deltaMin: number;
-  deltaMax: number;
-  /** DTE band in calendar days. */
-  dteMin: number;
-  dteMax: number;
+  /**
+   * Signed-delta band, e.g. -0.35..-0.15 for a short put leg —
+   * OPTIONAL authoring guidance, never enforcement. Debit spreads omit
+   * bands entirely: any |long|>|short| pair is a valid instance of the
+   * shape (.9/.8 as much as .2/.1). Credit templates typically keep
+   * them — the short-strike range is the strategy.
+   */
+  deltaMin?: number;
+  deltaMax?: number;
+  /** DTE band in calendar days — same optional-authoring semantics. */
+  dteMin?: number;
+  dteMax?: number;
 }
 
 /** A stock leg slot — direction only; marks at the underlying close. */
@@ -101,6 +108,21 @@ export interface ManageTemplate {
    * enumerates (e.g., CDS long-then-short → '50-40').
    */
   legs: ManageTemplateLeg[];
+  /**
+   * True when every option leg shares one expiry (verticals) — the
+   * create dialog keeps leg-DTE inputs synced on edit. Calendars and
+   * diagonals leave this unset.
+   */
+  uniformDte?: boolean;
+  /**
+   * Vertical ordering rule on |Δ| across leg sides: 'debit' requires
+   * every long-side |Δ| to exceed every short-side |Δ|; 'credit' the
+   * inverse. Absolute values — the rule is identical for calls and puts
+   * (put deltas are signed negative). Applies to single-pair vertical
+   * shapes; multi-wing structures (condors) need pair-scoped rules and
+   * should leave this unset.
+   */
+  direction?: 'debit' | 'credit';
 }
 
 // ==========================
@@ -119,7 +141,7 @@ export interface ManageVariant {
    * the instance embeds the full snapshot either way.
    */
   id: string;
-  /** Descriptive display name, e.g. 'call debit spread 50-40 30'. */
+  /** Descriptive display name, e.g. 'call debit spread 30 50-40'. */
   name: string;
   /**
    * Back-reference to `ManageTemplate.id` the variant was composed from.

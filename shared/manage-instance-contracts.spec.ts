@@ -23,7 +23,7 @@ import {
 
 const VARIANT: ManageVariant = {
   id: 'cds-30-50-40',
-  name: 'call debit spread 50-40 30',
+  name: 'call debit spread 30 50-40',
   templateId: 'cds',
   dte: 30,
   legs: [
@@ -89,7 +89,7 @@ describe('manage-instance-contracts', () => {
         createdAt: '2026-11-14T20:00:00Z',
         updatedAt: '2026-11-14T20:00:00Z',
       };
-      expect(instance.variant.name).toBe('call debit spread 50-40 30');
+      expect(instance.variant.name).toBe('call debit spread 30 50-40');
       expect(instance.runState).toBe('UNSTARTED');
     });
 

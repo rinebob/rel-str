@@ -25,6 +25,7 @@ import {
   MANAGE_CUSTOM_TEMPLATE_ID,
   MANAGE_TEMPLATES,
   MANAGE_VARIANTS,
+  variantDirectionHolds,
   variantMatchesTemplate,
 } from '@manage/variant-catalog';
 
@@ -79,14 +80,18 @@ check(
   true,
 );
 check(
-  'option slots: bands well-formed (min<=max, dteMin>0)',
+  'option slots: bands well-formed when present (min<=max, dteMin>0)',
   MANAGE_TEMPLATES.every((t) =>
     t.legs.every(
       (l) =>
         l.kind !== 'option' ||
-        (l.deltaMin <= l.deltaMax &&
-          l.dteMin <= l.dteMax &&
-          l.dteMin > 0),
+        ((l.deltaMin === undefined ||
+          l.deltaMax === undefined ||
+          l.deltaMin <= l.deltaMax) &&
+          (l.dteMin === undefined ||
+            l.dteMax === undefined ||
+            l.dteMin <= l.dteMax) &&
+          (l.dteMin === undefined || l.dteMin > 0)),
     ),
   ),
   true,
@@ -159,29 +164,10 @@ check(
   true,
 );
 check(
-  'seeded variants preserve delta ordering (long > short)',
+  'seeded variants satisfy their template direction ordering',
   MANAGE_VARIANTS.every((v) => {
     const t = getManageTemplate(v.templateId)!;
-    // Unordered pairs — the invariant holds wherever the long/short
-    // slots sit; a short-first template must not silently no-op.
-    const n = Math.min(v.legs.length, t.legs.length);
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const roles = [t.legs[i].role, t.legs[j].role].sort();
-        if (roles[0] !== 'long' || roles[1] !== 'short') continue;
-        const li = t.legs[i].role === 'long' ? i : j;
-        const si = t.legs[i].role === 'short' ? i : j;
-        const ll = v.legs[li], sl = v.legs[si];
-        if (
-          ll.kind === 'option' &&
-          sl.kind === 'option' &&
-          Math.abs(ll.targetDelta) <= Math.abs(sl.targetDelta)
-        ) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return !t.direction || variantDirectionHolds(v, t.direction);
   }),
   true,
 );

@@ -107,7 +107,7 @@ const legs: VariantLeg[] = [
 
 const variant: ManageVariant = {
   id: 'cds-30-50-40',
-  name: 'call debit spread 50-40 30',
+  name: 'call debit spread 30 50-40',
   templateId: 'cds',
   dte: 30,
   legs,
@@ -140,7 +140,7 @@ const instance: ManageInstance = {
 };
 
 check('instance id STOP segment', instance.id.endsWith(instance.stopType), true);
-check('instance embeds variant snapshot', instance.variant.name, 'call debit spread 50-40 30');
+check('instance embeds variant snapshot', instance.variant.name, 'call debit spread 30 50-40');
 check(
   'instance JSON round-trip',
   JSON.parse(JSON.stringify(instance)),

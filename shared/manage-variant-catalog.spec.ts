@@ -6,7 +6,7 @@
  * coherent — template legs carry bands only (no pinned Δ/DTE), variant
  * legs are concrete, every variant's templateId resolves to a seeded
  * template, each variant passes `variantMatchesTemplate`, and seeded
- * variants preserve delta ordering (the debit character). Lookup helpers
+ * variants honor their template's `direction` ordering. Lookup helpers
  * hit/miss.
  */
 
@@ -20,6 +20,7 @@ import {
   MANAGE_CUSTOM_TEMPLATE_ID,
   MANAGE_TEMPLATES,
   MANAGE_VARIANTS,
+  variantDirectionHolds,
   variantMatchesTemplate,
 } from './manage-variant-catalog';
 
@@ -53,9 +54,15 @@ describe('manage-variant-catalog', () => {
           expect(leg).not.toHaveProperty('dte');
           expect(leg.role.length).toBeGreaterThan(0);
           if (leg.kind === 'option') {
-            expect(leg.deltaMin).toBeLessThanOrEqual(leg.deltaMax);
-            expect(leg.dteMin).toBeLessThanOrEqual(leg.dteMax);
-            expect(leg.dteMin).toBeGreaterThan(0);
+            // Bands are optional — debit spreads omit them entirely
+            // (any |long|>|short| pair conforms); when present they
+            // must still be well-formed.
+            if (leg.deltaMin !== undefined && leg.deltaMax !== undefined)
+              expect(leg.deltaMin).toBeLessThanOrEqual(leg.deltaMax);
+            if (leg.dteMin !== undefined && leg.dteMax !== undefined)
+              expect(leg.dteMin).toBeLessThanOrEqual(leg.dteMax);
+            if (leg.dteMin !== undefined)
+              expect(leg.dteMin).toBeGreaterThan(0);
           }
         }
       }
@@ -116,32 +123,14 @@ describe('manage-variant-catalog', () => {
       }
     });
 
-    it('seeded variants preserve delta ordering (debit character)', () => {
-      // Bands may overlap — what keeps a CDS a debit spread is |Δ|long >
-      // |Δ|short. Overlapping bands admit an inverted variant (credit
-      // wearing a CDS name), so ordering is asserted on the seeds. The
-      // long>short direction encodes the seeded debit structure; a future
-      // credit template needs a per-template direction map (flagged to
-      // the artifact-schema workstream).
+    it('seeded variants honor their template direction', () => {
+      // Spread character is machine-readable: 'debit' → every long |Δ|
+      // exceeds every short |Δ|; 'credit' the inverse; unset → free.
+      // variantDirectionHolds is the same predicate variantMatchesTemplate
+      // and the Create dialog use.
       for (const v of MANAGE_VARIANTS) {
         const t = getManageTemplate(v.templateId)!;
-        // Unordered pairs — the invariant holds wherever the long/short
-        // slots sit; a short-first template must not silently no-op.
-        const n = Math.min(v.legs.length, t.legs.length);
-        for (let i = 0; i < n; i++) {
-          for (let j = i + 1; j < n; j++) {
-            const roles = [t.legs[i].role, t.legs[j].role].sort();
-            if (roles[0] !== 'long' || roles[1] !== 'short') continue;
-            const li = t.legs[i].role === 'long' ? i : j;
-            const si = t.legs[i].role === 'short' ? i : j;
-            const ll = v.legs[li], sl = v.legs[si];
-            if (ll.kind === 'option' && sl.kind === 'option') {
-              expect(Math.abs(ll.targetDelta)).toBeGreaterThan(
-                Math.abs(sl.targetDelta),
-              );
-            }
-          }
-        }
+        expect(variantDirectionHolds(v, t.direction)).toBe(true);
       }
     });
 
@@ -250,16 +239,31 @@ describe('manage-variant-catalog', () => {
       ).toBe(false);
     });
 
-    it('rejects a leg pinned outside its band', () => {
+    it('accepts any debit-ordered Δ pair — the cds template is unbanded', () => {
       const v = seed();
-      const offBand = {
+      // .9/.8 deep-ITM is as valid as .2/.1 far-OTM on a debit spread.
+      for (const [long, short] of [[0.9, 0.8], [0.2, 0.1]] as const) {
+        const wide = {
+          ...v,
+          legs: [
+            { ...v.legs[0], targetDelta: long },
+            { ...v.legs[1], targetDelta: short },
+          ],
+        };
+        expect(variantMatchesTemplate(wide, cds())).toBe(true);
+      }
+    });
+
+    it('rejects an inverted-ordering variant — credit legs on a debit template', () => {
+      const v = seed();
+      const inverted = {
         ...v,
         legs: [
-          { ...v.legs[0], targetDelta: 0.9 },
-          v.legs[1],
+          { ...v.legs[0], targetDelta: 0.3 },
+          { ...v.legs[1], targetDelta: 0.6 },
         ],
       };
-      expect(variantMatchesTemplate(offBand, cds())).toBe(false);
+      expect(variantMatchesTemplate(inverted, cds())).toBe(false);
     });
 
     it('rejects a leg with flipped side', () => {

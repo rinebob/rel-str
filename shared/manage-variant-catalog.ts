@@ -19,6 +19,7 @@ import type {
   ManageTemplate,
   ManageVariant,
 } from './manage-variant-contracts';
+import type { OptionLeg } from './options-replay-contracts';
 
 /**
  * `templateId` value for ad hoc variants composed freeform (Create New
@@ -34,39 +35,156 @@ export const MANAGE_CUSTOM_TEMPLATE_ID = 'custom';
 // ==========================
 
 /**
- * Seeded Manage Templates — spread shapes (leg roles + Δ/DTE bands).
- * Bands are per-leg authoring bounds, NOT the spread-classification rule:
- * debit/credit character comes from cross-leg delta ordering — e.g., a
- * call debit spread requires |Δ|long > |Δ|short, and bands may overlap
- * (0.35–0.45 here). Variant authors (external artifact, Create New
- * Strategy) must preserve the template's ordering semantics; the seeded
- * specs assert it for the entries below.
+ * Seeded Manage Templates — spread shapes (leg roles + optional Δ/DTE
+ * bands). Bands are per-leg authoring bounds, NOT the
+ * spread-classification rule: debit/credit character comes from
+ * cross-leg delta ordering — a call debit spread requires
+ * |Δ|long > |Δ|short, now machine-enforced via the template's
+ * `direction` field. Debit templates carry no bands — any
+ * |long|>|short| pair is a valid instance of the shape (.9/.8 as much
+ * as .2/.1); credit templates typically keep them.
  */
 export const MANAGE_TEMPLATES: readonly ManageTemplate[] = [
   {
     id: 'cds',
     name: 'Call Debit Spread',
     code: 'CDS',
+    uniformDte: true,
+    direction: 'debit',
     legs: [
       {
         kind: 'option',
         role: 'long',
         type: OptionType.CALL,
         side: TradeSide.LONG,
-        deltaMin: 0.35,
-        deltaMax: 0.55,
-        dteMin: 25,
-        dteMax: 45,
       },
       {
         kind: 'option',
         role: 'short',
         type: OptionType.CALL,
         side: TradeSide.SHORT,
-        deltaMin: 0.25,
-        deltaMax: 0.45,
-        dteMin: 25,
-        dteMax: 45,
+      },
+    ],
+  },
+  {
+    id: 'pds',
+    name: 'Put Debit Spread',
+    code: 'PDS',
+    uniformDte: true,
+    direction: 'debit',
+    legs: [
+      {
+        kind: 'option',
+        role: 'long',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+      },
+    ],
+  },
+  {
+    id: 'ccs',
+    name: 'Call Credit Spread',
+    code: 'CCS',
+    uniformDte: true,
+    direction: 'credit',
+    legs: [
+      {
+        kind: 'option',
+        role: 'long',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+      },
+    ],
+  },
+  {
+    id: 'pcs',
+    name: 'Put Credit Spread',
+    code: 'PCS',
+    uniformDte: true,
+    direction: 'credit',
+    legs: [
+      {
+        kind: 'option',
+        role: 'long',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+      },
+    ],
+  },
+  {
+    id: 'ns',
+    name: 'Naked Strangle',
+    code: 'NS',
+    uniformDte: true,
+    // No direction — both legs are shorts; there is no long/short pair
+    // to order. |Δ|s are unconstrained beyond (0,1].
+    legs: [
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+      },
+    ],
+  },
+  {
+    id: 'ic',
+    name: 'Iron Condor',
+    code: 'IC',
+    uniformDte: true,
+    direction: 'credit',
+    // Wing→body→body→wing: the ΔLEGS segment reads outer-to-inner
+    // (e.g. ic-30-10-20-20-10). Global 'credit' holds — every body
+    // short is strictly closer to the money than every wing long, so
+    // min(|shorts|) > max(|longs|) is the IC definition itself.
+    legs: [
+      {
+        kind: 'option',
+        role: 'long',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+      },
+      {
+        kind: 'option',
+        role: 'short',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+      },
+      {
+        kind: 'option',
+        role: 'long',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
       },
     ],
   },
@@ -78,14 +196,16 @@ export const MANAGE_TEMPLATES: readonly ManageTemplate[] = [
 
 /**
  * Seeded Manage Variants — concrete per-leg Δ/DTE bound to a template,
- * named per the PRD's convention ('call debit spread {Δlong}-{Δshort}
- * {dte}'). Leg order follows the template's leg order (long-then-short)
- * so the instance ID's ΔLEGS segment enumerates deterministically.
+ * named per the convention '{name} {dte} {Δlong}-{Δshort}' ('call debit
+ * spread 30 50-40') — the same dte-first segment order as the variant
+ * and instance ids. Leg order follows the template's leg order
+ * (long-then-short) so the instance ID's ΔLEGS segment enumerates
+ * deterministically.
  */
 export const MANAGE_VARIANTS: readonly ManageVariant[] = [
   {
     id: 'cds-30-50-40',
-    name: 'call debit spread 50-40 30',
+    name: 'call debit spread 30 50-40',
     templateId: 'cds',
     dte: 30,
     legs: [
@@ -107,7 +227,7 @@ export const MANAGE_VARIANTS: readonly ManageVariant[] = [
   },
   {
     id: 'cds-45-40-30',
-    name: 'call debit spread 40-30 45',
+    name: 'call debit spread 45 40-30',
     templateId: 'cds',
     dte: 45,
     legs: [
@@ -123,6 +243,926 @@ export const MANAGE_VARIANTS: readonly ManageVariant[] = [
         type: OptionType.CALL,
         side: TradeSide.SHORT,
         targetDelta: 0.3,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'cds-30-40-30',
+    name: 'call debit spread 30 40-30',
+    templateId: 'cds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.4,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.3,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'cds-30-60-50',
+    name: 'call debit spread 30 60-50',
+    templateId: 'cds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.6,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.5,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'cds-30-70-60',
+    name: 'call debit spread 30 70-60',
+    templateId: 'cds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.7,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.6,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'cds-45-50-40',
+    name: 'call debit spread 45 50-40',
+    templateId: 'cds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.5,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.4,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'cds-45-60-50',
+    name: 'call debit spread 45 60-50',
+    templateId: 'cds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.6,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.5,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'cds-45-70-60',
+    name: 'call debit spread 45 70-60',
+    templateId: 'cds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.7,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.6,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pds-30-40-30',
+    name: 'put debit spread 30 40-30',
+    templateId: 'pds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.4,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.3,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pds-30-50-40',
+    name: 'put debit spread 30 50-40',
+    templateId: 'pds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.5,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.4,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pds-30-60-50',
+    name: 'put debit spread 30 60-50',
+    templateId: 'pds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.6,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.5,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pds-30-70-60',
+    name: 'put debit spread 30 70-60',
+    templateId: 'pds',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.7,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.6,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pds-45-40-30',
+    name: 'put debit spread 45 40-30',
+    templateId: 'pds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.4,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.3,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pds-45-50-40',
+    name: 'put debit spread 45 50-40',
+    templateId: 'pds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.5,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.4,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pds-45-60-50',
+    name: 'put debit spread 45 60-50',
+    templateId: 'pds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.6,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.5,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pds-45-70-60',
+    name: 'put debit spread 45 70-60',
+    templateId: 'pds',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.7,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.6,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ccs-30-10-20',
+    name: 'call credit spread 30 10-20',
+    templateId: 'ccs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ccs-30-15-25',
+    name: 'call credit spread 30 15-25',
+    templateId: 'ccs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.15,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ccs-30-20-30',
+    name: 'call credit spread 30 20-30',
+    templateId: 'ccs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.2,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.3,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ccs-45-10-20',
+    name: 'call credit spread 45 10-20',
+    templateId: 'ccs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ccs-45-15-25',
+    name: 'call credit spread 45 15-25',
+    templateId: 'ccs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.15,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ccs-45-20-30',
+    name: 'call credit spread 45 20-30',
+    templateId: 'ccs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.2,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.3,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pcs-30-10-20',
+    name: 'put credit spread 30 10-20',
+    templateId: 'pcs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pcs-30-15-25',
+    name: 'put credit spread 30 15-25',
+    templateId: 'pcs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.15,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pcs-30-20-30',
+    name: 'put credit spread 30 20-30',
+    templateId: 'pcs',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.2,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.3,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'pcs-45-10-20',
+    name: 'put credit spread 45 10-20',
+    templateId: 'pcs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pcs-45-15-25',
+    name: 'put credit spread 45 15-25',
+    templateId: 'pcs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.15,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'pcs-45-20-30',
+    name: 'put credit spread 45 20-30',
+    templateId: 'pcs',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.2,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.3,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ns-30-15-15',
+    name: 'naked strangle 30 15-15',
+    templateId: 'ns',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.15,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.15,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ns-30-20-20',
+    name: 'naked strangle 30 20-20',
+    templateId: 'ns',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ns-30-25-25',
+    name: 'naked strangle 30 25-25',
+    templateId: 'ns',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ns-45-15-15',
+    name: 'naked strangle 45 15-15',
+    templateId: 'ns',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.15,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.15,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ns-45-20-20',
+    name: 'naked strangle 45 20-20',
+    templateId: 'ns',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ns-45-25-25',
+    name: 'naked strangle 45 25-25',
+    templateId: 'ns',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ic-30-5-15-15-5',
+    name: 'iron condor 30 5-15-15-5',
+    templateId: 'ic',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.05,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.15,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.15,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.05,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ic-30-10-20-20-10',
+    name: 'iron condor 30 10-20-20-10',
+    templateId: 'ic',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ic-30-10-25-25-10',
+    name: 'iron condor 30 10-25-25-10',
+    templateId: 'ic',
+    dte: 30,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 30,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
+        dte: 30,
+      },
+    ],
+  },
+  {
+    id: 'ic-45-5-15-15-5',
+    name: 'iron condor 45 5-15-15-5',
+    templateId: 'ic',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.05,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.15,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.15,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.05,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ic-45-10-20-20-10',
+    name: 'iron condor 45 10-20-20-10',
+    templateId: 'ic',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.2,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.2,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
+        dte: 45,
+      },
+    ],
+  },
+  {
+    id: 'ic-45-10-25-25-10',
+    name: 'iron condor 45 10-25-25-10',
+    templateId: 'ic',
+    dte: 45,
+    legs: [
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.LONG,
+        targetDelta: -0.1,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.PUT,
+        side: TradeSide.SHORT,
+        targetDelta: -0.25,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.SHORT,
+        targetDelta: 0.25,
+        dte: 45,
+      },
+      {
+        kind: 'option',
+        type: OptionType.CALL,
+        side: TradeSide.LONG,
+        targetDelta: 0.1,
         dte: 45,
       },
     ],
@@ -185,11 +1225,14 @@ export function getManageVariant(id: string): ManageVariant | undefined {
  * bands. The single implementation the spec, verify script, and BE
  * instance-create path share — do not reimplement.
  *
- * `= variantMatchesTemplateShape + band membership`. The two layers are
- * deliberately separable: shape is identity (the ID generator gates on
- * it so a `CDS` SPREAD code can't mislabel a put spread), while bands
- * are authoring policy — seed curation here, Create-dialog/BE validation
- * upstream — that ad hoc variants composed from a template may exceed.
+ * `= variantMatchesTemplateShape + band membership + direction`. The
+ * layers are deliberately separable: shape is identity (the ID
+ * generator gates on it so a `CDS` SPREAD code can't mislabel a put
+ * spread), while bands are optional authoring policy — seed curation
+ * here, Create-dialog/BE validation upstream — that ad hoc variants
+ * composed from a template may exceed. `direction` is the
+ * machine-readable spread character: a credit-ordered variant does not
+ * conform to a debit template.
  *
  * Two documented gaps by design:
  *  - Does NOT validate the denormalized `variant.dte` against the legs
@@ -197,29 +1240,51 @@ export function getManageVariant(id: string): ManageVariant | undefined {
  *    derives/validates it — see ManageVariant.dte.
  *  - Does NOT check `variant.templateId === template.id` — the caller
  *    resolves the template via `variant.templateId` first.
- * Spread character (debit/credit ordering) is a template-level semantic
- * the model can't yet see — a band-passing variant can still invert a
- * debit spread's delta ordering (see the MANAGE_TEMPLATES doc note).
- * Tightening that needs a machine-readable structure field — deferred
- * to the artifact-schema workstream.
  */
 export function variantMatchesTemplate(
   variant: ManageVariant,
   template: ManageTemplate,
 ): boolean {
   if (!variantMatchesTemplateShape(variant, template)) return false;
+  if (!variantDirectionHolds(variant, template.direction)) return false;
   return variant.legs.every((leg, i) => {
     const slot = template.legs[i];
     if (slot.kind === 'option' && leg.kind === 'option') {
       return (
-        leg.targetDelta >= slot.deltaMin &&
-        leg.targetDelta <= slot.deltaMax &&
-        leg.dte >= slot.dteMin &&
-        leg.dte <= slot.dteMax
+        (slot.deltaMin === undefined || leg.targetDelta >= slot.deltaMin) &&
+        (slot.deltaMax === undefined || leg.targetDelta <= slot.deltaMax) &&
+        (slot.dteMin === undefined || leg.dte >= slot.dteMin) &&
+        (slot.dteMax === undefined || leg.dte <= slot.dteMax)
       );
     }
     return true;
   });
+}
+
+/**
+ * Spread character: 'debit' requires every long-side |Δ| to exceed
+ * every short-side |Δ|; 'credit' the inverse. Absolute values — the
+ * rule is identical for calls and puts. `undefined` direction or an
+ * empty side (no pair exists) → unconstrained. Shared by
+ * `variantMatchesTemplate` and the Create New Strategy dialog — do not
+ * reimplement.
+ */
+export function variantDirectionHolds(
+  variant: Pick<ManageVariant, 'legs'>,
+  direction: 'debit' | 'credit' | undefined,
+): boolean {
+  if (!direction) return true;
+  const opt = variant.legs.filter(
+    (l): l is OptionLeg => l.kind === 'option',
+  );
+  const absOf = (side: TradeSide) =>
+    opt.filter((l) => l.side === side).map((l) => Math.abs(l.targetDelta));
+  const longs = absOf(TradeSide.LONG);
+  const shorts = absOf(TradeSide.SHORT);
+  if (longs.length === 0 || shorts.length === 0) return true;
+  return direction === 'debit'
+    ? Math.min(...longs) > Math.max(...shorts)
+    : Math.min(...shorts) > Math.max(...longs);
 }
 
 /**

@@ -89,10 +89,10 @@ describe('manage-variant-contracts', () => {
       { kind: 'option', type: OptionType.CALL, targetDelta: 0.4, dte: 30, side: TradeSide.SHORT },
     ];
 
-    it('pins every option leg to a concrete Δ/DTE — the named "50-40 30" recipe', () => {
+    it('pins every option leg to a concrete Δ/DTE — the named "30 50-40" recipe', () => {
       const variant: ManageVariant = {
         id: 'cds-30-50-40',
-        name: 'call debit spread 50-40 30',
+        name: 'call debit spread 30 50-40',
         templateId: 'cds',
         dte: 30,
         legs,

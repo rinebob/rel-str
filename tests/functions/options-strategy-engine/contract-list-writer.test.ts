@@ -26,7 +26,7 @@ const EXPIRY = '2026-03-06';
 function cdsVariant(): ManageVariant {
   return {
     id: 'cds-30-50-40',
-    name: 'call debit spread 50-40 30',
+    name: 'call debit spread 30 50-40',
     templateId: 'cds',
     dte: 30,
     legs: [

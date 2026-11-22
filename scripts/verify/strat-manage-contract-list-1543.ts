@@ -48,7 +48,7 @@ const EXPIRY = '2026-03-06'; // ~32 DTE — inside a 30-DTE leg's ±15d band
 function cdsVariant(): ManageVariant {
   return {
     id: 'cds-30-50-40',
-    name: 'call debit spread 50-40 30',
+    name: 'call debit spread 30 50-40',
     templateId: 'cds',
     dte: 30,
     legs: [
