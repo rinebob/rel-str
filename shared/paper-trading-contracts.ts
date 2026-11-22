@@ -315,8 +315,8 @@ export const AUTO_PAPER_USER_ID = 'auto-paper';
 
 /**
  * One configured option expression for an accepted-as-paper signal —
- * a single-leg contract-selection recipe (reuses the #108 strategy config
- * shape: option type, side, target delta, DTE band). PENDING expression
+ * a single-leg contract-selection recipe at a concrete coordinate
+ * (option type, side, target delta, target DTE). PENDING expression
  * trades carry their template until the noon-PT expression-fill-pass
  * resolves a real contract.
  */
@@ -327,10 +327,18 @@ export interface SignalExpressionTemplate {
   expression: string;           // 'CSP' | 'LC' | 'SC' | 'LP' | ...
   optionType: OptionType;
   side: TradeSide;
+  /** Unsigned magnitude (e.g. 0.3); consumers sign by `optionType`
+   *  (put → negative, call → positive) before coordinate selection. */
   targetDelta: number;
+  /** Concrete target days-to-expiration — the selector picks the listed
+   *  expiration nearest to it, not a band. */
   targetDte: number;
-  minDte: number;
-  maxDte: number;
+  /** @deprecated Retired with the band scorer (#1502) — selection now
+   *  uses the concrete `targetDte` coordinate. Retained optional so
+   *  persisted templates remain readable; nothing reads it. */
+  minDte?: number;
+  /** @deprecated See `minDte`. */
+  maxDte?: number;
 }
 
 /**
@@ -347,8 +355,6 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
       side: TradeSide.SHORT,
       targetDelta: 0.3,
       targetDte: 45,
-      minDte: 30,
-      maxDte: 60,
     },
     {
       key: 'lc-050-30',
@@ -357,8 +363,6 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
       side: TradeSide.LONG,
       targetDelta: 0.5,
       targetDte: 30,
-      minDte: 20,
-      maxDte: 45,
     },
   ],
   [TradeSide.SHORT]: [
@@ -369,8 +373,6 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
       side: TradeSide.SHORT,
       targetDelta: 0.3,
       targetDte: 45,
-      minDte: 30,
-      maxDte: 60,
     },
     {
       key: 'lp-050-30',
@@ -379,8 +381,6 @@ export const SIGNAL_EXPRESSION_TEMPLATES: Record<TradeSide, SignalExpressionTemp
       side: TradeSide.LONG,
       targetDelta: 0.5,
       targetDte: 30,
-      minDte: 20,
-      maxDte: 45,
     },
   ],
 };

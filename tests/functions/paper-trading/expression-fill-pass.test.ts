@@ -154,15 +154,12 @@ function makeDeps(overrides: Partial<ExpressionFillPassDeps> = {}) {
     getTrade: overrides.getTrade ?? (async () => null),
     listTradesByTicketId: overrides.listTradesByTicketId ?? (async () => []),
     listTradeDocIdsByPrefix: overrides.listTradeDocIdsByPrefix ?? (async () => []),
-    callTool:
-      overrides.callTool ??
-      (async (name, args) => {
-        calls.push({ name, args });
-        if (name.endsWith('get_option_chains')) return CHAIN;
-        if (name.endsWith('get_option_instruments')) return INSTRUMENTS;
-        if (name.endsWith('get_option_quotes')) return QUOTES;
-        throw new Error(`unexpected tool ${name}`);
-      }),
+    callTool: async (name, args) => {
+      if (name.endsWith('get_option_chains')) return CHAIN;
+      if (name.endsWith('get_option_instruments')) return INSTRUMENTS;
+      if (name.endsWith('get_option_quotes')) return QUOTES;
+      throw new Error(`unexpected tool ${name}`);
+    },
     applyPendingFill: async (input) => {
       pendingFills.push(input);
       return { trade: pendingTrade({ status: PaperTradeStatus.OPEN }) };
@@ -192,6 +189,13 @@ function makeDeps(overrides: Partial<ExpressionFillPassDeps> = {}) {
     },
     now: () => NOW,
     ...overrides,
+  };
+  // Recording wraps the RESOLVED impl — assigned post-spread so an
+  // overriding callTool is still tracked in `calls`.
+  const resolved = deps.callTool;
+  deps.callTool = async (name, args) => {
+    calls.push({ name, args });
+    return resolved(name, args);
   };
   return { deps, calls, pendingFills, entryFills, ticketFills, ticketCancels, ticketErrors, memberAdds };
 }
@@ -600,24 +604,31 @@ describe('runExpressionFillPass — legacy PENDING drain', () => {
     assert.equal(entryFills.length, 0);
   });
 
-  it('only queries instruments for expirations inside the template DTE band', async () => {
+  it('queries instruments for the nearest-to-targetDte expirations — the band is gone', async () => {
     const { deps, calls } = makeDeps({
       listStagedExpressionTickets: async () => [],
       listPendingTrades: async () => [pendingTrade()],
     });
     await runExpressionFillPass(MARKET_DATE, deps);
 
+    // All three listed expirations sit inside MAX_EXPIRATIONS, so all are
+    // fetched — 15d and 86d are OUT of the old 30–60d band; the concrete
+    // coordinate bounds the fetch by proximity to targetDte, not a window.
     const instrumentCalls = calls.filter((c) => c.name.endsWith('get_option_instruments'));
-    assert.equal(instrumentCalls.length, 1);
-    const args = instrumentCalls[0].args;
-    assert.equal(args.chain_symbol, 'QQQM');
-    assert.equal(args.expiration_dates, '2026-11-06');
-    assert.equal(args.type, 'put');
+    assert.equal(instrumentCalls.length, 3);
+    assert.deepEqual(
+      instrumentCalls.map((c) => c.args.expiration_dates),
+      ['2026-11-06', '2026-10-10', '2026-12-20'],
+    );
+    for (const c of instrumentCalls) {
+      assert.equal(c.args.chain_symbol, 'QQQM');
+      assert.equal(c.args.type, 'put');
+    }
 
     const quoteCalls = calls.filter((c) => c.name.endsWith('get_option_quotes'));
     assert.equal(quoteCalls.length, 1);
     assert.deepEqual(
-      (quoteCalls[0].args.instrument_ids as string[]).sort(),
+      [...new Set(quoteCalls[0].args.instrument_ids as string[])].sort(),
       ['inst-560p', 'inst-570p', 'inst-580p'],
     );
   });
@@ -634,11 +645,63 @@ describe('runExpressionFillPass — legacy PENDING drain', () => {
     assert.match(summary.errors[0].error, /template/i);
   });
 
-  it('skips when no expiration falls inside the DTE band', async () => {
+  it('fills at an out-of-band expiration — the concrete coordinate has no band', async () => {
+    // The old band would have skipped this chain (no expiration inside
+    // 30–60d); the coordinate picks the nearest listed expiration to 45d.
     const chainOut = {
       data: {
         chains: [{ id: 'c', symbol: 'QQQM', expiration_dates: ['2026-10-01', '2027-06-01'] }],
       },
+    };
+    const instrumentsOut = {
+      data: {
+        instruments: [
+          { id: 'inst-oob', chain_symbol: 'QQQM', expiration_date: '2026-10-01', strike_price: '575', type: 'put' },
+        ],
+      },
+    };
+    const quotesOut = {
+      data: {
+        results: [
+          { instrument_id: 'inst-oob', quote: { adjusted_mark_price: '3.25', delta: '-0.29' }, close: { price: '3.25' } },
+        ],
+      },
+    };
+    const { deps, calls, pendingFills } = makeDeps({
+      listStagedExpressionTickets: async () => [],
+      listPendingTrades: async () => [pendingTrade()],
+      callTool: async (name, args) => {
+        if (name.endsWith('get_option_chains')) return chainOut;
+        if (name.endsWith('get_option_instruments')) {
+          // Both listed expirations sit inside the bounded fetch set —
+          // instruments exist only for the nearer one (6d vs 250d).
+          return args.expiration_dates === '2026-10-01'
+            ? instrumentsOut
+            : { data: { instruments: [] } };
+        }
+        if (name.endsWith('get_option_quotes')) return quotesOut;
+        throw new Error(`unexpected tool ${name}`);
+      },
+    });
+    const summary = await runExpressionFillPass(MARKET_DATE, deps);
+    const instrumentCalls = calls.filter((c) => c.name.endsWith('get_option_instruments'));
+    assert.deepEqual(
+      instrumentCalls.map((c) => c.args.expiration_dates),
+      ['2026-10-01', '2027-06-01'],
+    );
+    assert.equal(summary.filled, 1);
+    assert.equal(pendingFills.length, 1);
+    assert.equal(pendingFills[0].legs[0].kind, 'option');
+    if (pendingFills[0].legs[0].kind === 'option') {
+      assert.equal(pendingFills[0].legs[0].expiration, '2026-10-01');
+      assert.equal(pendingFills[0].legs[0].strike, 575);
+    }
+    assert.equal(pendingFills[0].fill.price, 3.25);
+  });
+
+  it('skips when the chain lists no expirations', async () => {
+    const chainOut = {
+      data: { chains: [{ id: 'c', symbol: 'QQQM', expiration_dates: [] }] },
     };
     const { deps, pendingFills } = makeDeps({
       listStagedExpressionTickets: async () => [],
@@ -652,6 +715,104 @@ describe('runExpressionFillPass — legacy PENDING drain', () => {
     assert.equal(summary.filled, 0);
     assert.equal(pendingFills.length, 0);
     assert.equal(summary.skipped, 1);
+  });
+
+  it('never fills a same-day expiration — the dte>0 floor restores the old band guarantee', async () => {
+    // The chain lists today (dte 0 — degenerate for an opening sell)
+    // plus the usual expirations; today must not even reach the fetch.
+    const chainOut = {
+      data: {
+        chains: [
+          {
+            id: 'c',
+            symbol: 'QQQM',
+            expiration_dates: [MARKET_DATE, '2026-10-10', '2026-11-06'],
+          },
+        ],
+      },
+    };
+    const { deps, calls, pendingFills } = makeDeps({
+      listStagedExpressionTickets: async () => [],
+      listPendingTrades: async () => [pendingTrade()],
+      callTool: async (name, args) => {
+        if (name.endsWith('get_option_chains')) return chainOut;
+        if (name.endsWith('get_option_instruments')) return INSTRUMENTS;
+        if (name.endsWith('get_option_quotes')) return QUOTES;
+        throw new Error(`unexpected tool ${name}`);
+      },
+    });
+    const summary = await runExpressionFillPass(MARKET_DATE, deps);
+    const instrumentCalls = calls.filter((c) => c.name.endsWith('get_option_instruments'));
+    assert.ok(
+      instrumentCalls.every((c) => c.args.expiration_dates !== MARKET_DATE),
+      'same-day expiration reached the instrument fetch',
+    );
+    assert.equal(summary.filled, 1);
+    assert.equal(pendingFills[0].legs[0].kind, 'option');
+    if (pendingFills[0].legs[0].kind === 'option') {
+      assert.equal(pendingFills[0].legs[0].expiration, '2026-11-06');
+    }
+  });
+
+  it('a selected contract with no mark skips — the fill needs a price', async () => {
+    const quotesNoMark = {
+      data: {
+        results: [
+          { instrument_id: 'inst-570p', quote: { delta: '-0.45' }, close: {} },
+          { instrument_id: 'inst-580p', quote: { delta: '-0.31' }, close: {} },
+          { instrument_id: 'inst-560p', quote: { delta: '-0.18' }, close: {} },
+        ],
+      },
+    };
+    const { deps, pendingFills, ticketErrors } = makeDeps({
+      callTool: async (name) => {
+        if (name.endsWith('get_option_chains')) return CHAIN;
+        if (name.endsWith('get_option_instruments')) return INSTRUMENTS;
+        if (name.endsWith('get_option_quotes')) return quotesNoMark;
+        throw new Error(`unexpected tool ${name}`);
+      },
+    });
+    const summary = await runExpressionFillPass(MARKET_DATE, deps);
+    assert.equal(summary.filled, 0);
+    assert.equal(pendingFills.length, 0);
+    assert.equal(summary.skipped, 1);
+    // The pick is deterministic — an unpriceable selection records
+    // no_contract and stays staged; a silent second-choice is never minted.
+    assert.deepEqual(ticketErrors, [{ ticketId: TICKET_ID, category: 'no_contract' }]);
+  });
+
+  it('signed-delta argmin — a positive-delta row never wins a PUT coordinate', async () => {
+    // Template targetDelta is an unsigned magnitude; the pass signs it by
+    // option type before the shared selector runs. A put row carrying a
+    // stray positive delta closer in ABSOLUTE terms must lose to the
+    // correctly-signed −0.31.
+    const quotesSigned = {
+      data: {
+        results: [
+          { instrument_id: 'inst-570p', quote: { adjusted_mark_price: '4.10', delta: '-0.45' }, close: { price: '4.10' } },
+          { instrument_id: 'inst-580p', quote: { adjusted_mark_price: '2.80', delta: '-0.31' }, close: { price: '2.80' } },
+          { instrument_id: 'inst-560p', quote: { adjusted_mark_price: '1.50', delta: '0.29' }, close: { price: '1.50' } },
+        ],
+      },
+    };
+    const { deps, pendingFills } = makeDeps({
+      listStagedExpressionTickets: async () => [],
+      listPendingTrades: async () => [pendingTrade()],
+      callTool: async (name) => {
+        if (name.endsWith('get_option_chains')) return CHAIN;
+        if (name.endsWith('get_option_instruments')) return INSTRUMENTS;
+        if (name.endsWith('get_option_quotes')) return quotesSigned;
+        throw new Error(`unexpected tool ${name}`);
+      },
+    });
+    const summary = await runExpressionFillPass(MARKET_DATE, deps);
+    assert.equal(summary.filled, 1);
+    const leg = pendingFills[0].legs[0];
+    if (leg.kind === 'option') {
+      assert.equal(leg.contractID, 'QQQM261106P00580000', 'signed argmin picks −0.31');
+      assert.equal(leg.strike, 580);
+    }
+    assert.equal(pendingFills[0].fill.price, 2.8);
   });
 
   it('is idempotent — nothing staged, nothing pending', async () => {

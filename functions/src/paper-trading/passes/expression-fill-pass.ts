@@ -10,19 +10,23 @@
  *  - legacy `PENDING` trades — pre-#1005 docs still drain in place
  *    (`applyPendingFill`), including a staged ticket whose seed id still
  *    has its PENDING trade (filled in place, not re-minted).
- * For each item: `get_option_chains` → in-band expirations →
+ * For each item: `get_option_chains` → nearest expirations →
  * `get_option_instruments` → batched `get_option_quotes` →
- * `selectOptionContract` by template delta/DTE → fill → mark the source
- * ticket `filled` + join the minted trade to its position group.
+ * `selectContractAtCoordinate` at the template's concrete coordinate →
+ * fill → mark the source ticket `filled` + join the minted trade to its
+ * position group.
  *
  * Read-only: only quote/chain MCP tools are invoked — no `place_*`/`review_*`
  * broker mutations exist on this path.
  */
 
-import { buildOccContractId, OptionQuoteSource } from '@options/common';
+import {
+  buildOccContractId,
+  OptionQuoteSource,
+  selectContractAtCoordinate,
+} from '@options/common';
 import type { PaperTrade } from '@paper-trading/contracts';
 import { calendarDaysBetween } from '../../common/pt-date-utils';
-import { selectOptionContract } from '../../common/option-contract-selection';
 import type { HistoricalOptionContract } from '../../types/partner';
 import {
   fetchAllOptionInstruments,
@@ -222,21 +226,30 @@ async function selectContract(
 } | null> {
   const rhType = template.optionType === 'call' ? 'call' : 'put';
 
-  // expirations inside the template DTE band, nearest target first
-  const inBand = (await fetchOptionExpirations(deps.callTool, symbol))
+  // Expirations nearest the template's concrete DTE — the selector's own
+  // nearest-DTE stage resolves inside this bounded fetch set, so the
+  // nearest *listed* expiration is always a candidate (the nearest
+  // *eligible* expiration may sit outside the slice if the nearer ones
+  // yield no usable instruments — an accepted bound of the machinery).
+  // dte > 0 floors out same-day expirations — the retired scorer's
+  // dte<=0 reject, kept at fetch level; a 0-DTE fill is never a valid
+  // substitute.
+  // Equidistant → longer DTE, matching the selector's tie-break.
+  const nearest = (await fetchOptionExpirations(deps.callTool, symbol))
     .map((expiration) => ({ expiration, dte: calendarDaysBetween(marketDate, expiration) }))
-    .filter((e) => e.dte >= template.minDte && e.dte <= template.maxDte)
-    .sort((a, b) => Math.abs(a.dte - template.targetDte) - Math.abs(b.dte - template.targetDte))
+    .filter((e) => e.dte > 0)
+    .sort((a, b) =>
+      Math.abs(a.dte - template.targetDte) - Math.abs(b.dte - template.targetDte) || b.dte - a.dte)
     .slice(0, MAX_EXPIRATIONS);
 
-  if (inBand.length === 0) {
-    logger.info(`${label}: no expiration inside ${template.minDte}-${template.maxDte}d band`);
+  if (nearest.length === 0) {
+    logger.info(`${label}: no usable expiration for ${symbol} on ${marketDate}`);
     return null;
   }
 
-  // instruments (parallel over in-band expirations) → quotes → candidates
+  // instruments (parallel over the nearest expirations) → quotes → candidates
   const instrumentPages = await Promise.all(
-    inBand.map(({ expiration }) => fetchInstruments(deps.callTool, symbol, expiration, rhType)),
+    nearest.map(({ expiration }) => fetchInstruments(deps.callTool, symbol, expiration, rhType)),
   );
   const instruments = instrumentPages.flat();
   const quotes = await fetchOptionQuotes(
@@ -260,28 +273,34 @@ async function selectContract(
     });
   }
 
-  const selected = selectOptionContract(marketDate, candidates, {
+  // Shared coordinate selector (SA pick-doc semantics — concrete cell, no
+  // window). Template targetDelta is an unsigned magnitude; the selector's
+  // signed argmin wants the option-type convention (put < 0, call > 0).
+  const selected = selectContractAtCoordinate(marketDate, candidates, {
     type: template.optionType,
-    targetDelta: template.targetDelta,
-    targetDte: template.targetDte,
-    minDte: template.minDte,
-    maxDte: template.maxDte,
-    requireMark: true,
-    useAbsoluteDelta: true,
+    targetDelta:
+      template.optionType === 'put'
+        ? -Math.abs(template.targetDelta)
+        : Math.abs(template.targetDelta),
+    dte: template.targetDte,
   });
 
-  if (!selected || selected.mark === undefined || !selected.contract.contractID) {
+  if (!selected) {
     logger.info(`${label}: no selectable contract (${candidates.length} candidates)`);
     return null;
   }
-
-  const { contract } = selected;
-  const contractID = contract.contractID;
-  const strike = parseNum(contract.strike);
-  if (!contractID || strike === undefined || !contract.expiration) {
-    throw new Error(`${label}: selected contract ${contractID ?? 'n/a'} lacks id/strike/expiration`);
+  // The pick is identity-fixed; a missing mark means no fill price — skip,
+  // never silently fall to a second-choice contract.
+  if (selected.mark === undefined) {
+    logger.info(`${label}: selected ${selected.contractId} has no mark — cannot price the fill`);
+    return null;
   }
-  return { contractID, strike, expiration: contract.expiration, mark: selected.mark };
+  return {
+    contractID: selected.contractId,
+    strike: selected.strike,
+    expiration: selected.expiration,
+    mark: selected.mark,
+  };
 }
 
 // ── Staged-ticket path (#1005) ─────────────────────────────────────────────
@@ -390,7 +409,7 @@ async function fillStagedTicket(
   if (!sel) {
     await deps.recordTicketError(
       ticket.id,
-      { category: 'no_contract', message: 'no in-band contract matched the template' },
+      { category: 'no_contract', message: 'no contract selectable at the template coordinate' },
       nowIso,
     );
     return 'skipped';
