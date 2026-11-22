@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-22]
+
+### Added
+- [Options Backtest] 1238-1502_BE-IMPL-MULTI-LEG-SPREAD: expression-fill-pass re-targeted to the shared coordinate selector — nearest-to-targetDte expirations replace the retired DTE band (dte>0 floor preserved), signed-delta argmin via selectContractAtCoordinate (template magnitude signed by option type), fill = RH quote mark, unpriceable pick → no_contract, empty-chain skip; SignalExpressionTemplate minDte/maxDte → optional @deprecated, dropped from seeds; 30/30 pass specs
+- [Options Backtest] 1238-1502_CHORE-MULTI-LEG-SPREAD: verify-1502 registration + per-task guide — DRY 12/12 (signed argmin, out-of-band fill, positive-Δ PUT reject, unpriceable → no_contract, empty-chain skip); LIVE 19/19 real SPY chain via prod KMS session, pass pick ≡ raw selector pick (SPY261224P00660000, Δ−0.290, mark 13.85), zero ledger writes
+- [Options Backtest] 1238-1502_DOCS-MULTI-LEG-SPREAD: CODE-REVIEW (PASS r2 — 2 majors remediated in-gate: 0-DTE admission floor restored + minDte/maxDte write-only contract fields deprecated) + UAT (Complete, #1656 — S1–S6 green; BE-only, no user-facing route) + changelog
+
 ## [2026-11-21]
 
 ### Added
