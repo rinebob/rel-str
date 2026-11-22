@@ -15,6 +15,7 @@ import { CommonModule } from '@angular/common';
 
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { ManageCreateInstanceComponent } from './manage-create-instance.component';
+import { ManageCreateStrategyComponent } from './manage-create-strategy.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
 import {
   INSTANCE_RUN_STATES,
@@ -128,6 +129,11 @@ export class StrategyManageComponent implements OnInit {
   /** F3 — variant × symbols × mode/trigger/stop create flow. */
   protected openCreateInstance(): void {
     this.dialog.open(ManageCreateInstanceComponent);
+  }
+
+  /** F4 — ad hoc named-variant composer; lands in sessionVariants. */
+  protected openCreateStrategy(): void {
+    this.dialog.open(ManageCreateStrategyComponent);
   }
 
   /** The row's position bucket — open if any position is joined, waiting

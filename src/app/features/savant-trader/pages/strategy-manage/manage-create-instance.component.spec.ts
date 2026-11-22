@@ -59,7 +59,7 @@ describe('ManageCreateInstanceComponent', () => {
   const sessionVariant = {
     ...MANAGE_VARIANTS[0],
     id: 'session-cds-30-50-35',
-    name: 'call debit spread 50-35 30',
+    name: 'call debit spread 30 50-35',
   };
 
   function create(instances: ManageInstance[] = []): void {
@@ -98,9 +98,8 @@ describe('ManageCreateInstanceComponent', () => {
     const select = el('variant-select') as HTMLSelectElement;
     const labels = Array.from(select.options).map((o) => o.textContent?.trim());
     expect(labels).toEqual([
-      'call debit spread 50-40 30',
-      'call debit spread 40-30 45',
-      'call debit spread 50-35 30',
+      ...MANAGE_VARIANTS.map((v) => v.name),
+      'call debit spread 30 50-35',
     ]);
   });
 

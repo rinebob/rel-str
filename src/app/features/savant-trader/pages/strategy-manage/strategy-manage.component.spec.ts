@@ -22,6 +22,7 @@ import { resolve } from 'path';
 
 import { StrategyManageComponent } from './strategy-manage.component';
 import { ManageCreateInstanceComponent } from './manage-create-instance.component';
+import { ManageCreateStrategyComponent } from './manage-create-strategy.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { MANAGE_VARIANTS } from '@manage/variant-catalog';
@@ -140,6 +141,19 @@ describe('StrategyManageComponent', () => {
     expect(mockDialog.open).toHaveBeenCalledWith(ManageCreateInstanceComponent);
   });
 
+  it('opens the Create New Strategy dialog from the header button', async () => {
+    await setup();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const btn = el.querySelector<HTMLButtonElement>(
+      '[data-testid="create-strategy-btn"]',
+    );
+    expect(btn).toBeTruthy();
+
+    btn!.click();
+    expect(mockDialog.open).toHaveBeenCalledWith(ManageCreateStrategyComponent);
+  });
+
   it('shows loading spinner when isLoading is true', async () => {
     await setup({ isLoading: true });
     fixture.detectChanges();
@@ -172,7 +186,7 @@ describe('StrategyManageComponent', () => {
     expect(rows.length).toBe(1);
     expect(rows[0].textContent).toContain('QQQ-CDS-30-50-40-ALL');
     expect(rows[0].textContent).toContain('QQQ');
-    expect(rows[0].textContent).toContain('call debit spread 50-40 30');
+    expect(rows[0].textContent).toContain('call debit spread 30 50-40');
     expect(rows[0].textContent).toContain('UNSTARTED');
   });
 

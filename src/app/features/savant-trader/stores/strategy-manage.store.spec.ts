@@ -270,7 +270,7 @@ describe('StrategyManageStore', () => {
       const adHoc = {
         ...MANAGE_VARIANTS[0],
         id: 'session-cds-30-50-35',
-        name: 'call debit spread 50-35 30',
+        name: 'call debit spread 30 50-35',
         legs: MANAGE_VARIANTS[0].legs.map((l, i) =>
           l.kind === 'option' && i === 1 ? { ...l, targetDelta: 0.35 } : l),
       };

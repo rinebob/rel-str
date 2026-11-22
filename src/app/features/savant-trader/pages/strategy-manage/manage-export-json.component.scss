@@ -1,0 +1,28 @@
+@use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+
+:host {
+  @include vl.dialog-chrome;
+
+  .content {
+    min-width: 380px;
+    max-width: 480px;
+  }
+
+  .export-name {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--ds-text-primary, #eee);
+  }
+
+  .json-block {
+    max-height: 320px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px;
+    border-radius: 4px;
+    background: var(--ds-surface-alt, rgba(255, 255, 255, 0.04));
+    font-size: 12px;
+    white-space: pre;
+    color: var(--ds-text-secondary, #aaa);
+  }
+}

@@ -1,18 +1,38 @@
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
 
+:host {
+  @include vl.page-host;
+}
+
 .strategy-manage {
+  @include vl.page-shell;
+  box-sizing: border-box;
   padding: 24px;
   max-width: 1400px;
+  width: 100%;
   margin: 0 auto;
+}
+
+// Single scroller — header/filter/banners stay in the viewport; only the
+// table rows scroll (dense-table's sticky thead pins inside this wrap).
+.table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .manage-header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   margin-bottom: 24px;
 
-  [data-testid='create-instance-btn'] {
+  [data-testid='create-strategy-btn'] {
     margin-left: auto;
+  }
+
+  [data-testid='create-instance-btn'] {
+    margin-left: 8px;
   }
 }
 
@@ -34,6 +54,7 @@
 .filter-bar {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: var(--ds-space-3);
   margin-bottom: var(--ds-space-4);
   flex-wrap: wrap;

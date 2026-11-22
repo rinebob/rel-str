@@ -10,6 +10,8 @@
         }
       </div>
     </div>
+    <button type="button" class="ds-btn outline small" data-testid="create-strategy-btn"
+            (click)="openCreateStrategy()">Create New Strategy</button>
     <button type="button" class="ds-btn outline small" data-testid="create-instance-btn"
             (click)="openCreateInstance()">Create New Instance</button>
   </div>
@@ -45,6 +47,7 @@
     </div>
   }
 
+
   @if (store.isLoading()) {
     <div class="loading-container">
       <span class="dse-spinner" style="--spinner-size: 40px" role="progressbar" aria-label="Loading"></span>
@@ -56,6 +59,7 @@
         : 'No ' + activeTab() + ' instances yet.' }}</p>
     </div>
   } @else {
+    <div class="table-wrap">
     <table class="instances-table">
       <thead>
         <tr>
@@ -97,5 +101,6 @@
         }
       </tbody>
     </table>
+    </div>
   }
 </div>
