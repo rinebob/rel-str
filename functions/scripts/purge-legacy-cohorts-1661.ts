@@ -11,11 +11,13 @@
  * Steps:
  *   1. Enumerate `paper-trading/cohorts/items` — report each doc and its
  *      mapped group id; flag any whose `st-position-groups` doc is absent.
- *   2. Enumerate `st-paper-trading/trades/items` docs carrying `cohortId`
- *      without `positionGroupId` — the backfill set.
+ *   2. Enumerate `st-paper-trading/trades/items` docs carrying `cohortId` —
+ *      trades without `positionGroupId` form the backfill set; every
+ *      carrying trade loses the deprecated field at apply-time.
  *   3. --apply (refused while any cohort maps to a missing group doc or
  *      any id is unmappable):
- *      a. stamp `positionGroupId` + DELETE `cohortId` on backfill trades,
+ *      a. stamp `positionGroupId` + DELETE `cohortId` on backfill trades;
+ *         DELETE `cohortId` on already-stamped trades,
  *      b. delete every cohort doc,
  *      c. delete frozen `stats-cohort-{YYMMDD}-{SYM}-{NN}` scope docs —
  *         the old cohort-id scope format stops recomputing at cutover
@@ -124,20 +126,28 @@ async function main() {
     if (pending > 0) { await batch.commit(); batch = db.batch(); pending = 0; }
   };
 
-  // ── 4a. backfill: stamp positionGroupId, drop cohortId ─────────────────
-  let stamped = 0;
-  for (const d of needs) {
-    const gid = cohortIdToGroupId(d.data().cohortId as string);
-    if (!gid) continue;
-    batch.update(d.ref, {
-      positionGroupId: gid,
-      cohortId: FieldValue.delete(),
-    });
-    stamped++; pending++;
+  // ── 4a. backfill + strip: every cohortId-carrying trade loses the field ─
+  let stamped = 0, stripped = 0;
+  for (const d of tradeSnap.docs) {
+    const hasGroup = !!(d.data() as { positionGroupId?: string }).positionGroupId;
+    if (hasGroup) {
+      // Already migrated — just strip the deprecated field.
+      batch.update(d.ref, { cohortId: FieldValue.delete() });
+      stripped++;
+    } else {
+      const gid = cohortIdToGroupId(d.data().cohortId as string);
+      if (!gid) continue;
+      batch.update(d.ref, {
+        positionGroupId: gid,
+        cohortId: FieldValue.delete(),
+      });
+      stamped++;
+    }
+    pending++;
     if (pending >= BATCH) await flush();
   }
   await flush();
-  console.log(`backfilled positionGroupId (and removed cohortId) on ${stamped} trades`);
+  console.log(`backfilled positionGroupId on ${stamped} trades; stripped cohortId on ${stamped + stripped} trades`);
 
   // ── 4a-ii. heal stamped-but-unlisted members into their groups ────────
   let healed = 0;
@@ -173,7 +183,7 @@ async function main() {
   const remaining = await db.collection(LEGACY_ROOT).listDocuments();
   console.log(
     survivors.empty && remaining.length === 0
-      ? `Done — ${stamped} backfilled, ${cohortSnap.size} cohorts + ${ghosts.length} ghosts + ${anchors.length} anchors deleted; paper-trading root is empty.`
+      ? `Done — ${stamped} backfilled, ${stamped + stripped} cohortId fields stripped, ${cohortSnap.size} cohorts + ${ghosts.length} ghosts + ${anchors.length} anchors deleted; paper-trading root is empty.`
       : `STRAGGLERS — cohorts empty=${survivors.empty}, ${remaining.length} anchor docs remain under paper-trading`,
   );
   process.exit(survivors.empty && remaining.length === 0 ? 0 : 1);
