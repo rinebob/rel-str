@@ -27,7 +27,6 @@ import {
   type CancelPaperTradeResponse,
   type ClosePaperTradeRequest,
   type ClosePaperTradeResponse,
-  type PaperCohort,
   type PaperSignalOrderRequest,
   type PaperSignalOrderResponse,
   type PaperTrade,
@@ -35,7 +34,6 @@ import {
   type VariantRun,
 } from '@paper-trading/contracts';
 import {
-  buildCohortId,
   buildSpreadTradeDesc,
   buildTradeId,
   EQUITY_TRADE_DESC,
@@ -68,16 +66,14 @@ import type {
   ExitFillInput,
 } from './ledger';
 import {
-  getCohort,
   getTrade,
   ledgerDeps,
   listTrades,
   resolveTradeId,
-  setCohort,
   updateVariantRun,
 } from './repository';
 import { ledgerDepsWithCapture } from './screenshot-lifecycle';
-import { buildCohortDoc, makeTicketEmitter, runSignalOrderRetry } from './signal-order-retry';
+import { makeTicketEmitter, runSignalOrderRetry } from './signal-order-retry';
 import { RobinhoodMcpOptionQuoteProvider } from './engine/quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
 import { createRobinhoodMcpSessionManagerFromKms } from '../options-strategy-engine/mcp/robinhood-mcp-session-manager';
@@ -115,13 +111,10 @@ export interface PaperSignalOrderDeps {
   getTicket(refId: string): Promise<OrderTicketDoc | null>;
   /** Existing trades for the signal (idempotent retry short-circuit). */
   listTradesBySignal(signalId: string): Promise<PaperTrade[]>;
-  getCohort(cohortId: string): Promise<PaperCohort | null>;
   /** RH MCP read-only tool caller (`get_equity_quotes`, `get_option_*`). */
   callTool(name: string, args: Record<string, unknown>): Promise<unknown>;
   resolveTradeId(baseId: string): Promise<string>;
-  resolveCohortId(date: Date, symbol: string): Promise<string>;
   applyEntryFill(input: EntryFillInput): Promise<unknown>;
-  setCohort(cohort: PaperCohort): Promise<void>;
   now(): Date;
   /**
    * Canonical `st-order-tickets` emitter (#984/#1002/#1005). When present,
@@ -133,13 +126,14 @@ export interface PaperSignalOrderDeps {
    */
   tickets?: PaperOrderTicketsDep;
   /**
-   * Canonical `st-position-groups` emitter (#984/#1004). When present, the
-   * handler creates one `{SYM}-{YYMMDD}-grp-{NN}` doc per accept covering
-   * every member ticket/trade, stamps `origin.positionGroupId` on emitted
-   * tickets and `dims.positionGroupId` on trades, and returns the id.
-   * Optional for tests/pre-wired callers — cohorts keep writing either way.
+   * Canonical `st-position-groups` emitter (#984/#1004) — the only
+   * fan-out anchor since #1661. The handler creates one
+   * `{SYM}-{YYMMDD}-grp-{NN}` doc per accept covering every member
+   * ticket/trade, stamps `origin.positionGroupId` on emitted tickets and
+   * `dims.positionGroupId` on trades, and returns the id. `create()` is
+   * fail-soft — a failed mint still accepts, returning no group id.
    */
-  groups?: PaperPositionGroupsDep;
+  groups: PaperPositionGroupsDep;
 }
 
 /** Narrow group-writer surface the paper callables need (#984/#1004). */
@@ -271,11 +265,11 @@ export async function handlePaperSignalOrder(
   });
 
   // Idempotent retry: a prior call for this signal already wrote trades —
-  // return the existing cohort (rebuild the doc if the earlier run died
-  // between trade writes and the cohort write) instead of minting a
-  // second cohort under suffixed ids. Concurrency note: two simultaneous
-  // accepts for the same signal can both pass this check — the cohort seq
-  // scan and trade-id suffixes keep ids unique, but a duplicate cohort is
+  // return the existing group (rebuild the doc if the earlier run died
+  // between trade writes and the group write) instead of minting a
+  // second group under suffixed ids. Concurrency note: two simultaneous
+  // accepts for the same signal can both pass this check — the group seq
+  // mint and trade-id suffixes keep ids unique, but a duplicate group is
   // possible in that narrow race (single-user today; revisit if batching).
   const existing = await deps.listTradesBySignal(data.signalId);
   if (existing.length > 0) {
@@ -295,10 +289,9 @@ export async function handlePaperSignalOrder(
   const templates = SIGNAL_EXPRESSION_TEMPLATES[data.direction];
   const variantKeys = [SIGNAL_GOVERNING_VARIANT, ...SIGNAL_SHADOW_VARIANT_KEYS];
 
-  // 2. Resolve all ids up front so the cohort can reference every member.
+  // 2. Resolve the member ids up front so the position group covers all.
   const equityBase = buildTradeId(idDate, 'sig', symbol, EQUITY_TRADE_DESC);
   const equityTradeId = await deps.resolveTradeId(equityBase);
-  const cohortId = await deps.resolveCohortId(idDate, symbol);
   const expressionSeeds = await expressionSeedsFor(data.direction);
   const paperTicket = {
     signalId: data.signalId,
@@ -313,8 +306,8 @@ export async function handlePaperSignalOrder(
   };
 
   // Canonical position group (#984/#1004): one `{SYM}-{YYMMDD}-grp-{NN}`
-  // doc per accept covering every member ticket/trade — the dual-write
-  // partner of the legacy cohort doc. Deterministic members: ticket ids
+  // doc per accept covering every member ticket/trade — the sole
+  // fan-out anchor since #1661. Deterministic members: ticket ids
   // are `pap_{tradeId}`, so the full set is known before any write.
   // Written BEFORE the emits so member tickets carry `origin.positionGroupId`.
   // Post-#1005: expression members are staged tickets, not trades — the
@@ -323,20 +316,18 @@ export async function handlePaperSignalOrder(
   const memberTicketIds = [equityTradeId, ...expressionSeeds].map((id) =>
     stTicketId('paper', id),
   );
-  const positionGroupId = deps.groups
-    ? await deps.groups.create({
-        symbol,
-        idDate,
-        origin: ticketOrigin,
-        mode: 'paper',
-        userId,
-        memberTicketIds: deps.tickets ? memberTicketIds : [],
-        memberTradeIds: [equityTradeId],
-        // Only the equity trade exists at mint — it fills OPEN below.
-        rollups: { openCount: 1, closedCount: 0 },
-        now: nowIso,
-      })
-    : null;
+  const positionGroupId = await deps.groups.create({
+    symbol,
+    idDate,
+    origin: ticketOrigin,
+    mode: 'paper',
+    userId,
+    memberTicketIds: deps.tickets ? memberTicketIds : [],
+    memberTradeIds: [equityTradeId],
+    // Only the equity trade exists at mint — it fills OPEN below.
+    rollups: { openCount: 1, closedCount: 0 },
+    now: nowIso,
+  });
   const memberOrigin: EmitStOrderTicketInput['origin'] = positionGroupId
     ? { ...ticketOrigin, positionGroupId }
     : { ...ticketOrigin };
@@ -350,7 +341,6 @@ export async function handlePaperSignalOrder(
   const equityTicketId = await emitTicket({
     idSeed: equityTradeId,
     origin: memberOrigin,
-    cohortId,
     terms: {
       symbol,
       side: data.direction === TradeSide.SHORT ? 'sell' : 'buy',
@@ -391,7 +381,6 @@ export async function handlePaperSignalOrder(
         expression: EQUITY_TRADE_DESC,
         governingVariant: SIGNAL_GOVERNING_VARIANT,
         variantKeys,
-        cohortId,
         ...(positionGroupId ? { positionGroupId } : {}),
         signalId: data.signalId,
         ticket: paperTicket,
@@ -421,14 +410,13 @@ export async function handlePaperSignalOrder(
   //    expression-fill pass consumes (#1005). No PENDING trade is written;
   //    the trade materializes at fill under a minted
   //    {SYM}-{YYMMDD}-{origin}-{expr}-{exp}-{strike}-{NN} id carrying the
-  //    resolved contract. cohortId is a soak-period bridge so the minted
-  //    trade can still carry the legacy cohort grouping.
+  //    resolved contract. The ticket's origin.positionGroupId is the
+  //    group membership key the minted trade carries (#1661).
   await Promise.all(
     templates.map(async (t: SignalExpressionTemplate, i: number) => {
       await emitTicket({
         idSeed: expressionSeeds[i],
         origin: memberOrigin,
-        cohortId,
         terms: {
           symbol,
           side: t.side === TradeSide.SHORT ? 'sell' : 'buy',
@@ -444,23 +432,16 @@ export async function handlePaperSignalOrder(
     }),
   );
 
-  // 5. Cohort doc — the fan-out anchor. tradeIds lists only minted trades
-  //    (the equity leg); expressionTemplates stays the soak anchor for the
-  //    staged members (minted trades rejoin the cohort via ticket.cohortId).
-  await deps.setCohort(
-    buildCohortDoc(
-      cohortId, data.signalId, symbol, data.direction,
-      [equityTradeId], templates.map((t) => t.key), nowIso, nowIso,
-    ),
-  );
-
+  // The position group doc minted above IS the fan-out anchor (#1661 —
+  //  the legacy cohort write is gone; staged members join via
+  //  origin.positionGroupId on their tickets and trade.positionGroupId
+  //  at fill).
   logger.info(
     `signal ${data.signalId}: equity ${equityTradeId} + ${expressionSeeds.length} staged ` +
-      `expression tickets → ${cohortId}` +
-      (positionGroupId ? ` (group ${positionGroupId})` : ''),
+      `expression tickets` +
+      (positionGroupId ? ` → group ${positionGroupId}` : ''),
   );
   return {
-    cohortId,
     equityTradeId,
     expressionTradeIds: expressionSeeds,
     ...(positionGroupId ? { positionGroupId } : {}),
@@ -512,14 +493,6 @@ export async function getTicketDoc(firestore: Firestore, refId: string): Promise
   return pick ? stTicketToOrderTicketDoc(pick) : null;
 }
 
-export async function resolveCohortId(firestore: Firestore, date: Date, symbol: string): Promise<string> {
-  for (let seq = 1; seq < 100; seq++) {
-    const id = buildCohortId(date, symbol, seq);
-    if (!(await getCohort(firestore, id))) return id;
-  }
-  throw new Error(`cohort id exhausted for ${symbol} on ${date.toISOString()}`);
-}
-
 /**
  * Production deps for `handlePaperSignalOrder`, parameterized on the RH MCP
  * tool caller so the verify script and the onCall wrapper share one wiring.
@@ -531,12 +504,9 @@ export function paperSignalOrderProdDeps(
   return {
     getTicket: (refId) => getTicketDoc(db, refId),
     listTradesBySignal: (signalId) => listTrades(db, { signalId, source: PaperTradeSource.SIGNAL }),
-    getCohort: (cohortId) => getCohort(db, cohortId),
     callTool,
     resolveTradeId: (base) => resolveTradeId(db, base, timeSuffix),
-    resolveCohortId: (date, symbol) => resolveCohortId(db, date, symbol),
     applyEntryFill: (input) => applyEntryFill(input, ledgerDepsWithCapture(db)),
-    setCohort: (cohort) => setCohort(db, cohort),
     now: () => new Date(),
     tickets: new StOrderTicketWriter(),
     groups: new StPositionGroupWriter(),

@@ -1,56 +1,34 @@
 /**
  * @topic #553 — Paper Trading Infra (task #561)
- * @topic #984 — ST Firestore Reorg (task #1007 cutover)
+ * @topic #984 — ST Firestore Reorg (task #1007 cutover; #1661 cohort drain)
  *
  * Firestore refs for the grouped `{root}/{anchor}/items/{id}` layout.
- * Path math lives in `shared/paper-trading-ids.ts` (legacy root) and
- * `shared/st-collections.ts` (canonical st- root) — this module only
+ * Path math lives in `shared/st-collections.ts` — this module only
  * materializes Collection/Document references.
  *
- * #1007 cutover: account/trade/stats/raw-quote read+write on
- * `st-paper-trading`; #1013 retires the `instances` anchor (all instance
- * reads now hit `st-strategy-instances` directly); #1158 cut the
- * `analysis-*` anchors (shared helpers now resolve st- paths, so the
- * direct `analysisDatasetsPath`/`analysisSlicesPath` callers are already
- * canonical — ST_KINDS covers any routed-ref caller). Remaining legacy
- * leg: `cohorts` (live repository path; drain is a later task). ST_KINDS
- * shrinks as each kind migrates and is deleted with the legacy root.
+ * #1007 cutover: account/trade/stats/raw-quote on `st-paper-trading`;
+ * #1013 retired the `instances` anchor; #1158 cut the `analysis-*`
+ * anchors; #1661 drained the last legacy leg — cohorts moved to
+ * `st-position-groups` and the `paper-trading` root is gone. Every kind
+ * now resolves the st- path unconditionally (the COHORT enum member is
+ * retired too — nothing may route here for it).
  */
 
 import type { CollectionReference, DocumentReference, Firestore } from 'firebase-admin/firestore';
 import { PaperTradingKind } from '@paper-trading/contracts';
-import { paperTradingItemsPath } from '@paper-trading/ids';
 import { stPaperTradingItemsPath } from '../common/st-collections';
-
-/** Kinds cut over to `st-paper-trading` (#1007 + analysis-* in #1158). */
-const ST_KINDS: ReadonlySet<PaperTradingKind> = new Set([
-  PaperTradingKind.ACCOUNT,
-  PaperTradingKind.TRADE,
-  PaperTradingKind.STATS,
-  PaperTradingKind.RAW_QUOTE,
-  PaperTradingKind.ANALYSIS_DATASET,
-  PaperTradingKind.ANALYSIS_SLICE,
-]);
-
-/** Routed `items` collection path — the single place the kind→root
- *  decision lives; survives until the last legacy kind migrates. */
-function itemsPathFor(kind: PaperTradingKind): string {
-  return ST_KINDS.has(kind)
-    ? stPaperTradingItemsPath(kind)
-    : paperTradingItemsPath(kind);
-}
 
 /**
  * Routed document path as a string — for callers that embed a doc path
  * as provenance (screenshot-lifecycle's position carrier) rather than a
- * DocumentReference. Keeps the ST_KINDS decision in this one file.
+ * DocumentReference.
  */
 export function paperTradingDocPathFor(kind: PaperTradingKind, id: string): string {
-  return `${itemsPathFor(kind)}/${id}`;
+  return `${stPaperTradingItemsPath(kind)}/${id}`;
 }
 
 export function paperItemsRef(db: Firestore, kind: PaperTradingKind): CollectionReference {
-  return db.collection(itemsPathFor(kind));
+  return db.collection(stPaperTradingItemsPath(kind));
 }
 
 export function paperDocRef(

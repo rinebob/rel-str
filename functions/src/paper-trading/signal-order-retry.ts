@@ -7,10 +7,10 @@
  * cap — these are the idempotent-retry halves of the same contract).
  *
  * Retry doctrine: a prior call for the same signal already wrote trades —
- * return the existing cohort instead of minting a second one under
+ * return the existing group instead of minting a second one under
  * suffixed ids, re-emitting any staged tickets the first accept died
  * before writing (`emit()` is `create()`-idempotent), and rebuilding a
- * missing cohort/position-group doc from the stored member dims.
+ * missing position-group doc from the stored member dims.
  */
 import { HttpsError } from 'firebase-functions/v2/https';
 
@@ -18,18 +18,16 @@ import { TradeSide } from '@common';
 import {
   LIFECYCLE_OPEN_TRADE_STATUSES,
   PaperTradeStatus,
-  PaperTradingKind,
   SIGNAL_EXPRESSION_TEMPLATES,
-  type PaperCohort,
   type PaperSignalOrderRequest,
   type PaperSignalOrderResponse,
   type PaperTrade,
-  type SignalExpressionTemplate,
 } from '@paper-trading/contracts';
 import {
   buildAccountId,
   buildSpreadTradeDesc,
   buildTradeId,
+  cohortIdToGroupId,
   EQUITY_TRADE_DESC,
 } from '@paper-trading/ids';
 import { stTicketId } from '@st/ids';
@@ -45,33 +43,6 @@ import type {
 import { createLogger } from './engine/logging';
 
 const logger = createLogger('PaperSignalOrder');
-
-export const hasTemplate = (t: PaperTrade): t is PaperTrade & { expressionTemplate: SignalExpressionTemplate } =>
-  !!t.expressionTemplate;
-
-export function buildCohortDoc(
-  id: string,
-  signalId: string,
-  symbol: string,
-  direction: TradeSide,
-  tradeIds: string[],
-  expressionTemplates: string[],
-  acceptedAt: string,
-  updatedAt: string,
-): PaperCohort {
-  return {
-    kind: PaperTradingKind.COHORT,
-    id,
-    signalId,
-    symbol,
-    direction,
-    acceptedAt,
-    tradeIds,
-    expressionTemplates,
-    createdAt: acceptedAt,
-    updatedAt,
-  };
-}
 
 /** Narrowed emit input — mode/refId/account/userId/now are bound by the
  *  emitter factory. */
@@ -137,12 +108,12 @@ export function makeTicketEmitter(args: {
 /**
  * Idempotent retry of `handlePaperSignalOrder`. `existing`/`eqTrade` are
  * the already-resolved same-signal trades + the equity member. Returns
- * the original cohort/ids and self-heals whatever the first accept died
+ * the original group/ids and self-heals whatever the first accept died
  * before writing.
  *
  * Concurrency note: two simultaneous accepts for the same signal can both
- * pass the `existing.length > 0` gate — the cohort seq scan and trade-id
- * suffixes keep ids unique, but a duplicate cohort is possible in that
+ * pass the `existing.length > 0` gate — the group seq mint and trade-id
+ * suffixes keep ids unique, but a duplicate group is possible in that
  * narrow race (single-user today; revisit if batching).
  */
 export async function runSignalOrderRetry(ctx: {
@@ -158,8 +129,14 @@ export async function runSignalOrderRetry(ctx: {
   fallbackIdDate: Date;
 }): Promise<PaperSignalOrderResponse> {
   const { deps, data, userId, existing, eqTrade, ticketOrigin, emitTicket, nowIso, fallbackIdDate } = ctx;
-  const cohortId = eqTrade.cohortId;
-  if (!cohortId) {
+  // groupKey → group doc id: pre-#1661 trades may carry only the legacy
+  // `cohortId` until the purge backfills — `cohortIdToGroupId` maps both
+  // fields onto the same canonical id so membership + rebuild span the
+  // backfill window.
+  const groupId = eqTrade.positionGroupId ?? cohortIdToGroupId(eqTrade.cohortId);
+  const groupKeyOf = (t: PaperTrade): string | null =>
+    t.positionGroupId ?? cohortIdToGroupId(t.cohortId);
+  if (!groupId) {
     throw new HttpsError(
       'failed-precondition',
       `signal ${data.signalId} has partial trades (${existing.map((t) => t.id).join(', ')}) — manual cleanup required`,
@@ -192,12 +169,12 @@ export async function runSignalOrderRetry(ctx: {
         : base;
     }),
   );
-  // Cohort-scoped like the group rebuild below — a same-signal trade from
+  // Group-scoped like the rebuild below — a same-signal trade from
   // another flow (auto-paper ingest writes source:SIGNAL trades with no
-  // cohortId) is not this accept's member and must not suppress a seed
+  // group id) is not this accept's member and must not suppress a seed
   // emit or leak into the response.
   const expressionIds = existing
-    .filter((t) => t.id !== eqTrade.id && t.cohortId === cohortId)
+    .filter((t) => t.id !== eqTrade.id && groupKeyOf(t) === groupId)
     .map((t) => t.id);
   // Response = real trade ids where they exist plus the still-pending
   // seeds — a mid-flight retry (some members minted, some staged) must
@@ -215,7 +192,7 @@ export async function runSignalOrderRetry(ctx: {
   // mint a second position for one template.
   const memberTemplateKeys = new Set(
     existing
-      .filter((t) => t.id !== eqTrade.id && t.cohortId === cohortId)
+      .filter((t) => t.id !== eqTrade.id && groupKeyOf(t) === groupId)
       .map((t) => t.expressionTemplate?.key ?? t.expression)
       .filter((k): k is string => !!k),
   );
@@ -235,41 +212,23 @@ export async function runSignalOrderRetry(ctx: {
   const responseExprIds = expressionIds.length
     ? [...expressionIds, ...uncoveredSpecs.map((s) => s.seed)]
     : memberSeeds;
-  if (!(await deps.getCohort(cohortId))) {
-    logger.warn(`rebuilding missing cohort ${cohortId} for signal ${data.signalId}`);
-    // Rebuild from the stored trade dims, not the new request — a retry
-    // must reproduce the original cohort, not the caller's args.
-    const templateKeys = existing.filter(hasTemplate).map((t) => t.expressionTemplate.key);
-    // Post-#1005 cohorts list only the equity trade; the template keys
-    // come from the direction's template set when no expression trades
-    // exist to read them from.
-    const retryKeys = templateKeys.length > 0
-      ? templateKeys
-      : templatesForSide.map((t) => t.key);
-    await deps.setCohort(
-      buildCohortDoc(cohortId, data.signalId, eqTrade.symbol, eqTrade.order.side,
-        [eqTrade.id, ...expressionIds], retryKeys,
-        eqTrade.createdAt ?? nowIso, nowIso),
-    );
-  }
-  // Same rebuild contract as the cohort (#1004): trades carry the group
-  // id — when the doc never landed, restore it from the stored members.
-  // The stamp-absent case (group create failed soft before any trade was
-  // stamped) is undetectable here by design — migrate-cohorts-1004.ts
-  // heals it from the cohort doc on its next run.
-  const positionGroupId = eqTrade.positionGroupId;
-  if (positionGroupId && deps.groups) {
+  // Group rebuild (#1004): trades carry the group id — when the doc
+  // never landed, restore it from the stored members. The stamp-absent
+  // case (group create failed soft before any trade was stamped) is
+  // undetectable here by design — a retry whose eqTrade carries only the
+  // legacy cohortId still resolves the doc via the deterministic map.
+  if (deps.groups) {
     try {
-      if (!(await deps.groups.get(positionGroupId))) {
-        logger.warn(`rebuilding missing position group ${positionGroupId} for signal ${data.signalId}`);
-        // Membership is cohort-scoped — same-signal trades from other
+      if (!(await deps.groups.get(groupId))) {
+        logger.warn(`rebuilding missing position group ${groupId} for signal ${data.signalId}`);
+        // Membership is group-scoped — same-signal trades from other
         // flows (auto-paper ingest writes source:SIGNAL trades with no
-        // cohort) must not be rebuilt into the group.
-        const members = existing.filter((t) => t.cohortId === cohortId);
+        // group id) must not be rebuilt into the group.
+        const members = existing.filter((t) => groupKeyOf(t) === groupId);
         const memberIds = members.map((t) => t.id);
         const openCount = members.filter((t) => LIFECYCLE_OPEN_TRADE_STATUSES.has(t.status)).length;
         await deps.groups.ensure(
-          buildGroupDoc(positionGroupId, {
+          buildGroupDoc(groupId, {
             origin: ticketOrigin,
             mode: 'paper',
             userId,
@@ -291,7 +250,7 @@ export async function runSignalOrderRetry(ctx: {
         );
       }
     } catch (err) {
-      logger.warn(`st_position_group_restore ${JSON.stringify({ positionGroupId, error: String(err) })}`);
+      logger.warn(`st_position_group_restore ${JSON.stringify({ positionGroupId: groupId, error: String(err) })}`);
     }
   }
   // #1005 self-heal: the staged ticket IS the pending expression — a first
@@ -302,13 +261,13 @@ export async function runSignalOrderRetry(ctx: {
   // ids (the fill pass pairs them by refId for an in-place fill);
   // post-#1005 accepts emit under the template seeds.
   if (deps.tickets) {
-    const retryOrigin: EmitStOrderTicketInput['origin'] = positionGroupId
-      ? { ...ticketOrigin, positionGroupId }
-      : { ...ticketOrigin };
+    const retryOrigin: EmitStOrderTicketInput['origin'] = {
+      ...ticketOrigin,
+      positionGroupId: groupId,
+    };
     const equityTicketId = await emitTicket({
       idSeed: eqTrade.id,
       origin: retryOrigin,
-      cohortId,
       terms: {
         symbol: eqTrade.symbol,
         side: eqTrade.order.side === TradeSide.SHORT ? 'sell' : 'buy',
@@ -338,7 +297,7 @@ export async function runSignalOrderRetry(ctx: {
     }
     const pendingMembers = existing.filter(
       (t) => t.id !== eqTrade.id
-        && t.cohortId === cohortId
+        && groupKeyOf(t) === groupId
         && t.status === PaperTradeStatus.PENDING,
     );
     // Two member sets, emitted together: lifecycle tickets under each
@@ -365,7 +324,6 @@ export async function runSignalOrderRetry(ctx: {
         emitTicket({
           idSeed: s.idSeed,
           origin: retryOrigin,
-          cohortId,
           terms: {
             symbol: eqTrade.symbol,
             side: s.side === TradeSide.SHORT ? 'sell' : 'buy',
@@ -382,9 +340,8 @@ export async function runSignalOrderRetry(ctx: {
     );
   }
   return {
-    cohortId,
     equityTradeId: eqTrade.id,
     expressionTradeIds: responseExprIds,
-    ...(positionGroupId ? { positionGroupId } : {}),
+    positionGroupId: groupId,
   };
 }

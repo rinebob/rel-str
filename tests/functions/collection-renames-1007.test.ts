@@ -3,7 +3,8 @@
  *
  * Collection-routing coverage:
  * - collections.ts routes account/trade/stats/raw-quote/analysis-* to
- *   st-paper-trading while cohorts (and the now-unread instances anchor)
+ *   st-paper-trading (all kinds post-#1661 — cohorts drained to
+ *   st-position-groups; the retired kinds throw on route)
  *   stay on the legacy root — analysis anchors cut over in #1158.
  * - The #1007 soak mirrors (portfolioItemsMirror, stBacktest*Mirror) were
  *   undeployed and their sources deleted in #1013 — the source-scan pin in
@@ -60,8 +61,6 @@ describe('path strings through the seam', () => {
     [PaperTradingKind.TRADE, 'st-paper-trading/trades/items/t-1'],
     [PaperTradingKind.STATS, 'st-paper-trading/stats/items/stats-all'],
     [PaperTradingKind.RAW_QUOTE, 'st-paper-trading/raw-quotes/items/rq-1'],
-    [PaperTradingKind.INSTANCE, 'paper-trading/instances/items/i-1'],
-    [PaperTradingKind.COHORT, 'paper-trading/cohorts/items/cohort-1'],
     [PaperTradingKind.ANALYSIS_DATASET, 'st-paper-trading/analysis-datasets/items/ds-1'],
     [PaperTradingKind.ANALYSIS_SLICE, 'st-paper-trading/analysis-slices/items/s-1'],
   ] as const) {
@@ -77,13 +76,26 @@ describe('path strings through the seam', () => {
 describe('paperItemsRef routing', () => {
   for (const [kind, expected] of [
     [PaperTradingKind.TRADE, 'st-paper-trading/trades/items'],
-    [PaperTradingKind.COHORT, 'paper-trading/cohorts/items'],
   ] as const) {
     it(`${kind} → collection ${expected}`, () => {
       const f = fakeFirestore();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       paperItemsRef(f.db as any, kind);
       assert.deepEqual(f.collectionCalls, [expected]);
+    });
+  }
+});
+
+// #1661 — every kind routes to st- unconditionally now; the retired
+// kinds (INSTANCE, and the deleted COHORT member as a raw string) throw
+// loudly through stPaperTradingItemsPath instead of routing to a dead
+// legacy root.
+describe('retired-kind routing', () => {
+  for (const kind of [PaperTradingKind.INSTANCE, 'cohort'] as const) {
+    it(`${kind} throws`, () => {
+      const f = fakeFirestore();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      assert.throws(() => paperItemsRef(f.db as any, kind as any), /no anchor/);
     });
   }
 });

@@ -90,9 +90,6 @@ export interface EmitStOrderTicketInput {
   accountTarget: string;
   userId: string;
   signalContext?: StTicketSignalContext;
-  /** Legacy cohort doc id — soak bridge carried to the minted trade so
-   *  `trade.cohortId` stays populated until the cohort cutover (#1005). */
-  cohortId?: string;
   bucketId?: string;
   /** ISO timestamp stamped on createdAt/updatedAt. */
   now: string;
@@ -168,7 +165,6 @@ export class StOrderTicketWriter {
         updatedAt: input.now,
       };
       if (input.signalContext) doc.signalContext = input.signalContext;
-      if (input.cohortId) doc.cohortId = input.cohortId;
       if (input.bucketId) doc.bucketId = input.bucketId;
       // create() not get-then-set: atomic — a racing emit/transition
       // resolves ALREADY_EXISTS instead of overwriting a filled doc back
