@@ -19,6 +19,18 @@ import type {
   PreviewScanResult,
   ScanResultRow,
 } from '@robinhood-mcp/contracts';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
+
+/** The 6 exclusive triage lists in catalog order — the row menu's
+ *  option set (#1306). */
+const LIST_DEFS: SymbolListDef[] = [
+  { key: 'NEW', label: 'New', order: 0, role: 'exclusive', hidden: false, symbols: [] },
+  { key: 'PRIMARY', label: 'Primary', order: 1, role: 'exclusive', hidden: false, symbols: [] },
+  { key: 'SECONDARY', label: 'Secondary', order: 2, role: 'exclusive', hidden: false, symbols: [] },
+  { key: 'NEUTRAL', label: 'Neutral', order: 3, role: 'exclusive', hidden: false, symbols: [] },
+  { key: 'AVOID', label: 'Avoid', order: 4, role: 'exclusive', hidden: false, symbols: [] },
+  { key: 'HIDE', label: 'Hide', order: 5, role: 'exclusive', hidden: false, symbols: [] },
+];
 
 const GAINERS = SCANNER_RECIPES.find((r) => r.id === 'gainers')!;
 const QUALITY = SCANNER_RECIPES.find((r) => r.id === 'quality-mega')!;
@@ -48,6 +60,7 @@ const run = (over: Partial<RecipeRunState> = {}): RecipeRunState => ({
   result: null,
   ranAt: '2026-10-21T14:30:00Z',
   errorKind: null,
+  error: null,
   ...over,
 });
 
@@ -58,11 +71,25 @@ describe('ScannerRecipeTableComponent', () => {
     recipe: ScannerRecipe,
     r: RecipeRunState,
     tracked: ReadonlySet<string> = new Set(),
+    extras: {
+      listDefs?: readonly SymbolListDef[];
+      listMembership?: ReadonlyMap<string, string>;
+      listsLoading?: boolean;
+    } = {},
   ): void {
     fixture = TestBed.createComponent(ScannerRecipeTableComponent);
     fixture.componentRef.setInput('recipe', recipe);
     fixture.componentRef.setInput('run', r);
     fixture.componentRef.setInput('tracked', tracked);
+    if (extras.listDefs) {
+      fixture.componentRef.setInput('listDefs', extras.listDefs);
+    }
+    if (extras.listMembership) {
+      fixture.componentRef.setInput('listMembership', extras.listMembership);
+    }
+    if (extras.listsLoading !== undefined) {
+      fixture.componentRef.setInput('listsLoading', extras.listsLoading);
+    }
     fixture.detectChanges();
   }
 
@@ -71,6 +98,10 @@ describe('ScannerRecipeTableComponent', () => {
   const bodyRows = () => el().querySelectorAll('tbody tr');
   const cellText = (tr: Element, idx: number) =>
     tr.querySelectorAll('td')[idx]?.textContent?.trim();
+  /** The Symbol cell — index-proof against appendage-column inserts
+   *  (actions + list chip landed before it under #1306). */
+  const symbolText = (tr: Element) =>
+    tr.querySelector('td.symbol')?.textContent?.trim();
   /** Header label without the sort-indicator child (robust vs a label
    *  that legitimately ends in digits/arrows). */
   const headLabel = (h: Element) =>
@@ -194,14 +225,16 @@ describe('ScannerRecipeTableComponent', () => {
     );
     const heads = Array.from(headerCells()).map(headLabel);
     expect(heads[0]).toBe('Tracked');
-    expect(heads.slice(1, 4)).toEqual(['Symbol', 'instrument_id', 'instrument_type']);
-    expect(heads.slice(4)).toEqual(['% Change', 'Net change']);
+    // #1306 appendage columns: actions (icon-only, empty label) + List.
+    expect(heads.slice(1, 3)).toEqual(['', 'List']);
+    expect(heads.slice(3, 6)).toEqual(['Symbol', 'instrument_id', 'instrument_type']);
+    expect(heads.slice(6)).toEqual(['% Change', 'Net change']);
     const tr = bodyRows()[0];
-    expect(cellText(tr, 1)).toBe('AAPL');
-    expect(cellText(tr, 2)).toBe('iid-aapl');
-    expect(cellText(tr, 3)).toBe('EQUITY');
-    expect(cellText(tr, 4)).toBe('5.0%'); // percentColumns rescale
-    expect(cellText(tr, 5)).toBe('2.10');
+    expect(symbolText(tr)).toBe('AAPL');
+    expect(cellText(tr, 4)).toBe('iid-aapl');
+    expect(cellText(tr, 5)).toBe('EQUITY');
+    expect(cellText(tr, 6)).toBe('5.0%'); // percentColumns rescale
+    expect(cellText(tr, 7)).toBe('2.10');
   });
 
   it('extra response keys not declared by the recipe render as trailing columns', () => {
@@ -406,7 +439,7 @@ describe('ScannerRecipeTableComponent', () => {
         ]),
       }),
     );
-    const symbols = Array.from(bodyRows()).map((tr) => cellText(tr, 1));
+    const symbols = Array.from(bodyRows()).map((tr) => symbolText(tr));
     expect(symbols).toEqual(['BBB', 'AAA']); // 10% desc before 2%
     const inds = Array.from(el().querySelectorAll('.sort-indicator')).map(
       (s) => s.textContent!.trim(),
@@ -430,7 +463,7 @@ describe('ScannerRecipeTableComponent', () => {
     )!;
     (trackedTh as HTMLElement).click();
     fixture.detectChanges();
-    const symbols = Array.from(bodyRows()).map((tr) => cellText(tr, 1));
+    const symbols = Array.from(bodyRows()).map((tr) => symbolText(tr));
     expect(symbols).toEqual(['AAA', 'ZZZ']); // new (0) before tracked (1)
   });
 
@@ -449,7 +482,7 @@ describe('ScannerRecipeTableComponent', () => {
     const pct = heads.findIndex((h) => h.textContent!.includes('% Change'));
     const net = heads.findIndex((h) => h.textContent!.includes('Net change'));
     const symbols = () =>
-      Array.from(bodyRows()).map((tr) => cellText(tr, 1));
+      Array.from(bodyRows()).map((tr) => symbolText(tr));
 
     // Seeded with the recipe's % Change desc.
     expect(symbols()).toEqual(['BBB', 'CCC', 'AAA']); // 10%×2 first, insertion tie
@@ -482,5 +515,165 @@ describe('ScannerRecipeTableComponent', () => {
     );
     // DOM order is column order: Symbol(2) → % Change seed(1) → Net(3).
     expect(inds).toEqual(['2↑', '1↓', '3↑']);
+  });
+
+  describe('row list menu + membership chip (#1306)', () => {
+    const MEMBERSHIP: ReadonlyMap<string, string> = new Map([
+      ['AAPL', 'PRIMARY'],
+    ]);
+    const mountWithLists = (
+      rows: ScanResultRow[],
+      over: {
+        tracked?: ReadonlySet<string>;
+        listDefs?: readonly SymbolListDef[];
+        listMembership?: ReadonlyMap<string, string>;
+        listsLoading?: boolean;
+      } = {},
+    ) =>
+      mount(GAINERS, run({ result: result(rows) }), over.tracked ?? new Set(), {
+        listDefs: over.listDefs ?? LIST_DEFS,
+        listMembership: over.listMembership ?? new Map(),
+        listsLoading: over.listsLoading,
+      });
+    const listBtn = (tr: Element) =>
+      tr.querySelector('[data-testid="list-btn"]') as HTMLElement;
+    const menuItems = () =>
+      Array.from(el().querySelectorAll('.list-menu .menu-item'));
+    const openMenu = (tr: Element) => {
+      listBtn(tr).click();
+      fixture.detectChanges();
+    };
+
+    it('renders the list chip for a member, an empty cell for unassigned', () => {
+      mountWithLists([wireRow('AAPL'), wireRow('MSFT')], {
+        listMembership: MEMBERSHIP,
+      });
+      const rows = bodyRows();
+      expect(rows[0].querySelector('.list-chip')?.textContent!.trim()).toBe(
+        'PRIMARY',
+      );
+      expect(rows[1].querySelector('.list-chip')).toBeNull();
+      // The chip cell exists on every row — the empty state is a cell,
+      // not a missing column.
+      expect(rows[1].querySelector('.list-cell')).not.toBeNull();
+    });
+
+    it('the menu lists the exclusive defs in catalog order with a checkmark on the current list', () => {
+      mountWithLists([wireRow('AAPL')], { listMembership: MEMBERSHIP });
+      openMenu(bodyRows()[0]);
+      const items = menuItems();
+      expect(
+        items.map((i) => i.querySelector('.menu-label')!.textContent!.trim()),
+      ).toEqual(LIST_DEFS.map((d) => d.label));
+      expect(
+        items.map((i) =>
+          i.querySelector('.check-icon')!.textContent!.trim(),
+        ),
+      ).toEqual(['', 'check', '', '', '', '']);
+    });
+
+    it('picking a different list emits {symbol, listKey}; picking the checked one emits too (un-assign is the store\'s job)', () => {
+      mountWithLists([wireRow('AAPL')], { listMembership: MEMBERSHIP });
+      const spy = jest.fn();
+      fixture.componentInstance.listPick.subscribe(spy);
+      openMenu(bodyRows()[0]);
+      (menuItems()[2] as HTMLElement).click(); // Secondary
+      expect(spy).toHaveBeenCalledWith({ symbol: 'AAPL', listKey: 'SECONDARY' });
+      // Menu closed on pick; reopen and pick the checked list.
+      openMenu(bodyRows()[0]);
+      (menuItems()[1] as HTMLElement).click(); // Primary (current)
+      expect(spy).toHaveBeenCalledWith({ symbol: 'AAPL', listKey: 'PRIMARY' });
+    });
+
+    it('the menu closes on pick', () => {
+      mountWithLists([wireRow('AAPL')]);
+      openMenu(bodyRows()[0]);
+      (menuItems()[0] as HTMLElement).click();
+      fixture.detectChanges();
+      expect(el().querySelector('.list-menu')).toBeNull();
+    });
+
+    it('one menu open at a time — opening a second row closes the first', () => {
+      mountWithLists([wireRow('AAPL'), wireRow('MSFT')]);
+      openMenu(bodyRows()[0]);
+      expect(el().querySelectorAll('.list-menu')).toHaveLength(1);
+      openMenu(bodyRows()[1]);
+      expect(el().querySelectorAll('.list-menu')).toHaveLength(1);
+      // The open menu anchors to the second row's button.
+      expect(
+        bodyRows()[1].querySelector('.list-menu'),
+      ).not.toBeNull();
+    });
+
+    it('an untracked row shows the same menu and keeps its new badge after being filed', () => {
+      mountWithLists([wireRow('AAPL')], {
+        tracked: new Set(), // not tracked
+        listMembership: MEMBERSHIP,
+      });
+      const row = bodyRows()[0];
+      expect(row.querySelector('.badge')!.textContent!.trim()).toBe('new');
+      expect(row.querySelector('.list-chip')?.textContent!.trim()).toBe(
+        'PRIMARY',
+      );
+      expect(listBtn(row)).not.toBeNull();
+    });
+
+    it('an empty catalog renders a loading hint while the stream is live, honest copy after failure', () => {
+      mountWithLists([wireRow('AAPL')], { listDefs: [], listsLoading: true });
+      openMenu(bodyRows()[0]);
+      expect(el().querySelector('.menu-empty')?.textContent).toContain(
+        'Loading',
+      );
+      expect(menuItems()).toHaveLength(0);
+    });
+
+    it('an empty catalog after the stream settles says No lists available (not a false loading state)', () => {
+      mountWithLists([wireRow('AAPL')], { listDefs: [], listsLoading: false });
+      openMenu(bodyRows()[0]);
+      expect(el().querySelector('.menu-empty')?.textContent).toContain(
+        'No lists available',
+      );
+    });
+
+    it('the chip tracks the membership map across re-emissions', () => {
+      mountWithLists([wireRow('AAPL'), wireRow('MSFT')], {
+        listMembership: MEMBERSHIP,
+      });
+      expect(bodyRows()[0].querySelector('.list-chip')?.textContent!.trim()).toBe(
+        'PRIMARY',
+      );
+      // Second catalog emission — move AAPL, file MSFT.
+      fixture.componentRef.setInput(
+        'listMembership',
+        new Map([
+          ['AAPL', 'HIDE'],
+          ['MSFT', 'SECONDARY'],
+        ]),
+      );
+      fixture.detectChanges();
+      expect(bodyRows()[0].querySelector('.list-chip')?.textContent!.trim()).toBe(
+        'HIDE',
+      );
+      expect(bodyRows()[1].querySelector('.list-chip')?.textContent!.trim()).toBe(
+        'SECONDARY',
+      );
+      // Un-assign clears the chip.
+      fixture.componentRef.setInput('listMembership', new Map());
+      fixture.detectChanges();
+      expect(bodyRows()[0].querySelector('.list-chip')).toBeNull();
+    });
+
+    it('a silent rows re-emission closes an open menu (no stale-row resurrection)', () => {
+      mountWithLists([wireRow('AAPL'), wireRow('MSFT')]);
+      openMenu(bodyRows()[0]);
+      expect(el().querySelector('.list-menu')).not.toBeNull();
+      // Auto-refresh swaps run().result without any document click.
+      fixture.componentRef.setInput(
+        'run',
+        run({ result: result([wireRow('MSFT'), wireRow('AAPL')]) }),
+      );
+      fixture.detectChanges();
+      expect(el().querySelector('.list-menu')).toBeNull();
+    });
   });
 });

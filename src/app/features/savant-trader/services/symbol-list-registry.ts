@@ -21,6 +21,7 @@ import {
   systemListDef,
   SYSTEM_LIST_DEFS,
   legacyListKey,
+  normalizeListSymbols,
   USER_LIST_ORDER_START,
 } from '../common/symbol-list-defs';
 
@@ -37,7 +38,7 @@ export function toDef(data: DocumentData): SymbolListDef {
     order: typeof data['order'] === 'number' ? data['order'] : 0,
     role,
     hidden: data['hidden'] === true,
-    symbols: Array.isArray(data['symbols']) ? (data['symbols'] as string[]) : [],
+    symbols: normalizeListSymbols(data['symbols']),
     userId: data['userId'],
     createdAt: data['createdAt'],
     updatedAt: data['updatedAt'],
@@ -87,7 +88,10 @@ export async function resolveSnapshot(
     // doc and a previous legacy doc that resolved to the same key.
     const existing = out.get(key);
     const symbols = [
-      ...new Set([...(existing?.symbols ?? []), ...((d.data['symbols'] as string[]) ?? [])]),
+      ...new Set([
+        ...(existing?.symbols ?? []),
+        ...normalizeListSymbols(d.data['symbols']),
+      ]),
     ];
     const def: SymbolListDef = {
       ...(existing ?? template ?? {
@@ -171,7 +175,7 @@ export function fallbackDefs(
       (d.id.startsWith(prefix) ? d.id.slice(prefix.length) : d.id);
     const key = legacyListKey(name);
     const template = systemListDef(key);
-    const symbols = (d.data['symbols'] as string[]) ?? [];
+    const symbols = normalizeListSymbols(d.data['symbols']);
     const prev = out.get(key);
     out.set(key, {
       ...(prev ?? template ?? {

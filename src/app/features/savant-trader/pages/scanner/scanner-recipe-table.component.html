@@ -1,4 +1,4 @@
-<!-- @topic #1098 — RH Scanner | @task #1197, #1199 -->
+<!-- @topic #1098 — RH Scanner | @task #1197, #1199, #1306 -->
 @if (run().status !== 'error') {
   <section class="recipe-table" [attr.data-recipe]="recipe().id">
     <header class="recipe-head">
@@ -61,6 +61,12 @@
                     </span>
                   }
                 </th>
+                @if (f.key === 'tracked') {
+                  <!-- #1306 appendage columns — row actions + triage-list
+                       chip, neither sortable. -->
+                  <th scope="col" class="actions-head" aria-label="Row actions"></th>
+                  <th scope="col" class="list-head" title="Triage list">List</th>
+                }
               }
               @for (c of tableColumns(); track c) {
                 <th scope="col" class="clickable" [class.num]="numericCols().has(c)" (click)="onHeaderClick(c)">
@@ -81,6 +87,57 @@
                   <span class="badge" [class.tracked]="isTracked(row)">
                     {{ isTracked(row) ? 'tracked' : 'new' }}
                   </span>
+                </td>
+                <td class="actions-cell">
+                  <span class="menu-anchor">
+                    <button
+                      type="button"
+                      class="icon-btn list-btn"
+                      data-testid="list-btn"
+                      aria-haspopup="menu"
+                      [attr.aria-expanded]="listMenuFor() === row.symbol"
+                      [attr.aria-label]="'Assign ' + row.symbol + ' to a list'"
+                      title="Assign to list"
+                      (click)="toggleListMenu($event, row)"
+                    >
+                      <span class="dse-icon">playlist_add</span>
+                    </button>
+                    @if (listMenuFor() === row.symbol) {
+                      <div
+                        class="dse-menu list-menu"
+                        role="menu"
+                        (click)="$event.stopPropagation()"
+                      >
+                        @if (listDefs().length === 0) {
+                          <div class="menu-empty">
+                            {{
+                              listsLoading()
+                                ? 'Loading lists…'
+                                : 'No lists available'
+                            }}
+                          </div>
+                        }
+                        @for (d of listDefs(); track d.key) {
+                          <button
+                            type="button"
+                            class="menu-item"
+                            role="menuitem"
+                            (click)="pickList(row, d.key)"
+                          >
+                            <span class="dse-icon check-icon">{{
+                              listKeyFor(row) === d.key ? 'check' : ''
+                            }}</span>
+                            <span class="menu-label">{{ d.label }}</span>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </span>
+                </td>
+                <td class="list-cell" data-testid="list-cell">
+                  @if (listKeyFor(row); as k) {
+                    <span class="list-chip">{{ k }}</span>
+                  }
                 </td>
                 <td class="symbol">{{ row.symbol }}</td>
                 <td class="mono">{{ row.instrumentId || '—' }}</td>

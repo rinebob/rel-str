@@ -21,6 +21,7 @@ import {
   type ScannerError,
 } from '../../stores/scanner.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { SCANNER_RECIPES } from '../../scanner/scanner-recipes';
 import type { ScanResultRow } from '@robinhood-mcp/contracts';
@@ -30,6 +31,7 @@ const idleRun = (): RecipeRunState => ({
   result: null,
   ranAt: null,
   errorKind: null,
+  error: null,
 });
 
 const idleRuns = (): Record<string, RecipeRunState> =>
@@ -55,6 +57,7 @@ const successRun = (
   result: { total_items: totalItems, results },
   ranAt: '2026-10-22T14:30:00Z',
   errorKind: null,
+  error: null,
 });
 
 describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
@@ -75,7 +78,13 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
     trackedStatus: ReturnType<
       typeof signal<'idle' | 'loading' | 'ready' | 'error'>
     >;
+    byRole: ReturnType<
+      typeof signal<{ exclusive: SymbolListDef[]; nonexclusive: SymbolListDef[] }>
+    >;
+    symbolListsLoading: ReturnType<typeof signal<boolean>>;
     loadTrackedSymbols: jest.Mock;
+    loadSymbolLists: jest.Mock;
+    toggleSymbolInList: jest.Mock;
   };
   let mcpMock: { reauthenticate: jest.Mock };
   let snackBarMock: { open: jest.Mock };
@@ -109,7 +118,11 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
     symbolListsMock = {
       trackedSymbols: signal<string[]>([]),
       trackedStatus: signal<'idle' | 'loading' | 'ready' | 'error'>('ready'),
+      byRole: signal({ exclusive: [] as SymbolListDef[], nonexclusive: [] as SymbolListDef[] }),
+      symbolListsLoading: signal(false),
       loadTrackedSymbols: jest.fn().mockResolvedValue(['AAPL']),
+      loadSymbolLists: jest.fn(),
+      toggleSymbolInList: jest.fn(),
     };
     mcpMock = { reauthenticate: jest.fn() };
     snackBarMock = { open: jest.fn() };

@@ -557,6 +557,7 @@ describe('ScannerStore run-all machinery (#1198)', () => {
         result: null,
         ranAt: null,
         errorKind: null,
+        error: null,
       });
     }
     expect(store.authFailed()).toBe(false);
@@ -617,6 +618,8 @@ describe('ScannerStore run-all machinery (#1198)', () => {
     await jest.advanceTimersByTimeAsync(SCANNER_RECIPES.length * 1000);
     expect(store.runs()[failing].status).toBe('error');
     expect(store.runs()[failing].errorKind).toBe('other');
+    // The reason reaches the detail pane — errorKind alone isn't a message.
+    expect(store.runs()[failing].error).toBe('rate limited');
     expect(store.authFailed()).toBe(false);
     const others = Object.entries(store.runs()).filter(([id]) => id !== failing);
     expect(others.every(([, r]) => r.status === 'success')).toBe(true);

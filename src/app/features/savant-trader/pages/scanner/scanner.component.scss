@@ -161,6 +161,12 @@
   border-radius: var(--ds-radius-sm);
   color: var(--mat-sys-on-surface-variant);
   font-size: var(--ds-font-size-sm);
+
+  .detail-error-msg {
+    font-family: var(--ds-font-mono, monospace);
+    opacity: 0.85;
+    overflow-wrap: anywhere;
+  }
 }
 
 /* Narrow viewports — the rail stops being a column and becomes a

@@ -1,5 +1,6 @@
-/* @topic #1098 — RH Scanner | @task #1197, #1199 */
+/* @topic #1098 — RH Scanner | @task #1197, #1199, #1306 */
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
+@use 'index' as ds;
 
 :host {
   // Bounded through .scanner-main → .detail (flex chains carry
@@ -128,6 +129,16 @@
     color: var(--mat-sys-on-surface-variant);
   }
 
+  // #1306 — dense appendage cells; nesting under .results-table beats
+  //  the mixin's `.results-table tbody td` padding without !important.
+  td.actions-cell {
+    padding: 0 2px; // dense column — the icon alone
+  }
+
+  td.list-cell {
+    padding: 0 4px;
+  }
+
   th.clickable {
     cursor: pointer;
 
@@ -156,4 +167,50 @@
     background: color-mix(in srgb, var(--ds-up) 15%, transparent);
     color: var(--ds-up);
   }
+}
+
+// #1306 — row list menu + membership chip.
+.menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.list-btn {
+  .dse-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.dse-menu {
+  @include ds.ds-menu;
+}
+
+.list-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 130px;
+
+  // Keep the check column aligned whether or not the row is current —
+  // the icon slot renders empty for non-members.
+  .check-icon {
+    flex-shrink: 0;
+  }
+}
+
+.menu-empty {
+  padding: 8px 12px;
+  font-size: var(--ds-font-size-sm);
+  color: var(--mat-sys-on-surface-variant);
+  white-space: nowrap;
+}
+
+.list-chip {
+  @include vl.badge;
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.4px;
 }

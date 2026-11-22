@@ -66,6 +66,10 @@ export interface RecipeRunState {
   result: PreviewScanResult | null;
   ranAt: string | null;
   errorKind: 'auth' | 'other' | null;
+  /** Failure detail — what the scan actually reported. errorKind
+   *  classifies for the auth surface; this carries the human-readable
+   *  reason to the detail pane. */
+  error: string | null;
 }
 
 export interface ScannerState {
@@ -107,6 +111,7 @@ export const idleRun = (): RecipeRunState => ({
   result: null,
   ranAt: null,
   errorKind: null,
+  error: null,
 });
 
 const initialState: ScannerState = {
@@ -234,7 +239,7 @@ export const ScannerStore = signalStore(
         const prev = state.runs()[recipe.id] ?? idleRun();
         patch({
           armedLaunches: state.armedLaunches().filter((id) => id !== recipe.id),
-          runs: { ...state.runs(), [recipe.id]: { ...prev, status: 'loading', errorKind: null } },
+          runs: { ...state.runs(), [recipe.id]: { ...prev, status: 'loading', errorKind: null, error: null } },
         });
         service.previewScanRaw(recipe).then(
           (result) => {
@@ -247,19 +252,22 @@ export const ScannerStore = signalStore(
               result,
               ranAt: new Date().toISOString(),
               errorKind: null,
+              error: null,
             });
           },
           (e: unknown) => {
             if (recipeSeqs.get(recipe.id) !== seq) return;
+            const err = toError(e);
             // Category is RH-side only (see toError) — any non-AUTH
             // failure is 'other'.
             patchRun(recipe.id, {
               ...prev,
               status: 'error',
               errorKind:
-                toError(e).category === ToolExecutionErrorCategory.AUTH
+                err.category === ToolExecutionErrorCategory.AUTH
                   ? 'auth'
                   : 'other',
+              error: err.message,
             });
           },
         );

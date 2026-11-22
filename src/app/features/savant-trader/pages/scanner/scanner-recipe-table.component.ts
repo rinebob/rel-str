@@ -1,12 +1,13 @@
 /**
- * @topic #1098 — RH Scanner | @task #1197, #1199, #1305
+ * @topic #1098 — RH Scanner | @task #1197, #1199, #1305, #1306
  *
  * Scanner recipe table — one dumb per-recipe table for the auto-run
  * overview (#1183). Renders the raw PreviewScanResult: header line
  * (title · blurb · N of M · sorted_by · ran-at · per-table refresh
- * button) and every wire field as a column — tracked badge, Symbol,
- * instrument_id, instrument_type, the recipe's declared columns, then
- * any undeclared keys the response actually returned (e.g. 'Name').
+ * button) and every wire field as a column — tracked badge, row-actions
+ * (triage-list menu, #1306), triage-list chip, Symbol, instrument_id,
+ * instrument_type, the recipe's declared columns, then any undeclared
+ * keys the response actually returned (e.g. 'Name').
  *
  * Sort is the option-chart click-cycle chain (scanner-sort.util): click
  * adds a level ascending → desc → removes; headers carry numbered
@@ -28,6 +29,7 @@ import { CommonModule } from '@angular/common';
 
 import type { ScannerRecipe } from '../../scanner/scanner-recipes';
 import type { RecipeRunState } from '../../stores/scanner.store';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
 import {
   appliedFilterSummary,
   displayCell,
@@ -70,6 +72,10 @@ const FIXED_KEYS: ReadonlySet<string> = new Set(FIXED_COLUMNS.map((f) => f.key))
   imports: [CommonModule],
   templateUrl: './scanner-recipe-table.component.html',
   styleUrl: './scanner-recipe-table.component.scss',
+  host: {
+    // dse-menu convention — a click anywhere else dismisses the row menu.
+    '(document:click)': 'listMenuFor.set(null)',
+  },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ScannerRecipeTableComponent {
@@ -80,7 +86,21 @@ export class ScannerRecipeTableComponent {
   /** Page-level All/New/Tracked filter (#1305) — filters rows before
    *  sort; the seed (recipe sort) is unchanged. */
   readonly symbolFilter = input<ScannerSymbolFilter>('all');
+  /** Exclusive triage defs in catalog order — the row menu's options
+   *  (#1306). MONITOR/user lists never arrive: the page scopes the input
+   *  to `byRole().exclusive`. */
+  readonly listDefs = input<readonly SymbolListDef[]>([]);
+  /** normSymbol → exclusive list key — the row chip's single source
+   *  (#1306). Computed on the page so rows never hit the store. */
+  readonly listMembership = input<ReadonlyMap<string, string>>(new Map());
+  /** Catalog still streaming — the row menu's empty state chooses copy
+   *  off this ('Loading lists…' vs 'No lists available'). */
+  readonly listsLoading = input(false);
   readonly refresh = output<void>();
+  /** Row menu pick — {symbol, listKey}; the page routes to
+   *  `toggleSymbolInList` (a re-pick of the current key un-assigns —
+   *  that decision is the store's, not the menu's). */
+  readonly listPick = output<{ symbol: string; listKey: string }>();
 
   protected readonly fixedColumns = FIXED_COLUMNS;
 
@@ -198,6 +218,35 @@ export class ScannerRecipeTableComponent {
 
   protected isTracked(row: ScanRow): boolean {
     return this.trackedNorm().has(normScanSymbol(row.symbol));
+  }
+
+  /** Row whose list menu is open — one at a time per table; the
+   *  document-click host binding clears it on any outside click. */
+  /** Row with an open list menu — resets whenever `rows` re-emits so a
+   *  silent refresh (auto-refresh or a pick-driven catalog echo changing
+   *  sort order) can't strand or resurrect a menu on a stale row. */
+  protected readonly listMenuFor = linkedSignal<ScanRow[], string | null>({
+    source: this.rows,
+    computation: () => null,
+  });
+
+  /** The row's exclusive list key from the page-computed map — the
+   *  chip's text AND the menu's checkmark both read this so a row
+   *  never disagrees with itself. */
+  protected listKeyFor(row: ScanRow): string | null {
+    return this.listMembership().get(normScanSymbol(row.symbol)) ?? null;
+  }
+
+  protected toggleListMenu(event: MouseEvent, row: ScanRow): void {
+    event.stopPropagation(); // keep the document-click closer quiet
+    this.listMenuFor.update((cur) => (cur === row.symbol ? null : row.symbol));
+  }
+
+  protected pickList(row: ScanRow, listKey: string): void {
+    this.listMenuFor.set(null);
+    // Emit the canonical spelling — the store's inList/moveToList
+    // comparisons key on the same normalized form.
+    this.listPick.emit({ symbol: normScanSymbol(row.symbol), listKey });
   }
 
   /** Raw sortable value for a key — shared resolver (scanner-rows.util)

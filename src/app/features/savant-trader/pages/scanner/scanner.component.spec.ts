@@ -22,6 +22,11 @@ import {
   type ScannerError,
 } from '../../stores/scanner.store';
 import { SymbolListStore } from '../../stores/symbol-list.store';
+import type { SymbolListDef } from '../../common/symbol-list-defs';
+import type {
+  PreviewScanResult,
+  ScanResultRow,
+} from '@robinhood-mcp/contracts';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import { SCANNER_RECIPES } from '../../scanner/scanner-recipes';
 
@@ -34,6 +39,7 @@ const idleRun = (): RecipeRunState => ({
   result: null,
   ranAt: null,
   errorKind: null,
+  error: null,
 });
 
 const idleRuns = (): Record<string, RecipeRunState> =>
@@ -57,7 +63,13 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
     trackedStatus: ReturnType<
       typeof signal<'idle' | 'loading' | 'ready' | 'error'>
     >;
+    byRole: ReturnType<
+      typeof signal<{ exclusive: SymbolListDef[]; nonexclusive: SymbolListDef[] }>
+    >;
+    symbolListsLoading: ReturnType<typeof signal<boolean>>;
     loadTrackedSymbols: jest.Mock;
+    loadSymbolLists: jest.Mock;
+    toggleSymbolInList: jest.Mock;
   };
   let mcpMock: { reauthenticate: jest.Mock };
 
@@ -90,7 +102,11 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
     symbolListsMock = {
       trackedSymbols: signal<string[]>([]),
       trackedStatus: signal<'idle' | 'loading' | 'ready' | 'error'>('ready'),
+      byRole: signal({ exclusive: [] as SymbolListDef[], nonexclusive: [] as SymbolListDef[] }),
+      symbolListsLoading: signal(false),
       loadTrackedSymbols: jest.fn().mockResolvedValue(['AAPL']),
+      loadSymbolLists: jest.fn(),
+      toggleSymbolInList: jest.fn(),
     };
     mcpMock = { reauthenticate: jest.fn() };
     await TestBed.configureTestingModule({
@@ -197,6 +213,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
       },
       ranAt: '2026-10-22T14:30:00Z',
       errorKind: null,
+      error: null,
     };
     runs[SCANNER_RECIPES[1].id] = { ...idleRun(), status: 'loading' };
     runs[SCANNER_RECIPES[2].id] = {
@@ -230,6 +247,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
       result: { total_items: 0, results: [] },
       ranAt: '2026-10-22T14:30:00Z',
       errorKind: null,
+      error: null,
     };
     storeMock.runs.set(runs);
     symbolListsMock.trackedSymbols.set(['aapl']);
@@ -257,6 +275,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
       ...idleRun(),
       status: 'error',
       errorKind: 'other',
+      error: 'client id not allowed',
     };
     storeMock.runs.set(runs);
     fixture.detectChanges();
@@ -264,6 +283,7 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
     expect(tables()).toEqual([]);
     const note = el('.detail-error')!;
     expect(note.textContent).toContain(SCANNER_RECIPES[0].title);
+    expect(note.textContent).toContain('client id not allowed');
 
     (el('[data-testid="retry-selected"]') as HTMLButtonElement).click();
     expect(storeMock.refreshRecipe).toHaveBeenCalledWith(
@@ -369,5 +389,86 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
     const labels = els('button').map((b) => b.textContent!.trim());
     expect(labels).not.toContain('Run');
     expect(labels).not.toContain('Evaluate tracked');
+  });
+
+  describe('row list menu + chip wiring (#1306)', () => {
+    const EXCLUSIVE: SymbolListDef[] = [
+      { key: 'NEW', label: 'New', order: 0, role: 'exclusive', hidden: false, symbols: [] },
+      { key: 'PRIMARY', label: 'Primary', order: 1, role: 'exclusive', hidden: false, symbols: [' aapl '] },
+      { key: 'HIDE', label: 'Hide', order: 5, role: 'exclusive', hidden: false, symbols: [] },
+    ];
+    const NONEXCLUSIVE: SymbolListDef[] = [
+      { key: 'MONITOR', label: 'Monitor', order: 6, role: 'nonexclusive', hidden: false, symbols: ['AAPL'] },
+    ];
+    const wireRow = (ticker: string): ScanResultRow => ({
+      ticker,
+      instrument_id: `iid-${ticker.toLowerCase()}`,
+      instrument_type: 'EQUITY',
+      columns: {},
+    });
+    const successRun = (results: ScanResultRow[]): RecipeRunState => ({
+      status: 'success',
+      result: {
+        total_items: results.length,
+        results,
+        sorted_by: 'Last desc',
+      } as PreviewScanResult,
+      ranAt: '2026-10-22T14:30:00Z',
+      errorKind: null,
+      error: null,
+    });
+    const mountWithAapl = () => {
+      storeMock.runs.set({
+        ...idleRuns(),
+        // Catalog-first recipe is the default rail selection.
+        [SCANNER_RECIPES[0].id]: successRun([wireRow('AAPL')]),
+      });
+      fixture.detectChanges();
+    };
+
+    it('calls loadSymbolLists() on init so the chip and menu have the live catalog', () => {
+      fixture.detectChanges();
+      expect(symbolListsMock.loadSymbolLists).toHaveBeenCalled();
+    });
+
+    it('builds the membership map from exclusive defs only — normalized keys, chip renders in the row', () => {
+      symbolListsMock.byRole.set({ exclusive: EXCLUSIVE, nonexclusive: NONEXCLUSIVE });
+      mountWithAapl();
+      const t = tables()[0];
+      // ' aapl ' (whitespace + case) normalizes to 'AAPL' — one policy.
+      expect(t.listMembership().get('AAPL')).toBe('PRIMARY');
+      // NONEXCLUSIVE defs contribute nothing — MONITOR carries AAPL too.
+      expect(t.listDefs()).toEqual(EXCLUSIVE);
+      const chip = el('.list-chip');
+      expect(chip?.textContent!.trim()).toBe('PRIMARY');
+    });
+
+    it('menu pick routes {symbol, listKey} to toggleSymbolInList', () => {
+      symbolListsMock.byRole.set({ exclusive: EXCLUSIVE, nonexclusive: NONEXCLUSIVE });
+      mountWithAapl();
+      el('[data-testid="list-btn"]')!.click();
+      fixture.detectChanges();
+      const items = els('.list-menu .menu-item .menu-label').map(
+        (i) => i.textContent!.trim(),
+      );
+      expect(items).toEqual(['New', 'Primary', 'Hide']); // exclusive only
+      els('.list-menu .menu-item')[1].click(); // Primary — the checked list
+      expect(symbolListsMock.toggleSymbolInList).toHaveBeenCalledWith(
+        'AAPL',
+        'PRIMARY',
+      );
+    });
+
+    it('a different-list pick also routes through toggleSymbolInList (the move decision is the store\'s)', () => {
+      symbolListsMock.byRole.set({ exclusive: EXCLUSIVE, nonexclusive: NONEXCLUSIVE });
+      mountWithAapl();
+      el('[data-testid="list-btn"]')!.click();
+      fixture.detectChanges();
+      els('.list-menu .menu-item')[2].click(); // Hide
+      expect(symbolListsMock.toggleSymbolInList).toHaveBeenCalledWith(
+        'AAPL',
+        'HIDE',
+      );
+    });
   });
 });

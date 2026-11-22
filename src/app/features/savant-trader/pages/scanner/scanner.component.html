@@ -1,4 +1,4 @@
-<!-- @topic #1098 — RH Scanner | @task #1199, #1305 -->
+<!-- @topic #1098 — RH Scanner | @task #1199, #1305, #1306 -->
 <div class="scanner-page">
   <div class="content-column">
     <header class="scanner-header">
@@ -95,6 +95,9 @@
             <div class="detail-error">
               <strong>{{ sel.recipe.title }}</strong>
               <span>Scan failed — the rest of the board is unaffected.</span>
+              @if (sel.run.error; as msg) {
+                <span class="detail-error-msg">{{ msg }}</span>
+              }
               <button class="ds-btn"
  data-testid="retry-selected"
  (click)="store.refreshRecipe(sel.recipe.id)"
@@ -108,7 +111,11 @@
               [run]="sel.run"
               [tracked]="tracked()"
               [symbolFilter]="symbolFilter()"
+              [listDefs]="listDefs()"
+              [listMembership]="listMembership()"
+              [listsLoading]="symbolLists.symbolListsLoading()"
               (refresh)="store.refreshRecipe(sel.recipe.id)"
+              (listPick)="onListPick($event)"
             />
           }
         }

@@ -1,5 +1,5 @@
 /**
- * @topic #1098 — RH Scanner | @task #1199, #1305
+ * @topic #1098 — RH Scanner | @task #1199, #1305, #1306
  *
  * Scanner page — the auto-run overview (#1183), rail + detail layout
  * (winner of the ?variant= prototype: the rail IS the morning scoreboard
@@ -35,6 +35,7 @@ import { SymbolListStore } from '../../stores/symbol-list.store';
 import { RobinhoodMcpObservationService } from '../../../../core/robinhood-mcp/robinhood-mcp-observation.service';
 import type { ScannerRecipe } from '../../scanner/scanner-recipes';
 import {
+  normScanSymbol,
   normSymbolSet,
   type ScannerSymbolFilter,
 } from '../../utils/scanner-rows.util';
@@ -71,7 +72,7 @@ interface RailEntry {
 })
 export class ScannerComponent implements OnInit, OnDestroy {
   protected readonly store = inject(ScannerStore);
-  private readonly symbolLists = inject(SymbolListStore);
+  protected readonly symbolLists = inject(SymbolListStore);
   private readonly mcp = inject(RobinhoodMcpObservationService);
   private readonly snackBar = inject(DsToastService);
 
@@ -82,6 +83,36 @@ export class ScannerComponent implements OnInit, OnDestroy {
   protected readonly tracked = computed<ReadonlySet<string>>(
     () => new Set(this.symbolLists.trackedSymbols()),
   );
+
+  /** Exclusive triage defs in catalog order — the row menu's option
+   *  set (#1306). MONITOR/user lists never reach the menu. */
+  protected readonly listDefs = computed(
+    () => this.symbolLists.byRole().exclusive,
+  );
+
+  /** normSymbol → exclusive list key — the row chip's membership map
+   *  (#1306). Exclusive role means at most one list per symbol;
+   *  first-wins keeps it deterministic if the data ever violates that.
+   *  Membership is NOT tracking — a filed-but-untracked row keeps its
+   *  `new` badge. */
+  protected readonly listMembership = computed<ReadonlyMap<string, string>>(
+    () => {
+      const map = new Map<string, string>();
+      for (const def of this.listDefs()) {
+        for (const s of def.symbols) {
+          const k = normScanSymbol(s);
+          if (!map.has(k)) map.set(k, def.key);
+        }
+      }
+      return map;
+    },
+  );
+
+  /** Row menu pick → the store's toggle: an exclusive target moves the
+   *  symbol, a re-pick of the current list un-assigns it (#1306). */
+  protected onListPick(pick: { symbol: string; listKey: string }): void {
+    this.symbolLists.toggleSymbolInList(pick.symbol, pick.listKey);
+  }
 
   /** Normalized tracked set — the rail's sort resolver AND the page
    *  filter's membership check both key on it (one spelling via
@@ -199,6 +230,9 @@ export class ScannerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     void this.symbolLists.loadTrackedSymbols();
+    // The catalog stream drives the row chip + menu (#1306) — a guarded
+    // call (re-enters only after a stream error).
+    this.symbolLists.loadSymbolLists();
     this.store.runAllRecipes();
     this.refreshTimer = setInterval(
       () => this.store.runAllRecipes(),

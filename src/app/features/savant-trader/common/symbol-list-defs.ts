@@ -36,6 +36,26 @@ export function symbolListDocId(userId: string, key: string): string {
   return `${userId}_${key}`;
 }
 
+/**
+ * Canonical spelling for stored `def.symbols` — trim + uppercase, deduped,
+ * non-strings/empties dropped (#1306). Backend writers (e.g. the
+ * symbol-added inbox) store trimmed-but-not-uppercased entries and legacy
+ * merges carry raw spellings; without one canonical form the read side
+ * (membership maps) and the write side (`moveToList` strip / `inList`
+ * check) disagree — a pick can't remove a variant spelling and a symbol
+ * lands in two exclusive lists under different cases.
+ */
+export function normalizeListSymbols(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Set<string>();
+  for (const s of raw) {
+    if (typeof s !== 'string') continue;
+    const n = s.trim().toUpperCase();
+    if (n) out.add(n);
+  }
+  return [...out];
+}
+
 /** Reserved system keys in display order. */
 export const SYSTEM_LIST_KEYS = {
   NEW: 'NEW',
