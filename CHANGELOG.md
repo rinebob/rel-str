@@ -25,6 +25,9 @@
 - [Options Backtest] 1238-1503_BE-CHORE-MULTI-LEG-SPREAD: verify script options-simulator-deprecation-1503.{ts,md} — 14 static pins: marker on both surfaces (doc-adjacent, sabotage-proven) + worker import/invoke + signature head + index.ts re-export; run-all + both README registrations
 - [Options Backtest] 1238-1503_DOCS-MULTI-LEG-SPREAD: CODE-REVIEW (PASS r2 — 2 minors remediated in-gate: docAbove leftmost-match + missing callable @deprecated check) + UAT (Complete, #1662 — S1–S5 green; BE-only, no user-facing route) + changelog
 
+- [Options Backtest] 1238-1504_FE-IMPL-MULTI-LEG-SPREAD: Shared variant-builder dialog — named-variant / base-template-dial / from-scratch modes compose concrete VariantLeg[] via pure utils (band-bounded Δ/DTE pickers, signed PUT Δ, stock legs fixed, MAX_VARIANT_LEGS=8 mirroring the optionsReplayStart request boundary) + dialog-scoped VariantBuilderStore SignalStore + live composed-legs preview + Copy JSON gated on validateVariantLegs + 'custom'/registry-id collision guards; variantName ≤200; submitLabel via DS_DIALOG_DATA; 440px host fits the 480px DS pane contract; 30/30 specs
+- [Options Backtest] 1238-1504_DOCS-MULTI-LEG-SPREAD: CODE-REVIEW (PASS — 3 axes; 2 majors remediated in-gate: 480px dialog-pane width contract + 8-leg server boundary) + UAT (Complete, #1669 — S1–S13 green via spec execution; live visual pass deferred to #1505, dialog un-wired) + changelog
+
 ## [2026-11-21]
 
 ### Added
