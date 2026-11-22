@@ -77,6 +77,7 @@ const scripts = [
   'options-analysis-position-1500.ts',
   'options-engine-eod-selection-1501.ts',
   'options-engine-expression-fill-1502.ts',
+  'options-simulator-deprecation-1503.ts',
 ];
 
 let passed = 0;
