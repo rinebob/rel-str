@@ -52,8 +52,8 @@ import {
 } from '@paper-trading/contracts';
 import {
   PaperTradingKind,
-  paperTradingItemsPath,
 } from '@paper-trading/ids';
+import { stPaperTradingItemsPath } from '../../src/common/st-collections';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = 'paper-trading-analysis-dataset-amat-prototype.csv';
@@ -115,7 +115,7 @@ async function liveDryRun(): Promise<void> {
       const trades = await listTrades(db);
       if (trades.length > 0) { enumerated = trades.length; return trades; }
       const legacy = await db.collection(
-        paperTradingItemsPath(PaperTradingKind.TRADE),
+        stPaperTradingItemsPath(PaperTradingKind.TRADE),
       ).get();
       warn(`canonical trades empty — #1007 migration pending; read ${legacy.size} docs from legacy path`);
       const fallback = legacy.docs

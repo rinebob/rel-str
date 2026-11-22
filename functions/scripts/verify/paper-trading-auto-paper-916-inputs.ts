@@ -32,12 +32,12 @@ import {
   ST_SIGNALS_ROOT,
   ST_SYMBOLS_ROOT,
   ST_SYMBOL_LISTS_ROOT,
+  stPaperTradingItemsPath,
 } from '../../src/common/st-collections';
 import {
   signalTradeDesc,
   signalDedupeKey,
   buildTradeId,
-  paperTradingItemsPath,
   PaperTradingKind,
   statsScopeSignalType,
   statsScopeSector,
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
 
   // Dedupe pre-check must not collide with an existing doc unexpectedly.
   const existing = await db
-    .collection(paperTradingItemsPath(PaperTradingKind.TRADE))
+    .collection(stPaperTradingItemsPath(PaperTradingKind.TRADE))
     .doc(tradeId)
     .get();
   console.log(`  trade doc ${existing.exists ? 'EXISTS (would dedupe)' : 'absent (would create)'}`);

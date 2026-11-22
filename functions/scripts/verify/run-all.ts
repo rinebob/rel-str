@@ -48,7 +48,6 @@ const scripts = [
   // deleted paper-trading analysis anchors evidence and would fail by
   // design.
   'data-pipeline-st-order-tickets-1002.ts',
-  'data-pipeline-st-position-groups-1004.ts',
   'data-pipeline-run-jobs-ttl-1010.ts',
   'data-pipeline-legacy-roots-1013.ts',
   'paper-trading-analysis-1073-contracts.ts',

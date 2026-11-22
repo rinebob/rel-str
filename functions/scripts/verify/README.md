@@ -43,7 +43,6 @@ npx tsx scripts/verify/{script-name}.ts
 | ~~#1001~~ | ~~`data-pipeline-st-signals-backfill-1001.ts`~~ | retired at #1019 ship — legacy symbols parent archived + deleted | — |
 | #1002 | `data-pipeline-st-order-tickets-1002.ts` | st-order-tickets canonical-shape audit — id prefix vs mode, origin/state/terms axes, state↔field coherence (read-only, needs ADC) | inline usage in script header |
 | ~~#1003~~ | ~~`data-pipeline-st-order-tickets-migration-1003.ts`~~ | retired in #1013 — legacy order-intents deleted | — |
-| #1004 | `data-pipeline-st-position-groups-1004.ts` | st-position-groups canonical-shape audit + cohorts ⇄ groups parity + bidirectional member back-stamps (read-only, needs ADC) | inline usage in script header |
 | ~~#1006~~ | ~~`data-pipeline-st-strategy-instances-1006.ts`~~ | retired in #1013 — legacy anchors deleted | — |
 | ~~#1007~~ | ~~`data-pipeline-collection-renames-1007.ts`~~ | retired in #1013 — renamed legacy roots deleted | — |
 | ~~#1008~~ | ~~`data-pipeline-config-lists-1008.ts`~~ | retired in #1013 — legacy config/list roots deleted | — |
@@ -120,7 +119,6 @@ npx tsx scripts/verify/{script-name}.ts
 21. **#876** — `indicator-lib-876-engine.ts` (trigger bands engine)
 22. **#877** — `indicator-lib-877-callable.ts` (trigger bands in the indicator series)
 25. **#1002** — `data-pipeline-st-order-tickets-1002.ts` (st-order-tickets canonical-shape audit; empty until post-deploy emission)
-27. **#1004** — `data-pipeline-st-position-groups-1004.ts` (st-position-groups shape + cohorts ⇄ groups parity + member back-stamps; run after `migrate-cohorts-1004.ts --apply` and after a post-deploy `paperSignalOrder` accept — verify-564 covers the live accept path)
 28. **#1073** — `paper-trading-analysis-1073-contracts.ts` (analysis contracts: anchor paths, manifest⇄schema, dataset + slice round-trip; writes then deletes verify-1073-* probes)
 29. **#1074** — `paper-trading-analysis-1074-csv-codec.ts` (CSV codec: serialize→parse round-trip + determinism on real trades; read-only)
 30. **#1076** — `paper-trading-analysis-1076-dataset-writer.ts` (writer + callable: validation, index-doc lifecycle, real GCS upload; enqueue check skips until functions deploy)
@@ -150,6 +148,9 @@ npx tsx scripts/verify/{script-name}.ts
 60. **#1649** — `paper-trading-signal-review-contracts-1649.ts` (signal-review contract surface: signalReview doc id + pick-mapper literal + occurrence-id layout + dedupe⇄occurrence non-interchangeability; instant, read-only, no env)
 61. **#1503** — `options-simulator-deprecation-1503.ts` (legacy simulator deprecation note: @deprecated marker on runBacktestSimulation + stBacktestPermutation naming Selection Replay + Backtest Analytics / #1240/#1266/#1270 + retained-do-not-extend policy; worker import/invoke, signature head, and index.ts re-export pinned unchanged; static source assertions, no env)
 
+<!-- #1661 — purge-legacy-cohorts-1661.ts is a destructive one-shot (drains
+paper-trading/cohorts, backfills trade.positionGroupId) — dry-run by default,
+--apply gated on the repoint deploy. Kept out of run-all like #1566's purge. -->
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they
 verified against were deleted. Replacement: `verify/data-pipeline-legacy-roots-1013.ts`

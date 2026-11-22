@@ -82,7 +82,6 @@ function makeTicket(template: SignalExpressionTemplate = CSP): StOrderTicket {
     refId: 'ref-verify',
     accountTarget: 'acct-verify',
     userId: 'verify-user',
-    cohortId: 'cohort-verify',
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),
   };

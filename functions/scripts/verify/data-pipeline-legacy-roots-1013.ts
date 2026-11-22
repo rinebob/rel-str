@@ -131,7 +131,7 @@ const CHECKS: Check[] = [
 const BLOCKED = [
   'savant-trader/data/runs — retired in #1159 (migrated to st-runs; archive+delete at #1159 ship)',
   'savant-trader/data/symbols (+ run-ids/signal-history subcols) — archived + deleted at #1019 ship',
-  'paper-trading/cohorts — live repository path',
+  'paper-trading/cohorts — retired at #1661 ship (drained to st-position-groups)',
   'paper-trading/analysis-{datasets,slices} — archived + deleted at #1158 ship (canonical: st-paper-trading/analysis-*)',
   'rh-agent-credentials — live auth, permanent',
 ];

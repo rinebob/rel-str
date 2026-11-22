@@ -18,7 +18,6 @@
  */
 import { db } from '../src/firebase-admin-init';
 import { PaperTradingKind } from '@paper-trading/contracts';
-import { paperTradingItemsPath } from '@paper-trading/ids';
 import { stPaperTradingItemsPath } from '../src/common/st-collections';
 
 const KINDS = [
@@ -40,7 +39,13 @@ async function main() {
   };
 
   for (const kind of KINDS) {
-    const legacyPath = paperTradingItemsPath(kind);
+    const LEGACY_ANCHOR: Record<string, string> = {
+      [PaperTradingKind.ACCOUNT]: 'accounts',
+      [PaperTradingKind.TRADE]: 'trades',
+      [PaperTradingKind.STATS]: 'stats',
+      [PaperTradingKind.RAW_QUOTE]: 'raw-quotes',
+    };
+    const legacyPath = `paper-trading/${LEGACY_ANCHOR[kind] ?? kind}/items`;
     const canonPath = stPaperTradingItemsPath(kind);
     const [legacySnap, canonSnap] = await Promise.all([
       db.collection(legacyPath).get(),

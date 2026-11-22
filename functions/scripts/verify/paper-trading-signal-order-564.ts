@@ -8,7 +8,7 @@
  *      as fallback).
  *   2. Runs `handlePaperSignalOrder` with production deps + the real RH MCP
  *      observation tool — equity trade filled at the live acceptance quote,
- *      cohort doc, STAGED expression tickets (no PENDING trades, #1005).
+ *      position group doc, STAGED expression tickets (no PENDING trades, #1005; cohort→group cutover #1661).
  *   3. Cancels one staged ticket via `handleCancelPaperTrade` — the ticket
  *      flips `cancelled`, no trade is involved (#1005).
  *   4. Runs `runExpressionFillPass` — real chains → instruments → quotes →
@@ -25,7 +25,6 @@ import { db } from '../../src/firebase-admin-init';
 import { TradeSide } from '../../../shared/common';
 import {
   PaperAccount,
-  PaperCohort,
   PaperTrade,
   PaperTradeStatus,
   PaperTradingKind,
@@ -122,7 +121,6 @@ async function seed(): Promise<void> {
 }
 
 async function cleanup(
-  cohortIds: string[],
   tradeIds: string[],
   groupIds: string[] = [],
   ticketIds: string[] = [],
@@ -144,10 +142,7 @@ async function cleanup(
   for (const id of ticketIds) {
     await db.doc(`${ST_ORDER_TICKETS_ROOT}/${id}`).delete().catch(() => undefined);
   }
-  // Legacy order-intents cleanup line removed in #1013 — collection retired.
-  for (const id of cohortIds) {
-    await db.doc(paperTradingDocPathFor(PaperTradingKind.COHORT, id)).delete().catch(() => undefined);
-  }
+  // Legacy order-intents + cohorts lines removed in #1013/#1661 — collections retired.
   for (const id of tradeIds) {
     await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, id)).delete().catch(() => undefined);
     // #1002 emission writes pap_{tradeId} tickets per action — drop them too
@@ -155,7 +150,7 @@ async function cleanup(
     await db.doc(`${ST_ORDER_TICKETS_ROOT}/pap_${id}`).delete().catch(() => undefined);
   }
   // belt-and-suspenders: any verify-564 leftovers
-  for (const kind of [PaperTradingKind.COHORT, PaperTradingKind.TRADE, PaperTradingKind.ACCOUNT]) {
+  for (const kind of [PaperTradingKind.TRADE, PaperTradingKind.ACCOUNT]) {
     const snap = await paperItemsRef(db, kind).get();
     const b = db.batch();
     for (const d of snap.docs) if (d.id.includes(PREFIX)) b.delete(d.ref);
@@ -186,7 +181,6 @@ async function cleanup(
 }
 
 async function main(): Promise<void> {
-  const cohortIds: string[] = [];
   const tradeIds: string[] = [];
   const groupIds: string[] = [];
   const ticketIds: string[] = []; // pap_ docs beyond pap_{tradeId} (seeds, minted trades)
@@ -208,7 +202,7 @@ async function main(): Promise<void> {
       callDeps(),
     );
 
-    // Idempotent retry — second call returns the same cohort, no new writes.
+    // Idempotent retry — second call returns the same group, no new writes.
     const retry = await handlePaperSignalOrder(
       {
         auth: { uid: USER_ID },
@@ -222,11 +216,10 @@ async function main(): Promise<void> {
       },
       callDeps(),
     );
-    check('retry is idempotent — same cohort + trade ids, no duplication',
-      retry.cohortId === res.cohortId &&
+    check('retry is idempotent — same group + trade ids, no duplication',
+      retry.positionGroupId === res.positionGroupId &&
         retry.equityTradeId === res.equityTradeId &&
         retry.expressionTradeIds.length === res.expressionTradeIds.length);
-    cohortIds.push(res.cohortId);
     tradeIds.push(res.equityTradeId);
     // expressionTradeIds are staged-TICKET seeds post-#1005 — the pap_
     // docs are the pending expressions; trades only exist after the fill pass.
@@ -241,10 +234,10 @@ async function main(): Promise<void> {
     const eqTrade = (await db.doc(paperTradingDocPathFor(PaperTradingKind.TRADE, res.equityTradeId)).get()).data() as PaperTrade;
     check('equity trade: OPEN with entry fill at a real price',
       eqTrade.status === PaperTradeStatus.OPEN && eqTrade.fills.length === 1 && eqTrade.fills[0].price > 0);
-    check('equity trade: share leg, sig provenance + cohort dim',
+    check('equity trade: share leg, sig provenance + group membership',
       eqTrade.legs[0]?.kind === 'share' &&
       eqTrade.signalId === SIGNAL_ID &&
-      eqTrade.cohortId === res.cohortId);
+      eqTrade.positionGroupId === res.positionGroupId);
     check('equity trade: userId + single governing trailing-8 run (#652)',
       eqTrade.userId === USER_ID &&
       eqTrade.variantRuns.length === 1 &&
@@ -266,8 +259,7 @@ async function main(): Promise<void> {
         (t) =>
           t?.state === 'staged' &&
           !!t.terms.expressionTemplate &&
-          t.mode === 'paper' &&
-          t.cohortId === res.cohortId,
+          t.mode === 'paper',
       ));
     check('staged templates match direction config',
       JSON.stringify(stagedTickets.map((t) => t!.terms.expressionTemplate!.key).sort()) ===
@@ -281,15 +273,8 @@ async function main(): Promise<void> {
         )
       ).every((exists) => !exists));
 
-    const cohort = (await db.doc(paperTradingDocPathFor(PaperTradingKind.COHORT, res.cohortId)).get()).data() as PaperCohort;
-    check('cohort: equity trade + template keys only (expressions are tickets)',
-      cohort.signalId === SIGNAL_ID &&
-      cohort.direction === TradeSide.LONG &&
-      cohort.tradeIds.length === 1 &&
-      cohort.tradeIds[0] === res.equityTradeId &&
-      cohort.expressionTemplates.length === templates.length);
-
-    // #1004 — canonical position group (dual-write alongside the cohort).
+    // #1661 — the position group is the sole fan-out anchor; the legacy
+    // cohort doc no longer exists (assertion folded into the group check).
     check('response: canonical positionGroupId minted',
       typeof res.positionGroupId === 'string' && /-grp-\d{2,}$/.test(res.positionGroupId));
     if (res.positionGroupId) {
@@ -395,7 +380,6 @@ async function main(): Promise<void> {
         !!filled &&
           new RegExp(`^${SYMBOL}-\\d{6}-sig-[A-Z]+-\\d{6}-[\\d.]+-\\d{2,}$`).test(filled.id) &&
           !!filled.strike && !!filled.expiration && !!filled.optionType &&
-          filled.cohortId === res.cohortId &&
           filled.positionGroupId === res.positionGroupId &&
           !!filled.ticket?.ticketId);
       const filledTicket = (
@@ -417,7 +401,7 @@ async function main(): Promise<void> {
     check('no broker mutation tools anywhere in the run',
       mcpCalls.every((n) => !/place_|review_/.test(n)));
   } finally {
-    await cleanup(cohortIds, tradeIds, groupIds, ticketIds);
+    await cleanup(tradeIds, groupIds, ticketIds);
   }
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===`);

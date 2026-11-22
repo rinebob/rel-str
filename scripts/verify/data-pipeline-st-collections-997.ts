@@ -45,7 +45,6 @@ import {
   PaperTradingKind,
   analysisDatasetsPath,
   analysisSlicesPath,
-  paperTradingItemsPath,
 } from '@paper-trading/ids';
 import {
   ST_JOBS_SUBCOLLECTION,
@@ -129,7 +128,7 @@ for (const kind of Object.values(StPaperTradingKind)) {
 }
 check('paper kinds exclude instances/cohorts', Object.values(StPaperTradingKind).sort(), ['account', 'analysis-dataset', 'analysis-slice', 'raw-quote', 'stats', 'trade']);
 check('legacy PaperTradingKind accepted', stPaperTradingItemsPath(PaperTradingKind.TRADE), 'st-paper-trading/trades/items');
-for (const moved of [PaperTradingKind.INSTANCE, PaperTradingKind.COHORT]) {
+for (const moved of [PaperTradingKind.INSTANCE]) {
   check(
     `${moved} kind throws (moved out of st-paper-trading)`,
     (() => { try { stPaperTradingItemsPath(moved); return 'no-throw'; } catch { return 'threw'; } })(),
@@ -137,16 +136,29 @@ for (const moved of [PaperTradingKind.INSTANCE, PaperTradingKind.COHORT]) {
   );
 }
 check(
+  "retired 'cohort' kind throws (#1661 — enum member deleted)",
+  (() => { try { stPaperTradingItemsPath('cohort' as StPaperTradingKind); return 'no-throw'; } catch { return 'threw'; } })(),
+  'threw',
+);
+check(
   "paper 'toString' kind throws (prototype member)",
   (() => { try { stPaperTradingItemsPath('toString' as StPaperTradingKind); return 'no-throw'; } catch { return 'threw'; } })(),
   'threw',
 );
 const stKindSet = new Set<string>(Object.values(StPaperTradingKind));
+const LEGACY_ANCHOR: Record<string, string> = {
+  account: 'accounts',
+  trade: 'trades',
+  stats: 'stats',
+  'raw-quote': 'raw-quotes',
+  'analysis-dataset': 'analysis-datasets',
+  'analysis-slice': 'analysis-slices',
+};
 for (const kind of Object.values(PaperTradingKind).filter((k) => stKindSet.has(k))) {
   check(
-    `paper ${kind} st- mirrors legacy anchor`,
+    `paper ${kind} st- anchored path`,
     stPaperTradingItemsPath(kind),
-    `st-${paperTradingItemsPath(kind)}`,
+    `st-paper-trading/${LEGACY_ANCHOR[kind]}/items`,
   );
 }
 

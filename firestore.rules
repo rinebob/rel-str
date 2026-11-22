@@ -209,8 +209,8 @@ service cloud.firestore {
     //   leg grants writes.
     // - analysis-* anchors migrated to st-paper-trading in #1158 and the
     //   legacy docs were archived + deleted at #1158 ship — their write
-    //   legs are retired with them (cohorts remains the only live legacy
-    //   anchor).
+    //   legs are retired with them. Cohorts drain to st-position-groups
+    //   at #1661 ship — after the purge this block is dead and can drop.
     // - all anchors (accounts/trades/cohorts/stats/raw-quotes):
     //   authenticated read for the single-user app; writes are
     //   server-side (admin SDK bypasses rules — ledger passes and the

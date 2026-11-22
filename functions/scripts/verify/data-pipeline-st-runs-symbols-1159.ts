@@ -50,7 +50,7 @@ const LEGACY_SYMBOLS_ROOT = 'savant-trader/data/symbols';
 const BLOCKED_ROOTS = [
   // Still live — legacy parent hosts run-ids/signal-history until #1019.
   'savant-trader/data/symbols',
-  // Deferred to #1160.
+  // Drained at #1661 ship — keep BLOCKED until the purge runs post-deploy.
   'paper-trading/cohorts/items',
   'paper-trading/analysis-datasets/items',
   'paper-trading/analysis-slices/items',
