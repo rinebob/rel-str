@@ -32,7 +32,7 @@
     "test:run-jobs-ttl": "tsx --test ../tests/functions/run-jobs-ttl-1010.test.ts",
     "test:new-list-sweep": "tsx --test ../tests/functions/new-list-sweep-1011.test.ts",
     "test:st-rules-indexes": "tsx --test ../tests/functions/firestore-rules-indexes-1012.test.ts",
-    "test:st-position-groups": "tsx --test ../tests/functions/position-groups/st-position-group-writer.test.ts ../tests/functions/position-groups/live-position-join.test.ts ../tests/functions/position-groups/cohort-mapper.test.ts",
+    "test:st-position-groups": "tsx --test ../tests/functions/position-groups/st-position-group-writer.test.ts ../tests/functions/position-groups/live-position-join.test.ts",
     "test:st-run-completion": "tsx --test ../tests/functions/st-run-completion.test.ts",
     "test:st-signals": "tsx --test ../tests/functions/signal-entries-from-doc.test.ts ../tests/functions/signal-date-writer.test.ts ../tests/functions/st-signals-backfill-1001.test.ts",
     "test:options-replay": "tsx --test \"../tests/functions/options-replay/*.test.ts\"",
@@ -51,6 +51,7 @@
     "replay:missing-symbols:run": "npx tsx scripts/replay-missing-symbols.ts --replay",
     "test:legacy-roots-1013": "tsx --test ../tests/functions/legacy-roots-cleanup-1013.test.ts",
     "test:legacy-stats-1565": "tsx --test ../tests/functions/legacy-stats-retirement-1565.test.ts",
+    "test:legacy-cohort-1661": "tsx --test ../tests/functions/legacy-cohort-retirement-1661.test.ts",
     "test:st-cutover-1159": "tsx --test ../tests/functions/st-runs-symbols-cutover-1159.test.ts"
   },
   "type": "module",
