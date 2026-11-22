@@ -18,7 +18,7 @@ import { NAV_MENU_ITEMS } from '../../core/common/constants';
 import { AppRoutes } from '../../core/common/interfaces';
 import CORE_ROUTES from '../../core/core-routes';
 import type { LifecycleNode, LifecycleTopic, LifecycleTreeResponse } from '@lifecycle/contracts';
-import type { AllSectionRows, TopicSortMode, TreeRow, VisibleTopics } from './topic-viewer.store';
+import type { AllTopicBlock, AllTopicsSection, TopicSortMode, TreeRow, VisibleTopics } from './topic-viewer.store';
 
 // Children never carry `group` — the factory returns a plain LifecycleNode;
 // `topic` wraps it with the stamped group for the flat response surface.
@@ -38,6 +38,12 @@ const RESPONSE: LifecycleTreeResponse = {
   fetchedAt: '2026-09-28T12:00:00Z',
 };
 
+/** A 'ready' all-topics block (#1638) — the topic's flattened rows. */
+const readyBlock = (n: number): AllTopicBlock => ({
+  topic: topic(n), status: 'ready', error: null,
+  rows: [{ node: node(n), depth: 0 }],
+});
+
 describe('TopicViewerPageComponent', () => {
   let fixture: ComponentFixture<TopicViewerPageComponent>;
 
@@ -55,7 +61,10 @@ describe('TopicViewerPageComponent', () => {
   const showAllTopics = signal(false);
   const matchCount = signal(0);
   const matchSet = signal<ReadonlySet<number>>(new Set());
-  const allSectionsRows = signal<AllSectionRows[]>([]);
+  const allTopicsSections = signal<AllTopicsSection[]>([]);
+  const allTopicsDrained = signal(false);
+  const anyTreeLoading = signal(false);
+  const anyTreeError = signal(false);
   const selectedTreeLoading = signal(false);
   const selectedTreeError = signal<string | null>(null);
   const refresh = jest.fn(async () => undefined);
@@ -67,6 +76,8 @@ describe('TopicViewerPageComponent', () => {
   const setShowAllTopics = jest.fn();
   const expandAll = jest.fn();
   const collapseAll = jest.fn();
+  const ensureTopic = jest.fn(async () => null);
+  const resumeAllTopics = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,7 +95,10 @@ describe('TopicViewerPageComponent', () => {
     showAllTopics.set(false);
     matchCount.set(0);
     matchSet.set(new Set());
-    allSectionsRows.set([]);
+    allTopicsSections.set([]);
+    allTopicsDrained.set(false);
+    anyTreeLoading.set(false);
+    anyTreeError.set(false);
     selectedTreeLoading.set(false);
     selectedTreeError.set(null);
     TestBed.resetTestingModule();
@@ -122,22 +136,22 @@ describe('TopicViewerPageComponent', () => {
             response, loading, error, showClosed, groupingWarning,
             selectedTopicNumber, selectedTopic, fetchedAt,
             visibleTopics, query, sortMode, showAllTopics,
-            matchCount, matchSet, allSectionsRows,
+            matchCount, matchSet, allTopicsSections, allTopicsDrained,
             // The tree child binds effectiveExpandedIds — stub it so a
             // non-empty treeRows can't hit an undefined signal (#1532).
             effectiveExpandedIds: signal<ReadonlySet<number>>(new Set()),
-            // #1637 page-state signals — loading/error honesty ahead of
-            // #1638's styled states.
+            // Page-state signals (#1637 + #1638 styled states).
             treeLoadingSet: signal<ReadonlySet<number>>(new Set()),
             selectedTreeLoading,
             selectedTreeError,
-            anyTreeLoading: signal(false),
-            anyTreeError: signal(false),
+            anyTreeLoading,
+            anyTreeError,
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
             refresh, selectRepo, selectTopic, setShowClosed,
             setQuery, setSortMode, setShowAllTopics,
             expandAll, collapseAll,
+            ensureTopic, resumeAllTopics,
             toggleExpanded: jest.fn(),
           },
         },
@@ -288,9 +302,9 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics mode renders every section header + a tree per section', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allSectionsRows.set([
-      { name: 'A. Group', rows: [{ node: node(1), depth: 0 }] },
-      { name: 'B. Group', rows: [{ node: node(2), depth: 0 }] },
+    allTopicsSections.set([
+      { name: 'A. Group', topics: [readyBlock(1)] },
+      { name: 'B. Group', topics: [readyBlock(2)] },
     ]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
@@ -308,9 +322,9 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics query hits highlight in whichever section tree they live (#1532 gate)', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allSectionsRows.set([
-      { name: 'A. Group', rows: [{ node: node(1), depth: 0 }] },
-      { name: 'B. Group', rows: [{ node: node(2), depth: 0 }] },
+    allTopicsSections.set([
+      { name: 'A. Group', topics: [readyBlock(1)] },
+      { name: 'B. Group', topics: [readyBlock(2)] },
     ]);
     matchSet.set(new Set([2]));
     await setup();
@@ -324,7 +338,7 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics empty state is query-aware and loading-gated', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allSectionsRows.set([]);
+    allTopicsSections.set([]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="all-topics-empty"]')?.textContent)
@@ -348,13 +362,78 @@ describe('TopicViewerPageComponent', () => {
   it('leaving all-topics restores the selected-topic pane + select prompt', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allSectionsRows.set([{ name: 'A. Group', rows: [{ node: node(1), depth: 0 }] }]);
+    allTopicsSections.set([{ name: 'A. Group', topics: [readyBlock(1)] }]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     showAllTopics.set(false);
     fixture.detectChanges();
     expect(el.querySelector('[data-testid="allsec-A. Group"]')).toBeNull();
     expect(el.querySelector('[data-testid="tree-empty"]')).toBeTruthy();
+  });
+
+  // ── #1638: progressive per-topic blocks ─────────────────────────────
+
+  it('all-topics loading block renders a spinner, not a tree', async () => {
+    response.set(RESPONSE);
+    showAllTopics.set(true);
+    allTopicsSections.set([{ name: 'A. Group', topics: [
+      { topic: topic(7), status: 'loading', error: null, rows: [] },
+    ] }]);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="allsec-loading-7"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="allsec-loading-7"] .dse-spinner')).toBeTruthy();
+    expect(el.querySelector('app-topic-viewer-tree')).toBeNull();
+  });
+
+  it('all-topics error block shows its own retry → ensureTopic', async () => {
+    response.set(RESPONSE);
+    showAllTopics.set(true);
+    allTopicsSections.set([{ name: 'A. Group', topics: [
+      { topic: topic(7), status: 'error', error: 'functions/internal: internal', rows: [] },
+    ] }]);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    const err = el.querySelector('[data-testid="allsec-error-7"]') as HTMLElement;
+    expect(err.textContent).toContain('#7');
+    expect(err.textContent).toContain('internal');
+    (el.querySelector('[data-testid="allsec-retry-7"]') as HTMLButtonElement).click();
+    expect(ensureTopic).toHaveBeenCalledWith(7);
+  });
+
+  it('drain notice renders when the queue rate-limits; Resume re-arms', async () => {
+    response.set(RESPONSE);
+    showAllTopics.set(true);
+    allTopicsDrained.set(true);
+    allTopicsSections.set([{ name: 'A. Group', topics: [readyBlock(1)] }]);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="drain-notice"]')?.textContent)
+      .toContain('rate limit');
+    (el.querySelector('[data-testid="drain-resume"]') as HTMLButtonElement).click();
+    expect(resumeAllTopics).toHaveBeenCalled();
+  });
+
+  it('refresh button disables while any tree fetch is in flight', async () => {
+    response.set(RESPONSE);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    const btn = el.querySelector('[data-testid="refresh"]') as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    anyTreeLoading.set(true);
+    fixture.detectChanges();
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('selected-topic loading renders the spinner', async () => {
+    response.set(RESPONSE);
+    selectedTopicNumber.set(1);
+    selectedTreeLoading.set(true);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="tree-loading"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="tree-loading"] .dse-spinner')).toBeTruthy();
+    expect(el.querySelector('[data-testid="tree-empty"]')).toBeNull();
   });
 
   it('selected topic row exposes aria-current', async () => {

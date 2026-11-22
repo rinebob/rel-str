@@ -466,11 +466,11 @@ describe('TopicViewerStore', () => {
       store.setShowAllTopics(true);
       await store.ensureTopic(1);
       await store.ensureTopic(5);
-      const all = store.allSectionsRows();
+      const all = store.allTopicsSections();
       expect(all.map(s => s.name)).toEqual(['A', 'B']);
-      expect(all[0].rows.map(r => [r.node.number, r.depth])).toEqual([[1, 0]]);
+      expect(all[0].topics[0].rows.map(r => [r.node.number, r.depth])).toEqual([[1, 0]]);
       store.toggleExpanded(1);
-      expect(store.allSectionsRows()[0].rows.map(r => r.node.number)).toEqual([1, 10]);
+      expect(store.allTopicsSections()[0].topics[0].rows.map(r => r.node.number)).toEqual([1, 10]);
     });
 
     it('expandableIds spans all fetched trees in all-topics mode', async () => {
@@ -482,7 +482,7 @@ describe('TopicViewerStore', () => {
       await store.ensureTopic(5);
       expect(store.expandableIds().sort()).toEqual([1, 5]);
       store.expandAll();
-      expect(store.allSectionsRows().flatMap(s => s.rows.map(r => r.node.number)))
+      expect(store.allTopicsSections().flatMap(s => s.topics.flatMap(b => b.rows)).map(r => r.node.number))
         .toEqual([1, 10, 5, 50]);
     });
 
@@ -493,7 +493,7 @@ describe('TopicViewerStore', () => {
       await store.ensureTopic(1);
       await store.ensureTopic(5);
       store.setQuery('issue 5');
-      const all = store.allSectionsRows();
+      const all = store.allTopicsSections();
       expect(all.map(s => s.name)).toEqual(['B']);
     });
 
@@ -518,9 +518,9 @@ describe('TopicViewerStore', () => {
       expect([...store.matchSet()].sort()).toEqual([5, 51]);
       expect(store.matchCount()).toBe(2);
       expect([...store.matchAncestorIds()].sort()).toEqual([5, 50]);
-      const all = store.allSectionsRows();
+      const all = store.allTopicsSections();
       expect(all.map(s => s.name)).toEqual(['B']); // A filtered out
-      expect(all[0].rows.map(r => r.node.number)).toEqual([5, 50, 51]);
+      expect(all[0].topics[0].rows.map(r => r.node.number)).toEqual([5, 50, 51]);
     });
 
     it('descendant-only query in all-topics: topic filtered out → 0 matches, never a phantom count', async () => {
@@ -536,7 +536,7 @@ describe('TopicViewerStore', () => {
       store.setQuery('deep hit');
       expect(store.filteredTopics().length).toBe(0);
       expect(store.matchCount()).toBe(0);
-      expect(store.allSectionsRows()).toEqual([]);
+      expect(store.allTopicsSections()).toEqual([]);
     });
 
     it('selectTopic seeds expansion additively in all-topics mode (#1532)', async () => {
@@ -549,6 +549,31 @@ describe('TopicViewerStore', () => {
       expect(store.selectedTopicNumber()).toBe(5);
       expect(store.expandedIds()).toContain(1); // prior expansion kept
       expect(store.expandedIds()).toContain(5);
+    });
+
+    it('allTopicsSections carries per-topic status — loading / error / ready (#1638)', async () => {
+      const s1 = new Subject<LifecycleTreeResponse>();
+      const store = storeWith({
+        getLifecycleTopicIndex$: jest.fn(() => of(indexOf(ALL))),
+        getLifecycleTopicTree$: jest.fn((req: LifecycleTopicTreeRequest) =>
+          req.topicNumber === 1
+            ? s1.asObservable()
+            : throwError(() => Object.assign(new Error('boom'), { code: 'functions/internal' }))),
+      });
+      await store.refresh();
+      store.setShowAllTopics(true);
+      await flush();
+
+      let all = store.allTopicsSections();
+      expect(all[0].topics[0].status).toBe('loading');  // 1 in flight → skeleton
+      expect(all[1].topics[0].status).toBe('error');    // 5 failed → its own retry
+      expect(all[1].topics[0].error).toContain('internal');
+      expect(all[1].topics[0].rows).toEqual([]);
+
+      s1.next(treeOf(ALL, 1)); s1.complete(); await flush();
+      all = store.allTopicsSections();
+      expect(all[0].topics[0].status).toBe('ready');
+      expect(all[0].topics[0].rows.map(r => r.node.number)).toEqual([1]);
     });
   });
 
@@ -879,6 +904,56 @@ describe('TopicViewerStore', () => {
       }
       await flush();
       expect(Object.keys(store.trees()).sort()).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+    });
+
+    it('resumeAllTopics re-arms a drained queue — the notice\'s Resume path (#1638)', async () => {
+      const subjects = new Map<number, Subject<LifecycleTreeResponse>>();
+      let rateLimited = false;
+      const tree$ = jest.fn((req: LifecycleTopicTreeRequest) => {
+        if (req.topicNumber === 2 && !rateLimited) {
+          rateLimited = true;
+          return throwError(() => Object.assign(new Error('slow down'), { code: 'functions/resource-exhausted' }));
+        }
+        const s = new Subject<LifecycleTreeResponse>();
+        subjects.set(req.topicNumber, s);
+        return s.asObservable();
+      });
+      const store = storeWith({
+        getLifecycleTopicIndex$: jest.fn(() => of(indexOf(MANY))),
+        getLifecycleTopicTree$: tree$,
+      });
+      await store.refresh();
+      store.setShowAllTopics(true);
+      await flush();
+      expect(store.allTopicsDrained()).toBe(true);
+      for (const n of [1, 3, 4]) {
+        subjects.get(n)!.next(treeOf(MANY, n));
+        subjects.get(n)!.complete();
+      }
+      await flush();
+      expect(tree$).toHaveBeenCalledTimes(4); // queue drained — 5,6,7 never dispatched
+
+      store.resumeAllTopics();
+      await flush();
+      expect(store.allTopicsDrained()).toBe(false); // cleared on re-arm
+      const dispatched = new Set(tree$.mock.calls.map(c => c[0].topicNumber));
+      expect(dispatched).toEqual(new Set([1, 2, 3, 4, 5, 6, 7])); // 2,5,6,7 re-queued
+      for (const n of [2, 5, 6, 7]) {
+        subjects.get(n)!.next(treeOf(MANY, n));
+        subjects.get(n)!.complete();
+      }
+      await flush();
+      expect(Object.keys(store.trees()).sort()).toEqual(['1', '2', '3', '4', '5', '6', '7']);
+    });
+
+    it('resumeAllTopics is a no-op with all-topics off', async () => {
+      const svc = lazyStub(MANY);
+      const store = storeWith(svc);
+      await store.refresh();
+      (svc.getLifecycleTopicTree$ as jest.Mock).mockClear();
+      store.resumeAllTopics();
+      await flush();
+      expect(svc.getLifecycleTopicTree$).not.toHaveBeenCalled();
     });
 
     it('non-rate-limit errors isolate to their section — the queue continues', async () => {

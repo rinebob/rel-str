@@ -37,7 +37,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
           </select>
         </label>
         <button class="ds-btn outline" type="button" data-testid="refresh"
- [disabled]="store.loading()" (click)="store.refresh()">
+          [disabled]="store.loading() || store.anyTreeLoading()" (click)="store.refresh()">
           @if (store.loading()) { <span class="dse-spinner small" style="--spinner-size: 16px" role="progressbar" aria-label="Loading"></span> } Refresh
         </button>
         @if (store.fetchedAt(); as at) {
@@ -132,9 +132,37 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
               <span class="tree-topic">All topics</span>
               <ng-container *ngTemplateOutlet="treeActions" />
             </div>
-            @for (sec of store.allSectionsRows(); track sec.name) {
+            @if (store.allTopicsDrained()) {
+              <div class="banner warn drain-notice" data-testid="drain-notice">
+                <span class="dse-icon">error_outline</span>
+                <span>Fetching paused — GitHub rate limit reached.</span>
+                <button class="dse-button" type="button" data-testid="drain-resume"
+                  (click)="store.resumeAllTopics()">Resume</button>
+              </div>
+            }
+            @for (sec of store.allTopicsSections(); track sec.name) {
               <div class="section-name" [attr.data-testid]="'allsec-' + sec.name">{{ sec.name }}</div>
-              <app-topic-viewer-tree [rows]="sec.rows" />
+              @for (b of sec.topics; track b.topic.number) {
+                @switch (b.status) {
+                  @case ('ready') {
+                    <app-topic-viewer-tree [rows]="b.rows" />
+                  }
+                  @case ('error') {
+                    <div class="empty" [attr.data-testid]="'allsec-error-' + b.topic.number">
+                      <span class="dse-icon">error_outline</span>
+                      <span>#{{ b.topic.number }} — {{ b.error }}</span>
+                      <button class="dse-button" type="button"
+                        [attr.data-testid]="'allsec-retry-' + b.topic.number"
+                        (click)="store.ensureTopic(b.topic.number)">Retry</button>
+                    </div>
+                  }
+                  @default {
+                    <div class="empty section-loading" [attr.data-testid]="'allsec-loading-' + b.topic.number">
+                      <span class="dse-spinner small" role="progressbar" aria-label="Loading topic tree"></span>
+                    </div>
+                  }
+                }
+              }
             } @empty {
               @if (store.anyTreeLoading()) {
                 <div class="empty" data-testid="all-topics-loading">
@@ -162,8 +190,8 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
             </div>
             <app-topic-viewer-tree />
           } @else if (store.selectedTreeLoading()) {
-            <div class="empty" data-testid="tree-loading">
-              <span class="dse-spinner small" role="progressbar" aria-label="Loading topic tree"></span>
+            <div class="empty topic-state column" data-testid="tree-loading">
+              <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading topic tree"></span>
               <span>Loading topic tree…</span>
             </div>
           } @else if (store.selectedTreeError(); as treeErr) {
@@ -246,6 +274,8 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       color: var(--mat-sys-on-surface-variant); font-size: 0.9rem; padding: 32px 8px;
     }
     .empty .dse-icon { font-size: 22px; width: 22px; height: 22px; opacity: 0.6; }
+    .topic-state.column { flex-direction: column; align-items: center; }
+    .drain-notice { margin: 8px 0; }
   `],
 })
 export class TopicViewerPageComponent implements OnInit {

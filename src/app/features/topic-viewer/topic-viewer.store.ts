@@ -60,10 +60,20 @@ export type VisibleTopics =
   | { mode: 'grouped'; sections: TopicSectionVm[] }
   | { mode: 'number'; topics: TopicRow[] };
 
-/** One section's flattened trees in all-topics mode (#1531). */
-export interface AllSectionRows {
-  name: string;
+/** One topic's render unit inside an all-topics section (#1638) —
+ *  `status` drives the page's skeleton / error+retry / rows branch. */
+export interface AllTopicBlock {
+  topic: LifecycleTopic;
+  status: 'ready' | 'loading' | 'error';
+  error: string | null;
   rows: TreeRow[];
+}
+
+/** One all-topics section — every filtered topic gets a block so the
+ *  pane renders progressively (skeletons for unfetched topics). */
+export interface AllTopicsSection {
+  name: string;
+  topics: AllTopicBlock[];
 }
 
 interface LifecycleState {
@@ -416,19 +426,33 @@ export const TopicViewerStore = signalStore(
         topic, store.effectiveExpandedIds(), store.showClosed());
     }),
 
-    /** Every filtered section's flattened FETCHED trees for the
-     *  all-topics right pane (#1531 + #1637) — unfetched topics emit no
-     *  rows (the page renders their sections from the filtered set plus
-     *  per-topic loading/error signals). */
-    allSectionsRows: computed<AllSectionRows[]>(() => {
+    /** Every filtered section's per-topic render state for the
+     *  all-topics right pane (#1638) — unfetched topics emit a
+     *  'loading' block (skeleton), failed ones an 'error' block with
+     *  its own retry, fetched ones their flattened rows. Sections
+     *  appear progressively as trees land. */
+    allTopicsSections: computed<AllTopicsSection[]>(() => {
       const res = store.response();
       if (!res) return [];
+      const trees = store.trees();
+      const errors = store.treeErrors();
       const expanded = store.effectiveExpandedIds();
       const showClosed = store.showClosed();
-      return foldGroups(store.fetchedTopics(), res.groupOrder)
+      return foldGroups(store.filteredTopics(), res.groupOrder)
         .map(s => ({
           name: s.name,
-          rows: s.topics.flatMap(t => flattenTopic(t, expanded, showClosed)),
+          topics: s.topics.map(t => {
+            const tree = trees[t.number];
+            const error = errors[t.number] ?? null;
+            const status: AllTopicBlock['status'] =
+              tree ? 'ready' : error ? 'error' : 'loading';
+            return {
+              topic: t,
+              status,
+              error,
+              rows: tree ? flattenTopic(tree, expanded, showClosed) : [],
+            };
+          }),
         }));
     }),
 
@@ -761,6 +785,13 @@ export const TopicViewerStore = signalStore(
         } else {
           queue = []; // in-flight finish into the memo — revisit is free
         }
+      },
+
+      /** Re-arm the queue after a rate-limit drain — the drain
+       *  notice's Resume path. enqueueFiltered rebuilds from the
+       *  current filtered set and clears the flag itself. */
+      resumeAllTopics(): void {
+        if (store.showAllTopics()) enqueueFiltered();
       },
 
       /** Patch one node's labels wherever it lives — the index root

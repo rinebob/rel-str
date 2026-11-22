@@ -13,6 +13,8 @@ jest.mock('@angular/fire/functions', () => ({
 import { TestBed } from '@angular/core/testing';
 import { Functions, httpsCallable } from '@angular/fire/functions';
 import { firstValueFrom } from 'rxjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { CallableName } from '../../core/common/constants';
 import { TopicViewerService, TOPIC_VIEWER_REPOS } from './topic-viewer.service';
@@ -129,5 +131,36 @@ describe('TopicViewerService', () => {
       op: 'delete', name: 'old-label',
     });
     expect(res.usageCount).toBe(3);
+  });
+});
+
+/**
+ * CallableName ↔ functions index parity (#1638 AC): every callable the
+ * service dials must be exported by `functions/src/index.ts` — a rename
+ * or dropped export fails here instead of at runtime.
+ */
+describe('CallableName parity vs functions/src/index.ts', () => {
+  const indexSrc = readFileSync(
+    join(__dirname, '../../../../functions/src/index.ts'), 'utf8');
+  const exported = new Set<string>();
+  for (const m of indexSrc.matchAll(/export\s*\{([^}]+)\}/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part.trim().split(/\s+as\s+/).pop()!.trim();
+      if (name) exported.add(name);
+    }
+  }
+  for (const m of indexSrc.matchAll(/export\s+(?:const|function|async\s+function)\s+(\w+)/g)) {
+    exported.add(m[1]);
+  }
+
+  it.each([
+    CallableName.GET_LIFECYCLE_TREE,
+    CallableName.GET_LIFECYCLE_TOPIC_INDEX,
+    CallableName.GET_LIFECYCLE_TOPIC_TREE,
+    CallableName.LIST_REPO_LABELS,
+    CallableName.UPDATE_ISSUE_LABELS,
+    CallableName.MANAGE_REPO_LABEL,
+  ])('%s is exported by functions/src/index.ts', (name) => {
+    expect(exported.has(name)).toBe(true);
   });
 });
