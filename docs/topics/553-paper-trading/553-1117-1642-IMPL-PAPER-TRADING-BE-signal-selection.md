@@ -86,7 +86,9 @@ retire auto-mint (config op + verify, zero code)
 - **`SignalReviewDeps`** — injected seams: `listOccurrences(symbol)`,
   `listSignalTrades(symbol)`, `listMembers(listKey, ownerUid)`,
   `getSymbolSignalDates(symbols)`, `getReviewState()`,
-  `stampOpened(symbol, at)`, `now()`. Prod wiring: Firestore queries +
+  `getOwnerUid()` (st-config/autoPaper.ownerUid — resolves the
+  list owner; missing → failed-precondition), `stampOpened(symbol, at)`,
+  `now()`. Prod wiring: Firestore queries +
   `signalDedupeKey`/`stSignalOccurrenceId` from the shared id helpers.
 - **`groom-legacy-signal-trades.ts`** — paged scan of `source==SIGNAL`
   trades; applies the same eligibility the `handleDeletePaperTrades`
@@ -132,8 +134,10 @@ Handler error semantics (mirror `signal-trade-callables.ts`):
   false-positive hazard. Decide in #1650 and pin the chosen semantic
   in its spec — the pane-facing honest claim is only "checked =
   curation-mint membership."
-- **`timeframe=='D'` filtered in the query** — `W` occurrences can't
-  mint (mint allowlist is daily); rendering them would put dead
+- **`timeframe=='D'` filtered in the handler** — the prod query rides
+  the existing `(symbol ASC, barDate DESC)` composite index; a
+  `timeframe==` predicate would force a new composite. `W` occurrences
+  can't mint (mint allowlist is daily); rendering them would put dead
   checkboxes in the pane. The field stays on the row for forward-compat.
 - **Stamp inside the bundle read** — a second callable would invite
   drift between "what the divider shows" and "when I was last here."
