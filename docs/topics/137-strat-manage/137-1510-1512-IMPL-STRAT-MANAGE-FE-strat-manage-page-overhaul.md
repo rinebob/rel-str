@@ -7,9 +7,9 @@
 **Topic Parent:** #137  
 **Domain:** STRAT-MANAGE  
 **Type:** IMPL  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-14  
-**Last Updated:** 2026-11-14  
+**Last Updated:** 2026-11-22  
 
 # IMPL (FE) — OpsStrat Manage Page Overhaul
 
@@ -199,6 +199,22 @@ sortable/filterable instance table, start/stop actions, two create dialogs
    form, ephemeral variant save, JSON export dialog.
 5. **F5 — Results popup + analysis link** — stats/positions/sparkline
    dialog, new-tab analysis link.
+   **As-built (#1549):** `manage-results-dialog.component.*` opens via
+   `DsDialogService.open(..., { data: { instance } })` from a per-row
+   Results button. Data comes from the two existing callables — the
+   planned `getStrategyEquityCurve` was already retired, so
+   `getPaperStats({ scope: statsScopeInstance(instance.id) })`
+   supplies both the aggregate stats and the optional `equityCurve`,
+   and `listStrategyPositions({ instanceId })` supplies the
+   open-position rows. Increment-minted stats docs (scalars only, no
+   curve until the nightly recompute) are handled: finite-safe `fmt`
+   renders `—` for absent fields, the sparkline is omitted below two
+   usable points, and `statsLoaded`/`positionsLoaded` flags keep the
+   empty copy from flashing while callables are in flight. Analysis
+   opens `AppRoutes.STRATEGY_BACKTEST_ANALYSIS` +
+   `encodeURIComponent(instance.id)` in a new tab — `instance.id` is
+   the contract-list doc id the analysis page queries. Specs: dialog
+   + page coverage 132/132 strategy-manage green.
 
 ## Dependencies
 
