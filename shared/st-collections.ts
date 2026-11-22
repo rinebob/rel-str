@@ -69,6 +69,10 @@ export const ST_CONFIG_STATUS_DOC = 'status';
  *  the scheduled `rhCredentialCanary` pass, read per-owner (userId field). */
 export const ST_CONFIG_RH_CREDENTIAL_CANARY_DOC = 'rhCredentialCanary';
 
+/** Doc id for the signal-review pane state under st-config — per-symbol
+ *  `lastOpenedAt` stamps (SignalReviewStateDoc, Thread #1117). */
+export const SIGNAL_REVIEW_CONFIG_DOC = 'signalReview';
+
 /** `st-config/{docId}` — hosts heterogeneous singletons/user docs (status, autoPaper, {uid} trading config). */
 export function stConfigDocPath(docId: string): string {
   return `${ST_CONFIG_ROOT}/${docId}`;

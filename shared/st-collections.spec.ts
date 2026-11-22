@@ -9,6 +9,7 @@ import {
   ST_BACKTEST_RUNS_ROOT,
   ST_CONFIG_ROOT,
   ST_CONFIG_STATUS_DOC,
+  SIGNAL_REVIEW_CONFIG_DOC,
   ST_JOBS_SUBCOLLECTION_NAME,
   ST_OPTIONS_ANALYSIS_RESULTS_ROOT,
   ST_OPTIONS_CONTRACT_LISTS_ROOT,
@@ -87,6 +88,12 @@ describe('st-collections roots', () => {
   it('pins renamed singleton ids (legacy current → status; jobs subcollection)', () => {
     expect(ST_CONFIG_STATUS_DOC).toBe('status');
     expect(ST_JOBS_SUBCOLLECTION_NAME).toBe('jobs');
+  });
+
+  it('pins the signal-review st-config doc id (Thread #1117)', () => {
+    expect(SIGNAL_REVIEW_CONFIG_DOC).toBe('signalReview');
+    // A st-config doc id is a single path segment — never a path.
+    expect(SIGNAL_REVIEW_CONFIG_DOC.split('/')).toHaveLength(1);
   });
 
   it('flat roots are single path segments (collection paths)', () => {

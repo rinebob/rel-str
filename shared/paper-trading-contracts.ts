@@ -687,12 +687,107 @@ export interface DeletePaperTradesResponse {
   failed: { tradeId: string; error: string }[];
 }
 
+// ── Signal selection review (Thread #1117) ─────────────────────────────────
+//
+// The /signals/symbol-review pane's wire surface: a per-symbol BUNDLE of
+// st-signals occurrences joined server-side to the ledger, and a QUEUE of
+// PRIMARY ∪ SECONDARY members for the picker. Checkbox state IS ledger
+// membership — the join arrives computed; the FE never builds a
+// signalDedupeKey (see the layout warning on MintResult.signalId).
+
+/** `st-config/signalReview` — per-symbol pane-visit stamps. One doc;
+ *  ~288 list members' ISO strings fit trivially. Doc id constant:
+ *  `SIGNAL_REVIEW_CONFIG_DOC` (@st/collections). */
+export interface SignalReviewStateDoc {
+  /** symbol → ISO timestamp of the most recent bundle read for it. */
+  lastOpenedAt: Record<string, string>;
+}
+
+/** One picker row — a PRIMARY ∪ SECONDARY member with the two fields the
+ *  "has unseen signals" badge needs. */
+export interface SignalReviewQueueRow {
+  symbol: string;
+  /** Denormalized st-symbols field — most recent daily signal bar
+   *  (YYYY-MM-DD). Absent when the member has no signals. */
+  lastDailySignalDate?: string;
+  /** Review-state stamp (ISO) — absent until the pane is first opened. */
+  lastOpenedAt?: string;
+}
+
+/** `getSignalReviewQueue` — picker data for the review universe. */
+export interface GetSignalReviewQueueRequest {}
+export interface GetSignalReviewQueueResponse {
+  /** PRIMARY ∪ SECONDARY members, deduped. */
+  rows: SignalReviewQueueRow[];
+}
+
+/** One occurrence row — a `st-signals` doc reshaped plus the server-side
+ *  ledger join. `checked` = a signal-scoped PaperTrade claims this
+ *  occurrence; `tradeId`/`tradeStatus` are the delete target and its
+ *  lifecycle state (paired — present only when `checked`). */
+export interface SignalReviewOccurrence {
+  /** stSignalOccurrenceId — `{SYM}_{barDate}_{signalType}` (doc id). */
+  occurrenceId: string;
+  symbol: string;
+  /** e.g. D_ST_TREND_RIDER_V1_LONG. */
+  signalType: string;
+  /** YYYY-MM-DD — maps to SignalPick.signalBarDate. */
+  signalBarDate: string;
+  /** 'D' only in practice — the bundle query filters daily. Carried for
+   *  forward-compat if the pane later widens. */
+  signalTimeframe: StSignalTimeframe;
+  direction: TradeSide;
+  signalStatus: StSignalStatus;
+  /** Scalar indicator snapshot at fire time, verbatim. */
+  signalIndicators: Record<string, number | string | null>;
+  /** Run that first wrote this occurrence. */
+  sourceRunId: string;
+  checked: boolean;
+  tradeId?: string;
+  tradeStatus?: PaperTradeStatus;
+}
+
+/**
+ * `getSignalReviewBundle` — everything the pane needs for one symbol in
+ * one call: the full daily occurrence log, the ledger join, and the
+ * "new since last visit" divider anchor. The read itself stamps
+ * `lastOpenedAt[symbol]` — `previousOpenedAt` is the value BEFORE this
+ * read stamped (the divider position for this render); `openedAt` is
+ * the new stamp (what the next read will report as previousOpenedAt, so
+ * the divider is stable across re-fetches within a session).
+ */
+export interface GetSignalReviewBundleRequest {
+  symbol: string;
+}
+export interface GetSignalReviewBundleResponse {
+  symbol: string;
+  /** `null` on the symbol's first open → every occurrence is "new". */
+  previousOpenedAt: string | null;
+  openedAt: string;
+  /** Newest barDate first. */
+  occurrences: SignalReviewOccurrence[];
+}
+
+/** The FE→mint bridge — a review row to the existing mint request item.
+ *  Both sides already call the field `signalBarDate`; the function's job
+ *  is stripping — `occurrenceId` (a different, non-interchangeable id
+ *  layout) and the join fields can never leak into a mint item the way
+ *  a type cast would carry them. */
+export function signalPickFromReviewOccurrence(
+  occ: SignalReviewOccurrence,
+): SignalPick {
+  return {
+    symbol: occ.symbol,
+    signalBarDate: occ.signalBarDate,
+    signalType: occ.signalType,
+  };
+}
+
 // ── Union + guards ─────────────────────────────────────────────────────────
 
 export type PaperTradingDoc =
   | PaperAccount
   | PaperTrade
-  | PaperCohort
   | PaperStrategyInstance
   | PaperStats
   | RawQuoteDoc

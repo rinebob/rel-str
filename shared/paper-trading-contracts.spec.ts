@@ -45,10 +45,17 @@ import {
   type ClosePaperTradeResponse,
   type CancelPaperTradeRequest,
   type CancelPaperTradeResponse,
+  signalPickFromReviewOccurrence,
+  type SignalReviewOccurrence,
+  type SignalReviewStateDoc,
+  type SignalReviewQueueRow,
+  type GetSignalReviewQueueResponse,
+  type GetSignalReviewBundleResponse,
 } from './paper-trading-contracts';
 import { OptionType, OptionQuoteSource, StrategyFrequency } from './options-common';
 import { TradeSide } from './common';
 import { buildAccountId, buildTradeId, signalDedupeKey, signalTradeDesc } from './paper-trading-ids';
+import { stSignalOccurrenceId } from './st-ids';
 import { LifecycleState } from './options-strategy-engine-contracts';
 import type { PaperStrategyInstance } from './paper-trading-contracts';
 
@@ -493,5 +500,104 @@ describe('curated signal-trade contracts (Thread #906)', () => {
     const mintTradeId = buildTradeId(barDate, 'sig', pick.symbol, signalTradeDesc(pick.signalType));
     expect(mintSignalId).toBe(liveSignalId);
     expect(mintTradeId).toBe(liveTradeId);
+  });
+});
+
+describe('signal-selection review contracts (Thread #1117)', () => {
+  const checkedOccurrence: SignalReviewOccurrence = {
+    occurrenceId: 'AAPL_2024-03-11_D_ST_TREND_RIDER_V1_LONG',
+    symbol: 'AAPL',
+    signalType: 'D_ST_TREND_RIDER_V1_LONG',
+    signalBarDate: '2024-03-11',
+    signalTimeframe: 'D',
+    direction: TradeSide.LONG,
+    signalStatus: 'CONFIRMED',
+    signalIndicators: { sma20: 172.4 },
+    sourceRunId: 'run-1',
+    checked: true,
+    tradeId: '240311-sig-AAPL-EQV1L',
+    tradeStatus: PaperTradeStatus.OPEN,
+  };
+  const uncheckedOccurrence: SignalReviewOccurrence = {
+    ...checkedOccurrence,
+    occurrenceId: 'AAPL_2024-02-28_D_ST_TREND_RIDER_V1_SHORT',
+    signalType: 'D_ST_TREND_RIDER_V1_SHORT',
+    signalBarDate: '2024-02-28',
+    direction: TradeSide.SHORT,
+    signalStatus: 'INTERIM',
+    checked: false,
+  };
+
+  it('signalPickFromReviewOccurrence maps {symbol, signalBarDate, signalType} exactly', () => {
+    const pick: SignalPick = signalPickFromReviewOccurrence(checkedOccurrence);
+    // Literal pin — this is THE site guarding the barDate/signalBarDate
+    // rename across the seam (the signalDedupeKey vs stSignalOccurrenceId
+    // field-order hazard).
+    expect(pick).toEqual({
+      symbol: 'AAPL',
+      signalBarDate: '2024-03-11',
+      signalType: 'D_ST_TREND_RIDER_V1_LONG',
+    });
+    // No join/identity fields leak into the pick.
+    expect(Object.keys(pick).sort()).toEqual(['signalBarDate', 'signalType', 'symbol']);
+  });
+
+  it('the mapper ignores the ledger-join fields — unchecked rows map identically', () => {
+    const pick = signalPickFromReviewOccurrence(uncheckedOccurrence);
+    expect(pick).toEqual({
+      symbol: 'AAPL',
+      signalBarDate: '2024-02-28',
+      signalType: 'D_ST_TREND_RIDER_V1_SHORT',
+    });
+  });
+
+  it('bundle response: previousOpenedAt is string|null (null = first visit, all-new divider)', () => {
+    const firstVisit: GetSignalReviewBundleResponse = {
+      symbol: 'AAPL',
+      previousOpenedAt: null,
+      openedAt: '2026-11-20T18:00:00Z',
+      occurrences: [uncheckedOccurrence],
+    };
+    const revisit: GetSignalReviewBundleResponse = {
+      ...firstVisit,
+      previousOpenedAt: '2026-11-19T18:00:00Z',
+    };
+    expect(firstVisit.previousOpenedAt).toBeNull();
+    expect(revisit.previousOpenedAt).toBe('2026-11-19T18:00:00Z');
+    expect(firstVisit.occurrences[0].checked).toBe(false);
+  });
+
+  it('review-state doc + queue rows carry the documented shapes', () => {
+    const state: SignalReviewStateDoc = {
+      lastOpenedAt: { AAPL: '2026-11-20T18:00:00Z' },
+    };
+    const rowWithSignals: SignalReviewQueueRow = {
+      symbol: 'AAPL',
+      lastDailySignalDate: '2026-11-20',
+      lastOpenedAt: '2026-11-20T18:00:00Z',
+    };
+    const rowNoSignals: SignalReviewQueueRow = { symbol: 'MSFT' };
+    const res: GetSignalReviewQueueResponse = {
+      rows: [rowWithSignals, rowNoSignals],
+    };
+    expect(state.lastOpenedAt['AAPL']).toBe('2026-11-20T18:00:00Z');
+    expect(res.rows[0].lastDailySignalDate).toBe('2026-11-20');
+    expect(res.rows[1].lastDailySignalDate).toBeUndefined();
+    expect(res.rows[1].lastOpenedAt).toBeUndefined();
+  });
+
+  it('an occurrence id is the stSignalOccurrenceId layout — {SYM}_{barDate}_{type}', () => {
+    // Fixture sanity via the canonical builder (never parsed at runtime —
+    // signalType itself contains '_' so the id is not reversible).
+    expect(checkedOccurrence.occurrenceId).toBe(
+      stSignalOccurrenceId(
+        checkedOccurrence.symbol,
+        checkedOccurrence.signalBarDate,
+        checkedOccurrence.signalType,
+      ),
+    );
+    expect(checkedOccurrence.occurrenceId).toBe(
+      'AAPL_2024-03-11_D_ST_TREND_RIDER_V1_LONG',
+    );
   });
 });
