@@ -36,8 +36,8 @@ the separate aggregator for results across all strategies.
   "call debit spread"). Authored outside the app by a companion workstream;
   consumed here as a pick list.
 - **Named Variant** — a template plus a concrete delta and DTE assignment for
-  each leg, given a descriptive name, e.g., "call debit spread 50-40 30"
-  (long 50Δ, short 40Δ, 30 DTE). A variant is a *pure structure recipe* —
+  each leg, given a descriptive name, e.g., "call debit spread 30 50-40"
+  (30 DTE, long 50Δ, short 40Δ — same segment order as the ids). A variant is a *pure structure recipe* —
   it deliberately does NOT carry a stop type, so the same variant stays
   reusable across modes and across different stops. Most variants are
   authored in bulk outside the app and simply appear in the pickers;
@@ -147,7 +147,8 @@ used infrequently.)
 - Selecting a template renders one delta + one DTE input per leg in the
   template's shape (leg count/roles come from the template, not hardcoded).
 - A suggested name is generated from the parameters (e.g., "call debit
-  spread 50-40 30") and is editable before saving.
+  spread 30 50-40" — dte first, then Δlong-Δshort, matching the
+  `{type}-{dte}-{Δlong}-{Δshort}` variant id) and is editable before saving.
 - The saved named variant becomes selectable in Create New Instance.
 - Validation rejects incomplete leg assignments and duplicate names.
 - An **Export to JSON** button (in the create flow and/or on the saved

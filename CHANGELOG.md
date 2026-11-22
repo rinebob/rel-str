@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-21]
+
+### Added
+- [Strategy Builder UI] 137-1548_SHARED-IMPL-STRAT-MANAGE: Variant catalog expansion — 6 seeded shapes (cds/pds/ccs/pcs/ns/ic), 40-variant Δ×DTE permutation grid; leg bands → optional authoring guidance (debit templates unbanded); direction + uniformDte template fields (machine-enforced |Δ| ordering + shared-expiry sync); variantDirectionHolds helper; dte-first name normalization across catalog/specs/tests/verify
+- [Strategy Builder UI] 137-1548_FE-IMPL-STRAT-MANAGE: Create New Strategy dialog + Export-to-JSON — template picker → per-leg Δ+DTE inputs with direction-aware prefill, suggested editable name yielding to user edits, uniformDte DTE sync, inline validation (range/sign/precision/ordering/catalog-collision/dup-name), stays-open Save → ephemeral sessionVariants; registry-schema Export JSON + Copy JSON; header button + bounded page scroller (.table-wrap under sticky thead — QA in-gate fix)
+- [Strategy Builder UI] 137-1548_DOCS-STRAT-MANAGE: CODE-REVIEW (PASS — 1 critical number-input crash + 3 majors remediated in-cycle) + UAT (Complete, #1610 — S1–S5 + refinement + smoke user-verified; page-scroll defect fixed in-gate) + PRD/IMPL as-built updates + changelog
+
 ## [2026-11-20]
 
 ### Added

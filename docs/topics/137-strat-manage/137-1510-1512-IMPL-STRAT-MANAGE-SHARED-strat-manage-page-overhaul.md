@@ -68,11 +68,13 @@ export interface ManageTemplate {
   id: string;              // e.g. 'cds', 'ic'
   name: string;            // 'call debit spread'
   code: string;            // ID segment, e.g. 'CDS', 'IC'
-  legs: ManageTemplateLeg[];  // shape only — bands, no pinned Δ/DTE
+  legs: ManageTemplateLeg[];  // shape only — optional bands, no pinned Δ/DTE
+  uniformDte?: boolean;    // verticals/strangles/condors: legs share expiry
+  direction?: 'debit'|'credit';  // |Δ| ordering across leg sides
 }
 export interface ManageVariant {
   id: string;              // registry id
-  name: string;            // 'call debit spread 50-40 30'
+  name: string;            // 'call debit spread 30 50-40'
   templateId: string;
   legs: VariantLeg[];      // concrete Δ + DTE per leg (replay union)
   dte: number;             // primary/shared DTE for the ID segment
@@ -159,6 +161,7 @@ because `variant` is embedded.
 1. **S1 — Contracts + run-state/stop-type model** — new contracts file(s),
    `ManageInstance`, variant/template types, invariants documented.
 2. **S2 — Variant catalog module** — `shared/` registry file with seed
-   entries (1 template + 2 variants for dev), loader + lookup helpers.
+   entries (6 templates + 40 variants covering the Δ×DTE grid), loader +
+   lookup helpers.
 3. **S3 — ID generator** — `manage-instance-id.ts` + tests covering
    multi-leg codes, delta ordering, `ALL`/real stop suffixes, caps.
