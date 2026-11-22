@@ -136,7 +136,17 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
               <div class="section-name" [attr.data-testid]="'allsec-' + sec.name">{{ sec.name }}</div>
               <app-topic-viewer-tree [rows]="sec.rows" />
             } @empty {
-              @if (!store.loading() && !store.error()) {
+              @if (store.anyTreeLoading()) {
+                <div class="empty" data-testid="all-topics-loading">
+                  <span class="dse-spinner small" role="progressbar" aria-label="Loading topic trees"></span>
+                  <span>Fetching topic trees…</span>
+                </div>
+              } @else if (store.anyTreeError()) {
+                <div class="empty" data-testid="all-topics-error">
+                  <span class="dse-icon">error_outline</span>
+                  <span>Some topic trees failed to load — retry with Refresh</span>
+                </div>
+              } @else if (!store.loading() && !store.error()) {
                 <div class="empty" data-testid="all-topics-empty">
                   <span class="dse-icon">account_tree</span>
                   <span>{{ emptyCopy() }}</span>
@@ -151,6 +161,18 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
               <ng-container *ngTemplateOutlet="treeActions" />
             </div>
             <app-topic-viewer-tree />
+          } @else if (store.selectedTreeLoading()) {
+            <div class="empty" data-testid="tree-loading">
+              <span class="dse-spinner small" role="progressbar" aria-label="Loading topic tree"></span>
+              <span>Loading topic tree…</span>
+            </div>
+          } @else if (store.selectedTreeError(); as treeErr) {
+            <div class="empty" data-testid="tree-error">
+              <span class="dse-icon">error_outline</span>
+              <span>{{ treeErr }}</span>
+              <button class="dse-button" data-testid="tree-error-retry"
+                (click)="store.selectTopic(store.selectedTopicNumber()!)">Retry</button>
+            </div>
           } @else {
             <div class="empty" data-testid="tree-empty">
               <span class="dse-icon">account_tree</span>

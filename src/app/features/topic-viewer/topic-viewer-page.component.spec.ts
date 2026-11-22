@@ -56,6 +56,8 @@ describe('TopicViewerPageComponent', () => {
   const matchCount = signal(0);
   const matchSet = signal<ReadonlySet<number>>(new Set());
   const allSectionsRows = signal<AllSectionRows[]>([]);
+  const selectedTreeLoading = signal(false);
+  const selectedTreeError = signal<string | null>(null);
   const refresh = jest.fn(async () => undefined);
   const selectRepo = jest.fn(async () => undefined);
   const selectTopic = jest.fn();
@@ -83,6 +85,8 @@ describe('TopicViewerPageComponent', () => {
     matchCount.set(0);
     matchSet.set(new Set());
     allSectionsRows.set([]);
+    selectedTreeLoading.set(false);
+    selectedTreeError.set(null);
     TestBed.resetTestingModule();
   });
 
@@ -122,6 +126,13 @@ describe('TopicViewerPageComponent', () => {
             // The tree child binds effectiveExpandedIds — stub it so a
             // non-empty treeRows can't hit an undefined signal (#1532).
             effectiveExpandedIds: signal<ReadonlySet<number>>(new Set()),
+            // #1637 page-state signals — loading/error honesty ahead of
+            // #1638's styled states.
+            treeLoadingSet: signal<ReadonlySet<number>>(new Set()),
+            selectedTreeLoading,
+            selectedTreeError,
+            anyTreeLoading: signal(false),
+            anyTreeError: signal(false),
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
             refresh, selectRepo, selectTopic, setShowClosed,
@@ -425,6 +436,31 @@ describe('TopicViewerPageComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="tree-empty"]')?.textContent)
       .toContain('Select a Topic');
     expect(fixture.nativeElement.querySelector('[data-testid="expand-all"]')).toBeNull();
+  });
+
+  it('tree pane shows a loading indicator while the selection fetches (#1637)', async () => {
+    response.set(RESPONSE);
+    selectedTopicNumber.set(619);
+    selectedTopic.set(null); // selected but not yet fetched
+    selectedTreeLoading.set(true);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="tree-loading"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="tree-empty"]')).toBeNull();
+  });
+
+  it('tree pane shows the fetch error + retry when the selection fails (#1637)', async () => {
+    response.set(RESPONSE);
+    selectedTopicNumber.set(619);
+    selectedTopic.set(null);
+    selectedTreeLoading.set(false);
+    selectedTreeError.set('functions/internal: internal');
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="tree-error"]')?.textContent)
+      .toContain('functions/internal: internal');
+    (el.querySelector('[data-testid="tree-error-retry"]') as HTMLButtonElement).click();
+    expect(selectTopic).toHaveBeenCalledWith(619);
   });
 
   function resp2Empty(): LifecycleTreeResponse {

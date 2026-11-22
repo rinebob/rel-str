@@ -1,7 +1,8 @@
 /**
- * TopicViewerService spec — httpsCallable wrapper for getLifecycleTree
- * (task #642). Mocks @angular/fire/functions; asserts the callable name
- * and request/response typing pass-through.
+ * TopicViewerService spec — httpsCallable wrappers for the lifecycle
+ * callables (#642 monolith, #1531 label writes, #1637 index/tree).
+ * Mocks @angular/fire/functions; asserts callable-name and
+ * request/response pass-through for each wrapper.
  */
 
 jest.mock('@angular/fire/functions', () => ({
@@ -53,6 +54,42 @@ describe('TopicViewerService', () => {
     expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_LIFECYCLE_TREE);
     expect(callable).toHaveBeenCalledWith({ owner: 'rinebob', repo: 'rel-str' });
     expect(res).toEqual(payload);
+  });
+
+  // ── lazy-loading callables (task #1637) ─────────────────────────────────
+
+  it('calls getLifecycleTopicIndex with the repo request and unwraps .data', async () => {
+    const payload: LifecycleTreeResponse = {
+      topics: [], groupOrder: [], fetchedAt: '2026-11-20T00:00:00Z',
+    };
+    callable.mockResolvedValue({ data: payload });
+    const res = await firstValueFrom(
+      service.getLifecycleTopicIndex$({ owner: 'rinebob', repo: 'rel-str' }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_LIFECYCLE_TOPIC_INDEX);
+    expect(callable).toHaveBeenCalledWith({ owner: 'rinebob', repo: 'rel-str' });
+    expect(res).toEqual(payload);
+  });
+
+  it('calls getLifecycleTopicTree with topicNumber in the request', async () => {
+    const payload: LifecycleTreeResponse = {
+      topics: [], groupOrder: [], fetchedAt: '2026-11-20T00:00:00Z',
+    };
+    callable.mockResolvedValue({ data: payload });
+    const res = await firstValueFrom(service.getLifecycleTopicTree$({
+      owner: 'rinebob', repo: 'rel-str', topicNumber: 619,
+    }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.GET_LIFECYCLE_TOPIC_TREE);
+    expect(callable).toHaveBeenCalledWith({
+      owner: 'rinebob', repo: 'rel-str', topicNumber: 619,
+    });
+    expect(res).toEqual(payload);
+  });
+
+  it('callable names stay in deploy-name parity with the BE exports', () => {
+    // Parity is pinned to the literal deploy names — a rename on either
+    // side without the other breaks the call silently at runtime.
+    expect(CallableName.GET_LIFECYCLE_TOPIC_INDEX).toBe('getLifecycleTopicIndex');
+    expect(CallableName.GET_LIFECYCLE_TOPIC_TREE).toBe('getLifecycleTopicTree');
   });
 
   // ── label callables (task #1531) ─────────────────────────────────────────

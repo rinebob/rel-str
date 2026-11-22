@@ -10,6 +10,7 @@ import { from, map, Observable } from 'rxjs';
 import { CallableName } from '../../core/common/constants';
 import type {
   LifecycleRepoRequest,
+  LifecycleTopicTreeRequest,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import type {
@@ -39,12 +40,40 @@ export class TopicViewerService {
   private readonly functions = inject(Functions);
   private readonly env = inject(EnvironmentInjector);
 
+  /** Monolith fetch — retained deliberately as the rollback surface:
+   *  the deployed getLifecycleTree callable still backs the pre-lazy
+   *  render path. No production consumer since #1637. */
   getLifecycleTree$(
     request: LifecycleRepoRequest,
   ): Observable<LifecycleTreeResponse> {
     return from(runInInjectionContext(this.env, () => {
       const callable = httpsCallable<LifecycleRepoRequest, LifecycleTreeResponse>(
         this.functions, CallableName.GET_LIFECYCLE_TREE,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** Slim roots-only index (#1635) — the page's left-pane + filter source;
+   *  roots arrive with `children: []` (subtrees fetched per-topic). */
+  getLifecycleTopicIndex$(
+    request: LifecycleRepoRequest,
+  ): Observable<LifecycleTreeResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<LifecycleRepoRequest, LifecycleTreeResponse>(
+        this.functions, CallableName.GET_LIFECYCLE_TOPIC_INDEX,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** One topic's populated subtree (#1636) — memoized by the store. */
+  getLifecycleTopicTree$(
+    request: LifecycleTopicTreeRequest,
+  ): Observable<LifecycleTreeResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<LifecycleTopicTreeRequest, LifecycleTreeResponse>(
+        this.functions, CallableName.GET_LIFECYCLE_TOPIC_TREE,
       );
       return callable(request);
     })).pipe(map((res) => res.data));

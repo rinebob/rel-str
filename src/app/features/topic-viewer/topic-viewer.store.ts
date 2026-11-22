@@ -2,12 +2,14 @@
  * TopicViewerStore — NgRx SignalStore for the topic-viewer page
  * (Topic #619 / Blueprint #635 / task #642).
  *
- * Owns the fetched LifecycleTreeResponse and maps it to the view models
- * the page renders — grouped topic list (left pane) + flattened visible
- * tree of the selected topic (right pane). v2 view state (#1531): sort
- * modes, search predicate + in-tree match expansion, all-topics browse,
- * and the label-write patch path (updateIssueLabels orchestrates the
- * callable; applyLabelUpdate patches the response in place).
+ * Lazy-loading v3 (#1637): `response` holds the slim index fetch (roots
+ * with `children: []`); populated subtrees live in the `trees` memo and
+ * land on demand via `ensureTopic` — selection, all-topics rendering,
+ * and refresh all funnel through it. The left pane (filteredTopics /
+ * visibleTopics / topicSections) reads the index alone and never waits
+ * on subtree fetches. v2 view state (#1531): sort modes, search
+ * predicate + in-tree match expansion, all-topics browse, and the
+ * label-write patch path (patches the index AND any memoized tree).
  */
 
 import { computed, inject } from '@angular/core';
@@ -18,7 +20,7 @@ import {
   withMethods,
   patchState,
 } from '@ngrx/signals';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, throwError } from 'rxjs';
 
 import type {
   LifecycleNode,
@@ -67,7 +69,25 @@ export interface AllSectionRows {
 interface LifecycleState {
   repos: TopicViewerRepo[];
   selectedRepoIndex: number;
+  /** The slim INDEX response — roots carry `children: []` (#1635).
+   *  Left-pane sections/filters/grouping read this; subtree data lives
+   *  in `trees`. */
   response: LifecycleTreeResponse | null;
+  /** Session-scoped memo of populated subtrees (#1637) — keyed by topic
+   *  number, filled by ensureTopic, dropped wholesale on refresh/repo
+   *  switch. */
+  trees: Record<number, LifecycleTopic>;
+  /** Per-topic fetch timestamp (as-of display for the selected tree). */
+  treeFetchedAt: Record<number, string>;
+  /** Topic numbers with an in-flight subtree fetch — skeleton drivers
+   *  (consumed by the page's per-topic states, #1638). */
+  treeLoading: number[];
+  /** Per-topic fetch error — the page's section/pane error + retry
+   *  signal (#1638). */
+  treeErrors: Record<number, string>;
+  /** The all-topics queue hit a rate-limit-class error and drained —
+   *  the page's drain notice (#1638); re-enable or refresh retries. */
+  allTopicsDrained: boolean;
   selectedTopicNumber: number | null;
   expandedIds: number[];
   /** Explicit user collapses of auto-expanded match ancestors —
@@ -84,12 +104,20 @@ interface LifecycleState {
   /** Monotonic fetch token — late-arriving responses for a switched-away
    *  repo are discarded (stale-response guard). */
   fetchSeq: number;
+  /** Memo epoch — bumped on refresh/repo switch; in-flight subtree
+   *  fetches from an older epoch discard their result on resolve. */
+  memoSeq: number;
 }
 
 const initialState: LifecycleState = {
   repos: TOPIC_VIEWER_REPOS,
   selectedRepoIndex: 0,
   response: null,
+  trees: {},
+  treeFetchedAt: {},
+  treeLoading: [],
+  treeErrors: {},
+  allTopicsDrained: false,
   selectedTopicNumber: null,
   expandedIds: [],
   suppressedIds: [],
@@ -101,6 +129,7 @@ const initialState: LifecycleState = {
   error: null,
   fetchedAt: null,
   fetchSeq: 0,
+  memoSeq: 0,
 };
 
 function errMessage(err: unknown): string {
@@ -183,23 +212,29 @@ function flattenTopic(
   return rows;
 }
 
-/** Immutably patch one node's labels inside the response — returns the
- *  same response when the number isn't present (no spurious identity
- *  change for downstream computeds). */
+/** Immutably patch one node's labels inside a subtree — returns the
+ *  same node when the number isn't present (no spurious identity
+ *  change for downstream computeds). Shared by the index response
+ *  patch and the per-topic memo patch (#1637). */
+function patchNodeLabels<T extends LifecycleNode>(
+  n: T,
+  issueNumber: number,
+  labels: string[],
+): T {
+  if (n.number === issueNumber) return { ...n, labels: [...labels] };
+  if (!n.children.length) return n;
+  const kids = n.children.map(c => patchNodeLabels(c, issueNumber, labels));
+  return kids.some((k, i) => k !== n.children[i])
+    ? { ...n, children: kids }
+    : n;
+}
+
 function patchLabelsInResponse(
   res: LifecycleTreeResponse,
   issueNumber: number,
   labels: string[],
 ): LifecycleTreeResponse {
-  const patch = <T extends LifecycleNode>(n: T): T => {
-    if (n.number === issueNumber) return { ...n, labels: [...labels] };
-    if (!n.children.length) return n;
-    const kids = n.children.map(patch);
-    return kids.some((k, i) => k !== n.children[i])
-      ? { ...n, children: kids }
-      : n;
-  };
-  const topics = res.topics.map(patch);
+  const topics = res.topics.map(t => patchNodeLabels(t, issueNumber, labels));
   return topics.every((t, i) => t === res.topics[i])
     ? res
     : { ...res, topics };
@@ -228,17 +263,32 @@ export const TopicViewerStore = signalStore(
      *  empty) — surfaced by the page so flat sections aren't silent. */
     groupingWarning: computed(() => store.response()?.groupingWarning ?? null),
 
-    /** The selected topic's node — looked up in the live response. */
+    /** The selected topic's POPULATED node — read from the trees memo;
+     *  null until ensureTopic lands it (the index root carries no
+     *  children). */
     selectedTopic: computed<LifecycleNode | null>(() => {
       const num = store.selectedTopicNumber();
-      const res = store.response();
-      if (num === null || !res) return null;
-      return res.topics.find(t => t.number === num) ?? null;
+      return num === null ? null : (store.trees()[num] ?? null);
     }),
+
+    /** In-flight subtree fetches as a Set — O(1) `treeLoading.has(n)`
+     *  skeleton checks for the page. */
+    treeLoadingSet: computed<ReadonlySet<number>>(
+      () => new Set(store.treeLoading())),
   })),
 
   // Second block — these computeds consume first-block computeds.
   withComputed((store) => ({
+    /** Filtered topics whose subtrees have actually been fetched — the
+     *  honest "rendered trees" set for all-topics match/expand/rows
+     *  derivations (unfetched sections contribute nothing, not stubs). */
+    fetchedTopics: computed<LifecycleTopic[]>(() => {
+      const memo = store.trees();
+      return store.filteredTopics()
+        .map(t => memo[t.number])
+        .filter((t): t is LifecycleTopic => t !== undefined);
+    }),
+
     /** Grouped topic list — flat `topics` folded into `groupOrder`
      *  sections (contract v2, #1522); closed topics hidden unless
      *  showClosed; emptied sections dropped (incl. query-emptied).
@@ -251,13 +301,18 @@ export const TopicViewerStore = signalStore(
       return foldGroups(store.filteredTopics(), res.groupOrder)
         .map(s => ({ name: s.name, topics: s.topics.map(toRow) }));
     }),
+  })),
 
+  // Third block — match scope + view dispatch consume second-block
+  // computeds (fetchedTopics/topicSections).
+  withComputed((store) => ({
     /** In-tree search derivation — one walk per rendered root yields
      *  the match set AND the ancestors that must auto-expand to surface
-     *  them. Scope = the trees the page renders: every filtered topic in
-     *  all-topics mode, the selected topic otherwise (#1532). The match
-     *  itself is NOT an ancestor (its children stay hidden). Empty sets
-     *  without a query; closed nodes only count under showClosed. */
+     *  them. Scope = the FETCHED trees the page renders (#1637): every
+     *  fetched filtered topic in all-topics mode, the selected topic
+     *  otherwise (#1532). The match itself is NOT an ancestor (its
+     *  children stay hidden). Empty sets without a query; closed nodes
+     *  only count under showClosed. */
     matchInfo: computed<{
       set: ReadonlySet<number>;
       ancestors: ReadonlySet<number>;
@@ -270,7 +325,7 @@ export const TopicViewerStore = signalStore(
       const showClosed = store.showClosed();
       const sel = store.selectedTopic();
       const roots: LifecycleNode[] = store.showAllTopics()
-        ? store.filteredTopics()
+        ? store.fetchedTopics()
         : (sel ? [sel] : []);
       const walk = (n: LifecycleNode, chain: number[]) => {
         for (const c of n.children) {
@@ -288,11 +343,7 @@ export const TopicViewerStore = signalStore(
       }
       return { set, ancestors };
     }),
-  })),
 
-  // Third block — view dispatch + match signals consume second-block
-  // computeds (topicSections/filteredTopics/matchInfo).
-  withComputed((store) => ({
     /** The left pane's view model — grouped sections or the flat
      *  number-ascending list depending on sortMode (#1531). */
     visibleTopics: computed<VisibleTopics>(() =>
@@ -304,8 +355,10 @@ export const TopicViewerStore = signalStore(
               .sort((a, b) => a.number - b.number)
               .map(toRow),
           }),
+  })),
 
-
+  // Fourth block — match signals + effective expansion consume matchInfo.
+  withComputed((store) => ({
     /** Nodes inside the selected topic matching the query (includes the
      *  root itself when it matches). */
     matchSet: computed<ReadonlySet<number>>(() => store.matchInfo().set),
@@ -326,18 +379,22 @@ export const TopicViewerStore = signalStore(
       for (const s of store.suppressedIds()) ids.delete(s);
       return ids;
     }),
+  })),
 
+  // Fifth block — flattened rows + expandable scan consume the
+  // effective expansion and the fetched-trees set.
+  withComputed((store) => ({
     /** Node ids that are expandable (have *visible* children) — expandAll
      *  target. A node whose children are all closed isn't expandable when
      *  showClosed is off, same rule the tree caret applies. In
-     *  all-topics mode the set spans every filtered tree. */
+     *  all-topics mode the set spans every FETCHED filtered tree. */
     expandableIds: computed<number[]>(() => {
       const showClosed = store.showClosed();
       const visible = (n: LifecycleNode) =>
         n.children.filter(c => showClosed || c.state === 'open');
       const sel = store.selectedTopic();
       const roots: LifecycleNode[] = store.showAllTopics()
-        ? store.filteredTopics()
+        ? store.fetchedTopics()
         : (sel ? [sel] : []);
       const ids: number[] = [];
       const walk = (n: LifecycleNode) => {
@@ -349,10 +406,6 @@ export const TopicViewerStore = signalStore(
       roots.forEach(walk);
       return ids;
     }),
-  })),
-
-  // Fourth block — flattened rows consume the effective expansion.
-  withComputed((store) => ({
     /** Flattened visible rows of the selected topic — a node emits its
      *  children only when its number is in the effective expansion.
      *  Closed nodes filtered unless showClosed. */
@@ -363,14 +416,16 @@ export const TopicViewerStore = signalStore(
         topic, store.effectiveExpandedIds(), store.showClosed());
     }),
 
-    /** Every filtered section's flattened trees for the all-topics
-     *  right pane (#1531) — roots collapsed unless expanded. */
+    /** Every filtered section's flattened FETCHED trees for the
+     *  all-topics right pane (#1531 + #1637) — unfetched topics emit no
+     *  rows (the page renders their sections from the filtered set plus
+     *  per-topic loading/error signals). */
     allSectionsRows: computed<AllSectionRows[]>(() => {
       const res = store.response();
       if (!res) return [];
       const expanded = store.effectiveExpandedIds();
       const showClosed = store.showClosed();
-      return foldGroups(store.filteredTopics(), res.groupOrder)
+      return foldGroups(store.fetchedTopics(), res.groupOrder)
         .map(s => ({
           name: s.name,
           rows: s.topics.flatMap(t => flattenTopic(t, expanded, showClosed)),
@@ -379,18 +434,66 @@ export const TopicViewerStore = signalStore(
 
   })),
 
+  // Sixth block — page-state signals (#1637 QA remediation): honest
+  // loading/error surface ahead of #1638's styled skeletons.
+  withComputed((store) => ({
+    /** Selected topic's subtree in flight — the pane shows a loading
+     *  indicator instead of the misleading unselected copy. */
+    selectedTreeLoading: computed(() => {
+      const n = store.selectedTopicNumber();
+      return n !== null
+        && store.trees()[n] === undefined
+        && store.treeLoadingSet().has(n);
+    }),
+    /** Selected topic's fetch error, if any — pane error + retry. */
+    selectedTreeError: computed<string | null>(() => {
+      const n = store.selectedTopicNumber();
+      return n === null ? null : (store.treeErrors()[n] ?? null);
+    }),
+    /** Any subtree fetch in flight — gates the all-topics empty copy
+     *  so the pane reads "fetching" during the queue drain instead of
+     *  flashing "No Topics found" (review M5). */
+    anyTreeLoading: computed(() => store.treeLoadingSet().size > 0),
+    /** Any subtree fetch error — gates the all-topics empty copy so a
+     *  fully-failed drain reads "failed" instead of "No Topics". */
+    anyTreeError: computed(() => Object.keys(store.treeErrors()).length > 0),
+  })),
+
   withMethods((store) => {
     const service = inject(TopicViewerService);
 
-    async function fetch(): Promise<void> {
+    /** In-flight subtree fetch dedupe (#1637) — promises aren't render
+     *  state, so the map lives in the closure, not signal state. */
+    const inFlight = new Map<number, Promise<LifecycleTopic | null>>();
+
+    /** All-topics fetch queue — FIFO topic numbers at bounded
+     *  concurrency. `queueActive` counts queue-dispatched fetches only:
+     *  user-triggered ensureTopic (a selection click) is a priority
+     *  lane outside the cap — the cap bounds background fetch bursts.
+     *  The queue is rebuilt (not appended to) on every top-up so a
+     *  narrowed filter never fetches topics that left the render set. */
+    const QUEUE_CONCURRENCY = 4;
+    let queue: number[] = [];
+    let queueActive = 0;
+    /** Dispatch generation — bumped by dropMemo so a stale in-flight
+     *  queue fetch's .finally can't decrement a counter it doesn't own
+     *  (review M1: refresh mid-drain would blow the concurrency cap). */
+    let queueEpoch = 0;
+
+    const isRateLimit = (err: unknown): boolean =>
+      ((err as { code?: string })?.code ?? '').includes('resource-exhausted');
+
+    /** Index fetch only — never fires a subtree call (#1637). Returns
+     *  true on success so refresh knows whether to drop the memo. */
+    async function fetchIndex(): Promise<boolean> {
       const repo = store.selectedRepo();
-      if (!repo) return;
+      if (!repo) return false;
       const seq = store.fetchSeq() + 1;
       patchState(store, { fetchSeq: seq, loading: true, error: null });
       try {
         const response = await firstValueFrom(
-          service.getLifecycleTree$({ owner: repo.owner, repo: repo.repo }));
-        if (store.fetchSeq() !== seq) return; // stale — a newer fetch owns the slot
+          service.getLifecycleTopicIndex$({ owner: repo.owner, repo: repo.repo }));
+        if (store.fetchSeq() !== seq) return false; // stale — a newer fetch owns the slot
         const selected = store.selectedTopicNumber();
         patchState(store, {
           response,
@@ -402,19 +505,148 @@ export const TopicViewerStore = signalStore(
             ? { selectedTopicNumber: null, expandedIds: [] }
             : {}),
         });
+        return true;
       } catch (err) {
-        if (store.fetchSeq() !== seq) return;
+        if (store.fetchSeq() !== seq) return false;
         patchState(store, {
           loading: false,
-          error: errMessage(err), // previous response kept — tree stays up under the banner
+          error: errMessage(err), // previous index + trees kept — page stays up under the banner
         });
+        return false;
+      }
+    }
+
+    /** Drop the memo + queue/in-flight bookkeeping (refresh and repo
+     *  switch). In-flight promises still resolve — the bumped epoch
+     *  makes their patches no-ops. */
+    function dropMemo(): void {
+      inFlight.clear();
+      queue = [];
+      queueActive = 0;
+      queueEpoch++;
+      patchState(store, {
+        trees: {},
+        treeFetchedAt: {},
+        treeLoading: [],
+        treeErrors: {},
+        allTopicsDrained: false,
+        memoSeq: store.memoSeq() + 1,
+      });
+    }
+
+    /** The memo + dedupe gate every subtree fetch funnels through
+     *  (#1637): memo hit → in-flight join → fresh callable. Errors
+     *  isolate to treeErrors[n]; a rate-limit-class error additionally
+     *  drains the all-topics queue so siblings don't pile on. */
+    function ensureTopic(n: number): Promise<LifecycleTopic | null> {
+      const memo = store.trees()[n];
+      if (memo) return Promise.resolve(memo);
+      const pending = inFlight.get(n);
+      if (pending) return pending;
+
+      const repo = store.selectedRepo();
+      if (!repo) return Promise.resolve(null);
+      const epoch = store.memoSeq();
+      const hadError = store.treeErrors()[n] !== undefined;
+      const errors = hadError ? { ...store.treeErrors() } : store.treeErrors();
+      if (hadError) delete errors[n];
+      patchState(store, {
+        treeLoading: [...store.treeLoading(), n],
+        treeErrors: errors,
+      });
+
+      // A synchronous dispatch throw (e.g. injection-context misuse)
+      // must route through the same error path — otherwise the topic
+      // stays in treeLoading forever with no fetch and no error.
+      const tree$ = (() => {
+        try {
+          return service.getLifecycleTopicTree$({
+            owner: repo.owner, repo: repo.repo, topicNumber: n,
+          });
+        } catch (err) {
+          return throwError(() => err);
+        }
+      })();
+      const p = firstValueFrom(tree$).then(res => {
+        if (store.memoSeq() !== epoch) return null; // repo switch / refresh superseded
+        const loading = store.treeLoading().filter(x => x !== n);
+        const topic = res.topics[0] ?? null;
+        if (topic) {
+          patchState(store, {
+            trees: { ...store.trees(), [n]: topic },
+            treeFetchedAt: { ...store.treeFetchedAt(), [n]: res.fetchedAt },
+            treeLoading: loading,
+          });
+        } else {
+          patchState(store, {
+            treeLoading: loading,
+            treeErrors: { ...store.treeErrors(), [n]: 'empty subtree response' },
+          });
+        }
+        return topic;
+      }).catch(err => {
+        if (store.memoSeq() !== epoch) return null;
+        patchState(store, {
+          treeLoading: store.treeLoading().filter(x => x !== n),
+          treeErrors: { ...store.treeErrors(), [n]: errMessage(err) },
+          ...(isRateLimit(err) ? { allTopicsDrained: true } : {}),
+        });
+        if (isRateLimit(err)) queue = [];
+        return null;
+      }).finally(() => {
+        // Conditional — a stale-epoch promise must not delete the NEW
+        // epoch's dedupe entry registered after dropMemo cleared the map
+        // (review M2: otherwise a third trigger fires a duplicate call).
+        if (inFlight.get(n) === p) inFlight.delete(n);
+      });
+
+      inFlight.set(n, p);
+      return p;
+    }
+
+    /** Rebuild the queue from the CURRENT filtered set — only unfetched,
+     *  not-in-flight topics. Runs on all-topics enable and on any filter
+     *  change while it's enabled (top-up). */
+    function enqueueFiltered(): void {
+      const memo = store.trees();
+      const loading = new Set(store.treeLoading());
+      queue = store.filteredTopics()
+        .map(t => t.number)
+        .filter(n => memo[n] === undefined && !loading.has(n));
+      // Re-populating the queue IS the retry path — a drained flag left
+      // set would show the drain notice over successfully loaded data.
+      if (store.allTopicsDrained()) patchState(store, { allTopicsDrained: false });
+      pump();
+    }
+
+    function pump(): void {
+      while (queueActive < QUEUE_CONCURRENCY && queue.length) {
+        const n = queue.shift()!;
+        const gen = queueEpoch;
+        queueActive++;
+        try {
+          void ensureTopic(n).finally(() => {
+            // Stale dispatch — dropMemo already zeroed the counter and
+            // the new epoch owns its own bookkeeping.
+            if (gen !== queueEpoch) return;
+            queueActive--;
+            pump();
+          });
+        } catch {
+          queueActive--; // synchronous dispatch throw must not leak the slot
+        }
       }
     }
 
     return {
+      /** Memo → in-flight join → fetch. Callers that only need the side
+       *  effect fire-and-forget it; specs/refresh await the join. */
+      ensureTopic,
+
       async selectRepo(index: number): Promise<void> {
         if (!store.repos()[index]) return; // dropdown can't emit this; guards programmatic calls
         if (index === store.selectedRepoIndex()) return;
+        dropMemo();
         patchState(store, {
           selectedRepoIndex: index,
           response: null,
@@ -425,7 +657,10 @@ export const TopicViewerStore = signalStore(
           error: null,
           fetchedAt: null,
         });
-        await fetch();
+        await fetchIndex();
+        // All-topics stays on across a repo switch — re-queue the new
+        // repo's filtered set (memo was just dropped wholesale).
+        if (store.showAllTopics()) enqueueFiltered();
       },
 
       selectTopic(number: number): void {
@@ -439,10 +674,21 @@ export const TopicViewerStore = signalStore(
             : [number],
           suppressedIds: [], // suppressions are scoped to the old tree's query
         });
+        void ensureTopic(number); // subtree fetch — skeleton → tree (#1637)
       },
 
+      /** Index refetch → memo drop → refetch ONLY the rendered set
+       *  (filtered topics in all-topics mode, the selection otherwise).
+       *  A failed index fetch keeps the old index AND the memo. */
       async refresh(): Promise<void> {
-        await fetch();
+        if (!await fetchIndex()) return;
+        dropMemo();
+        if (store.showAllTopics()) {
+          enqueueFiltered();
+        } else {
+          const sel = store.selectedTopicNumber();
+          if (sel !== null) void ensureTopic(sel);
+        }
       },
 
       /** Toggle a node's *effective* expansion. Collapsing an
@@ -485,9 +731,12 @@ export const TopicViewerStore = signalStore(
       },
 
       /** Direct setter — the checkbox binds $event.checked so state can't
-       *  desync if showClosed is ever set elsewhere. */
+       *  desync if showClosed is ever set elsewhere. Index-level filter
+       *  only — no subtree calls from the toggle itself; in all-topics
+       *  mode the widened set tops up the queue. */
       setShowClosed(v: boolean): void {
         patchState(store, { showClosed: v });
+        if (store.showAllTopics()) enqueueFiltered();
       },
 
       setSortMode(mode: TopicSortMode): void {
@@ -501,20 +750,37 @@ export const TopicViewerStore = signalStore(
           query: q,
           ...(q.trim() ? {} : { suppressedIds: [] }),
         });
+        if (store.showAllTopics()) enqueueFiltered(); // top-up on filter change
       },
 
       setShowAllTopics(v: boolean): void {
         patchState(store, { showAllTopics: v });
+        if (v) {
+          patchState(store, { allTopicsDrained: false }); // re-enable = drain retry
+          enqueueFiltered();
+        } else {
+          queue = []; // in-flight finish into the memo — revisit is free
+        }
       },
 
-      /** Patch one node's labels in the stored response after a
-       *  successful write — the tree updates in place without a refetch.
-       *  Absent numbers are a no-op (response identity preserved). */
+      /** Patch one node's labels wherever it lives — the index root
+       *  AND any memoized subtree (#1637). Absent numbers are a no-op
+       *  (container identities preserved). */
       applyLabelUpdate(issueNumber: number, labels: string[]): void {
         const res = store.response();
-        if (!res) return;
-        const next = patchLabelsInResponse(res, issueNumber, labels);
-        if (next !== res) patchState(store, { response: next });
+        if (res) {
+          const next = patchLabelsInResponse(res, issueNumber, labels);
+          if (next !== res) patchState(store, { response: next });
+        }
+        const memo = store.trees();
+        let changed = false;
+        const trees: Record<number, LifecycleTopic> = {};
+        for (const [key, t] of Object.entries(memo)) {
+          const patched = patchNodeLabels(t, issueNumber, labels);
+          trees[Number(key)] = patched;
+          if (patched !== t) changed = true;
+        }
+        if (changed) patchState(store, { trees });
       },
 
       /** Issue-label write orchestration (#1531): delegates to the
@@ -528,11 +794,16 @@ export const TopicViewerStore = signalStore(
       ): Promise<{ labels: string[]; created: string[] } | null> {
         const repo = store.selectedRepo();
         if (!repo) return null;
+        const epoch = store.memoSeq();
         try {
           const res = await firstValueFrom(service.updateIssueLabels$({
             owner: repo.owner, repo: repo.repo,
             issueNumber, add, remove,
           }));
+          // The write went to the OLD repo's data — a repo switch or
+          // refresh during the await must not let its labels land on
+          // the new dataset's same-numbered issue (review M3).
+          if (store.memoSeq() !== epoch) return res;
           this.applyLabelUpdate(issueNumber, res.labels);
           patchState(store, { error: null }); // symmetric with the failure path
           return res;
