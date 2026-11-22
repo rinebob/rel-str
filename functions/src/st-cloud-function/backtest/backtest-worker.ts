@@ -23,6 +23,11 @@ import type { BacktestPermutationPayload, BacktestPermutationSummary } from './b
 export const BACKTEST_TASK_QUEUE = 'stBacktestPermutation';
 const MAX_ATTEMPTS = 3;
 
+/**
+ * @deprecated Task-queue callable driving the legacy simulator — superseded by
+ * Selection Replay + Backtest Analytics (Threads #1240/#1266/#1270). Retained
+ * for reference — do not extend.
+ */
 export const stBacktestPermutation = onTaskDispatched<BacktestPermutationPayload>(
   {
     retryConfig: {

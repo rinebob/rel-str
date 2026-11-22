@@ -122,6 +122,9 @@ export interface BacktestSimulationResult {
 
 /**
  * Run a backtest over all available daily bars for a single symbol+strategy+param set.
+ *
+ * @deprecated Superseded by Selection Replay + Backtest Analytics
+ * (Threads #1240/#1266/#1270). Retained for reference — do not extend.
  */
 export async function runBacktestSimulation(
   symbol: string,
