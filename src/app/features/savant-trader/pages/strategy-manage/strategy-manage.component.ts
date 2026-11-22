@@ -3,6 +3,7 @@
  * @task #1540 — FE: Route/nav migration to options/strategy/manage + store + table shell
  * @task #1546 — FE: Instance table — columns, sort/filter, position join, start/stop
  * @task #1547 — FE: Create New Instance dialog — header button opens the dialog
+ * @task #1549 — FE: Results summary popup + analysis link — per-row Results button
  *
  * Strategy Manage page (`options/strategy/manage`). F2: Paper | Real tabs
  * bound to the store's mode partition, the full instance table (sortable
@@ -16,6 +17,7 @@ import { CommonModule } from '@angular/common';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { ManageCreateInstanceComponent } from './manage-create-instance.component';
 import { ManageCreateStrategyComponent } from './manage-create-strategy.component';
+import { ManageResultsDialogComponent } from './manage-results-dialog.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
 import {
   INSTANCE_RUN_STATES,
@@ -134,6 +136,11 @@ export class StrategyManageComponent implements OnInit {
   /** F4 — ad hoc named-variant composer; lands in sessionVariants. */
   protected openCreateStrategy(): void {
     this.dialog.open(ManageCreateStrategyComponent);
+  }
+
+  /** F5 (#1549) — per-instance results summary popup. */
+  protected openResults(instance: ManageInstance): void {
+    this.dialog.open(ManageResultsDialogComponent, { data: { instance } });
   }
 
   /** The row's position bucket — open if any position is joined, waiting

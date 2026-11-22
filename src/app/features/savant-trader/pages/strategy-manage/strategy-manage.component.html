@@ -92,6 +92,9 @@
             <td class="position-cell">{{ positionLabel(instance) }}</td>
             <td>{{ createdLabel(instance) }}</td>
             <td class="actions-cell">
+              <button type="button" class="ds-btn outline small" data-testid="results-btn"
+                      [attr.aria-label]="'Results for ' + instance.id"
+                      (click)="openResults(instance)">Results</button>
               <button type="button" class="ds-btn outline small runstate-btn"
                       [disabled]="instance.mode === 'real'"
                       [attr.aria-label]="runActionLabel(instance) + ' instance ' + instance.id"

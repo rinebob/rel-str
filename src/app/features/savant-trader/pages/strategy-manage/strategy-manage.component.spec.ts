@@ -23,6 +23,7 @@ import { resolve } from 'path';
 import { StrategyManageComponent } from './strategy-manage.component';
 import { ManageCreateInstanceComponent } from './manage-create-instance.component';
 import { ManageCreateStrategyComponent } from './manage-create-strategy.component';
+import { ManageResultsDialogComponent } from './manage-results-dialog.component';
 import { StrategyManageStore } from '../../stores/strategy-manage.store';
 import { DsDialogService } from '../../../../shared/ds/ds-dialog';
 import { MANAGE_VARIANTS } from '@manage/variant-catalog';
@@ -152,6 +153,21 @@ describe('StrategyManageComponent', () => {
 
     btn!.click();
     expect(mockDialog.open).toHaveBeenCalledWith(ManageCreateStrategyComponent);
+  });
+
+  it('opens the results dialog for the row instance', async () => {
+    const inst = makeInstance();
+    await setup({ instances: [inst], paperInstances: [inst] });
+    fixture.detectChanges();
+    const btn = (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-testid="results-btn"]');
+    expect(btn).toBeTruthy();
+
+    btn!.click();
+    expect(mockDialog.open).toHaveBeenCalledWith(
+      ManageResultsDialogComponent,
+      { data: { instance: inst } },
+    );
   });
 
   it('shows loading spinner when isLoading is true', async () => {
