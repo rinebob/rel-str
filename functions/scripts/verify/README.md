@@ -88,6 +88,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1574 | `paper-trading-curated-exit-engine-1574.ts` | curated exit engine — ma-close/target grammar + evaluators + variantLevel + independent closers + selectGoverningRun policy + smaAt (read-only, no env) | [paper-trading-curated-exit-engine-1574.md](paper-trading-curated-exit-engine-1574.md) |
 | #1575 | `paper-trading-backfill-signal-trade-1575.ts` | curated signal mint — deterministic sig-origin ids + SDS_BARS entry + one-commit backfill + ledger close + dedupe + callable auth/cap (fixture mint through the real ledger, no env) | [paper-trading-backfill-signal-trade-1575.md](paper-trading-backfill-signal-trade-1575.md) |
 | #1576 | `paper-trading-ledger-ops-1576.ts` | ledger ops — deleteTradeCascade (trade+rq+pap_* gone, signal-scoped, idempotent) + deletePaperTrades buckets + ingest curated dims + SECONDARY admit (fixture through real seam/pass, no env) | [paper-trading-ledger-ops-1576.md](paper-trading-ledger-ops-1576.md) |
+| #1649 | `paper-trading-signal-review-contracts-1649.ts` | signal-review contract surface — signalReview doc id + pick mapper literal + occurrence-id layout + dedupe⇄occurrence non-interchangeability (read-only, no env) | [paper-trading-signal-review-contracts-1649.md](paper-trading-signal-review-contracts-1649.md) |
 
 ## Order across tasks
 
@@ -145,6 +146,7 @@ npx tsx scripts/verify/{script-name}.ts
 57. **#1500** — `options-analysis-position-1500.ts` (leg-aware analyzer: v1→v2 narrowing → per-leg series fetch → signed net cost-to-close series (settlement freeze, nearest-living dte, stock legs) → position records; DRY default is fake-deps/no-credentials; `--live` analyzes a real verify-1499 list doc — needs ADC + GOOGLE_CLOUD_PROJECT)
 58. **#1501** — `options-engine-eod-selection-1501.ts` (engine EOD selection on the shared coordinate selector: signed-delta argmin in the nearest-DTE expiration, no-contract → null, deltaTolerance post-check, malformed candidates ignored, quote mapping, concrete-dte id segments; DRY default is fake-chain/no-credentials; `--live` fetches a real SPY chain + validates a real instance doc — needs ADC + GOOGLE_CLOUD_PROJECT)
 59. **#1502** — `options-engine-expression-fill-1502.ts` (expression-fill-pass on the shared coordinate selector: nearest-to-targetDte expirations replace the DTE band, signed argmin over RH quote deltas, fill price = RH quote mark, unpriceable pick → no_contract, empty chain → skip; DRY default is fake-chain/no-credentials; `--live` fetches a real SPY chain through the prod KMS session and asserts the pass mints exactly the contract the raw selector picks — needs ADC + RH_CREDENTIAL_KEY_NAME)
+60. **#1649** — `paper-trading-signal-review-contracts-1649.ts` (signal-review contract surface: signalReview doc id + pick-mapper literal + occurrence-id layout + dedupe⇄occurrence non-interchangeability; instant, read-only, no env)
 
 <!-- #1013 retired the #1003/#1006/#1007/#1008/#1009/#1011 migration-parity relays and their
 target scripts (migrate-*, sweep-unlisted-to-new, qa-probe-1008) — the legacy roots they
