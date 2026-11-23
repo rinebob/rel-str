@@ -81,6 +81,7 @@ const scripts = [
   // Needs ADC + Firestore (real lease doc ops) — an environment gap where
   // ADC is absent, same class as the ADC-needing replay/engine scripts.
   'rh-mcp-refresh-lease-1658.ts',
+  'indicator-lib-ibs-1675.ts',
 ];
 
 let passed = 0;
