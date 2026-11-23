@@ -10,7 +10,7 @@
 **Type:** AS-BUILT  
 **Status:** Complete  
 **Created:** 2026-11-22  
-**Last Updated:** 2026-11-22  
+**Last Updated:** 2026-11-23  
 
 # As-Built — OpsStrat Manage Page Overhaul
 
@@ -75,6 +75,36 @@ strategy-builder page replaced by `options/strategy/manage`.
   ≥2-point equity sparkline, Analysis action → new tab at
   `AppRoutes.STRATEGY_BACKTEST_ANALYSIS` (`{instanceId}` is the
   contract-list doc id the analysis page queries).
+
+## Runtime mechanics
+
+All scheduled passes are in `functions/src/paper-trading/engine/passes/`
+(manage domain), times PT weekdays:
+
+| Pass | Schedule | Implementation |
+|---|---|---|
+| `rhCredentialCanary` | `0 7 * * 1-5` (7 AM) | Probes the noon pass's exact credential path; writes `st-config/rhCredentialCanary` — the manage page renders an alarm banner on `reauth_required` |
+| `manageOpenPassTimer` | `0 12 * * 1-5` (noon) | `listActiveManageInstances` → `runManageOpenPass` per instance: daily triggers open every day; signal triggers require an `st-signals` doc for the symbol stamped today's `marketDate`. Legs resolve through live RH chains via the KMS-backed MCP session (`selectOptionContract` on the Δ/DTE coordinate). Open gates dedupe — `already_opened_today` / `already_opened_in_period`. On open: `createManagePosition` + `appendManageContractListRows` (`{instanceId}` docs) + stats increments (`stats-inst-{instanceId}`) |
+| Mark pass | ~hourly PM | `optionsMarkPass` refreshes marks on open positions |
+| `manageExitScanTimer` | `0 14 * * 1-5` (2 PM) | `runManageExitScan` — every OPEN manage position through all 6 `EXIT_STRATEGIES` (target-90, price-100, price-50, stop-200, dte-21, expiry); writes one `AnalysisResultDoc` per (position, exitId) to `st-options-analysis-results` — the exit matrix the analysis route renders |
+| Stats recompute | nightly | Aggregates `totalRealizedPnl`/`totalUnrealizedPnl`/`totalPremiumCollected`/counts/`maxDrawdown` + `equityCurve` into `st-paper-trading/stats/items/stats-inst-{instanceId}` |
+| `manageOpenPassManual` | callable | `manageOpenPassManual({instanceId})` — runs the real open pass on demand (UAT/backfill) |
+
+Instance docs live on `st-strategy-instances/{id}` with
+`{SYM}-{SHAPE}-{DTE}-{ΔLEGS}-{STOP}` ids minted by
+`generateManageInstanceId` (`shared/manage-instance-id.ts`). Positions
+live in the options-strategy position repository keyed by
+`{instanceId}-{marketDate}` — at most one open per instance per market
+day.
+
+## File map
+
+| Layer | Files |
+|---|---|
+| SHARED | `shared/manage-instance-contracts.ts` (ManageInstance, run states, triggers, `isValidModeStopType`), `shared/manage-instance-id.ts` (id grammar), `shared/manage-variant-contracts.ts` + `shared/manage-variant-catalog.ts` (6 templates, 40 seeded variants), `shared/options-analysis-registry.ts` (exit registry) |
+| BE | `functions/src/paper-trading/engine/manage-instance-reader.ts`, `passes/manage-open-pass.ts`, `passes/manage-exit-scan-pass.ts`, `passes/manage-open-callable.ts`, `passes/open-pass-timer.ts`, `passes/contract-list-writer.ts`, `passes/open-pass-gates.ts`, `position-repository.ts` |
+| FE page | `src/app/features/savant-trader/pages/strategy-manage/strategy-manage.component.*`, `stores/strategy-manage.store.ts`, `services/strategy-manage.service.ts` |
+| FE dialogs | `manage-create-instance.component.*` (#1547), `manage-create-strategy.component.*` (#1548), `manage-results-dialog.component.*` (#1549) |
 
 ## Architecture decisions
 
