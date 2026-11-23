@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-23]
+
+### Added
+- [Trading Indicator Library] 261-1675_SHARED-IMPL-INDICATOR-LIB: computeIbs shared contract (Thread #1665) — shared/st-ibs.ts canonical IBS = (C-L)/(H-L) on 'D'|'W' with availability semantics (undefined while the bar is the current developing ET period pre-activation: default 12:00 ET daily / Wednesday weekly, Sunday = trading-week tail; malformed/rolled dates fail open defined; availability precedes zero-range->0.5); activateAtEtMin/activateAtWeekday overrides; @st/ibs alias wired in tsconfig + functions/tsconfig + jest mapper; 26-spec contract bed incl. boundary/Sunday/rollover/ordering pins
+- [Trading Indicator Library] 261-1675_BE-CHORE-INDICATOR-LIB: verify script indicator-lib-ibs-1675.{ts,md} — 20 read-only pins: @st/ibs alias resolution via functions tsconfig, formula/degenerate literals, D/W availability with injected now, real wall-clock agreement (independent ET oracle); run-all + README registration
+- [Trading Indicator Library] 261-1675_DOCS-INDICATOR-LIB: Thread #1665 planning set (PRD Approved + SHARED/BE/FE IMPL+TEST) + CODE-REVIEW (PASS — 3 axes, 5 minors remediated in-gate: Sunday monotonic gate, 'D'|'W' narrowing, weekKey rollover, weekday -1 fallback, alias pin) + UAT (Complete, #1686 — S1–S6 green; contract surface, no user-facing route) + CONTEXT.md IBS/IBS Availability/IBS-Suppressed Signal terms + changelog
+
 ## [2026-11-22]
 
 ### Added

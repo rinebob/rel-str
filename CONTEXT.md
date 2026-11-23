@@ -571,3 +571,18 @@ _Avoid_: strategy instance config (the legacy schema), run (that's a backtest/re
 
 A Robinhood OAuth grant and every credential store holding a copy of its current refresh token — the KMS-backed `rh-agent-credentials/bundle` doc, the local DPAPI file, or an env-secret bundle. Robinhood rotates the refresh token on each refresh, so a lineage is single-writer: the first store to refresh invalidates every sibling copy (a **lineage fork** — e.g. `export-credential-bundle` → `upload-rh-credential` seeding a second store — kills all siblings on the next refresh). Copying a live grant between stores forks the lineage; each store must either own a distinct grant or the fork must be managed. Bug #1658 / Topic #657.
 _Avoid_: credential copy, token sync, shared credentials (implies safe sharing — it is not)
+
+## Internal Bar Strength (IBS)
+
+A bounded 0–1 measure of where a bar's close sits within its high–low range — `(C−L)/(H−L)` — expressing late-bar momentum: 1.0 = closed at the bar's high, 0.0 = at its low, 0.5 = midpoint (also the value for zero-range bars, where H = L). Used inside the ST Trend Rider signal algorithm as a directional filter: a long signal requires IBS ≥ `ibsThreshold` on the signal bar, a short requires IBS ≤ `1 − ibsThreshold` (default 0.5). Thread #1665 / Topic #261.
+_Avoid_: oscillator (IBS is not a standalone plotted indicator — it is a gate inside the signal algo)
+
+## IBS Availability
+
+Whether an IBS value is meaningful enough to gate a signal. The IBS function returns `undefined` while a bar is still developing and too young — a daily bar before the configured activation time (default 12:00 ET), a weekly bar before mid-week (default Wednesday). Completed bars always return a value. `undefined` means "filter not applicable": the signal passes unfiltered, so early-day runs behave exactly as if no IBS filter existed.
+_Avoid_: cutoff (implies disabling the filter — the value is absent, not bypassed), Developing Daily IBS (availability is about WHEN a value exists, not a separate IBS variant)
+
+## IBS-Suppressed Signal
+
+An ST Trend Rider candidate signal that satisfied the zone state machine but was rejected by the IBS filter. Never persisted — exists only client-side where detection recomputes candidates from bars; rendered as hollow/dimmed dots when the `showSuppressedSignals` indicator config is on, so the filter's kill rate can be evaluated visually.
+_Avoid_: filtered signal (ambiguous with other filters), rejected signal (implies it was emitted then revoked — it never emits)
