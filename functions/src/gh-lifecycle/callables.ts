@@ -1,15 +1,21 @@
 /**
- * @topic #619 — GitHub read-only issue UI (task #640)
+ * @topic #619 — GitHub read-only issue UI (tasks #640, #1635, #1695)
  *
- * getLifecycleTree — onCall endpoint. Thin wrapper: auth guard → deps →
- * fetchLifecycleData → shared transforms → LifecycleTreeResponse. All
- * GitHub I/O lives in github-client.ts; all tree logic in shared/.
- * Read-only — no GitHub or Firestore writes.
+ * Lifecycle tree callables — thin wrappers: auth guard → deps → fetch →
+ * shared transforms → LifecycleTreeResponse. All GitHub I/O lives in
+ * github-client.ts; all tree logic in shared/. GitHub stays read-only;
+ * the issue-map Firestore doc is written by tree-fetch maintenance
+ * (#1695 — see issue-map.ts). resolveLifecycleIssue lives in
+ * resolve-callable.ts.
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import type { CallableRequest } from 'firebase-functions/v2/https';
-import type { LifecycleRepoRequest, LifecycleTopicTreeRequest, LifecycleTreeResponse } from '@lifecycle/contracts';
+import type {
+  LifecycleRepoRequest,
+  LifecycleTopicTreeRequest,
+  LifecycleTreeResponse,
+} from '@lifecycle/contracts';
 import {
   assignGroups,
   buildTree,
@@ -25,13 +31,20 @@ import {
   GitHubApiError,
 } from './github-client';
 import {
+  fetchIssueAncestorChain,
   fetchLifecycleData,
   fetchTopicIndexData,
   fetchTopicRootRef,
   fetchTopicSubtreeData,
+  type IssueAncestorChain,
   type LifecycleFetchResult,
   type TopicRootRef,
 } from './lifecycle-fetch';
+import {
+  readIssueMap,
+  syncIssueMapFromTree,
+  upsertIssueMapEntries,
+} from './issue-map';
 
 const INVENTORY_PATH = 'docs/dev-notes/TOPICS-INVENTORY.md';
 
@@ -47,6 +60,14 @@ export interface GhLifecycleDeps {
   fetchSubtreeData: (entry: SupportedRepo, root: { number: number; id: string }) => Promise<LifecycleFetchResult>;
   /** Raw TOPICS-INVENTORY.md; null on 404. Throws for other failures. */
   fetchInventoryDoc: (entry: SupportedRepo) => Promise<string | null>;
+  /** issueNumber → rootTopicNumber for the repo ({} on missing doc). */
+  readIssueMap: (entry: SupportedRepo) => Promise<Record<number, number>>;
+  /** Upsert a fetched subtree into the map + prune stale entries for that root. */
+  syncIssueMapFromTree: (entry: SupportedRepo, data: LifecycleFetchResult) => Promise<void>;
+  /** Upsert resolved issue→root entries (resolver writes). */
+  upsertIssueMapEntries: (entry: SupportedRepo, entries: Record<number, number>) => Promise<void>;
+  /** resolveIssue's parent-chain walk; null when the issue doesn't exist. */
+  fetchIssueChain: (entry: SupportedRepo, issueNumber: number) => Promise<IssueAncestorChain | null>;
 }
 
 /** Production deps — exported so the verify script shares one wiring. */
@@ -65,7 +86,19 @@ export function ghLifecycleDeps(): GhLifecycleDeps {
     fetchTopicRef: (entry, topicNumber) => fetchTopicRootRef(entry, topicNumber, gql),
     fetchSubtreeData: (entry, root) => fetchTopicSubtreeData(entry, root, gql),
     fetchInventoryDoc: entry => fetchFileText(token, entry, INVENTORY_PATH),
+    readIssueMap: async entry => readIssueMap(await issueMapDb(), entry),
+    syncIssueMapFromTree: async (entry, data) => syncIssueMapFromTree(await issueMapDb(), entry, data),
+    upsertIssueMapEntries: async (entry, entries) => upsertIssueMapEntries(await issueMapDb(), entry, entries),
+    fetchIssueChain: (entry, issueNumber) => fetchIssueAncestorChain(entry, issueNumber, gql),
   };
+}
+
+/** Lazy Firestore handle — dynamic import keeps module load side-effect
+ *  free so handler tests never pay admin-init (and never hit the
+ *  settings() re-init trap on fresh imports). */
+let issueMapDbPromise: Promise<typeof import('../firebase-admin-init')['db']> | undefined;
+function issueMapDb() {
+  return (issueMapDbPromise ??= import('../firebase-admin-init').then(m => m.db));
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────
@@ -137,6 +170,17 @@ export function resolveSupportedRepo(data: unknown): SupportedRepo {
   return entry;
 }
 
+/** Shared positive-int field validation — GitHub's Int is signed 32-bit,
+ *  so a larger integer would pass Number.isInteger but coerce to a
+ *  GraphQL error mid-probe. */
+export function requirePositiveInt(data: unknown, field: string): number {
+  const v = (data as Record<string, unknown> | null | undefined)?.[field];
+  if (typeof v !== 'number' || !Number.isSafeInteger(v) || v <= 0 || v > 2_147_483_647) {
+    throw new HttpsError('invalid-argument', `expected { owner, repo, ${field}: positive integer }`);
+  }
+  return v;
+}
+
 async function handle(
   request: CallableRequest<LifecycleRepoRequest>,
   deps: GhLifecycleDeps,
@@ -155,7 +199,16 @@ async function handleIndex(
 ): Promise<LifecycleTreeResponse> {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
-  return fetchAndAssemble(entry, deps, deps.fetchIndexData);
+  const response = await fetchAndAssemble(entry, deps, deps.fetchIndexData);
+  // issueMap emit — best-effort: a Firestore hiccup must not kill the
+  // index; the FE falls back to resolveLifecycleIssue on a miss.
+  try {
+    const issueMap = await deps.readIssueMap(entry);
+    if (Object.keys(issueMap).length > 0) response.issueMap = issueMap;
+  } catch (err) {
+    console.warn('getLifecycleTopicIndex: issueMap read failed — omitting', err);
+  }
+  return response;
 }
 
 /** Per-topic variant — same assembly pipeline after probe + topicNumber
@@ -167,30 +220,32 @@ async function handleTopic(
 ): Promise<LifecycleTreeResponse> {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
-  const data = (request.data ?? {}) as { topicNumber?: unknown };
-  // GitHub's Int is signed 32-bit — a larger integer would pass
-  // Number.isInteger but coerce to a GraphQL error mid-probe.
-  if (
-    typeof data.topicNumber !== 'number'
-    || !Number.isSafeInteger(data.topicNumber)
-    || data.topicNumber <= 0
-    || data.topicNumber > 2_147_483_647
-  ) {
-    throw new HttpsError('invalid-argument', 'expected { owner, repo, topicNumber: positive integer }');
-  }
+  const topicNumber = requirePositiveInt(request.data, 'topicNumber');
   let ref: TopicRootRef | null;
   try {
-    ref = await deps.fetchTopicRef(entry, data.topicNumber);
+    ref = await deps.fetchTopicRef(entry, topicNumber);
   } catch (err) {
     throw err instanceof GitHubApiError ? mapGitHubError(err) : err;
   }
   if (!ref) {
-    throw new HttpsError('not-found', `issue #${data.topicNumber} not found in ${entry.owner}/${entry.repo}`);
+    throw new HttpsError('not-found', `issue #${topicNumber} not found in ${entry.owner}/${entry.repo}`);
   }
   if (!isTopicRoot(ref.title)) {
-    throw new HttpsError('invalid-argument', `issue #${data.topicNumber} is not a Topic root`);
+    throw new HttpsError('invalid-argument', `issue #${topicNumber} is not a Topic root`);
   }
-  return fetchAndAssemble(entry, deps, e => deps.fetchSubtreeData(e, ref));
+  return fetchAndAssemble(entry, deps, async e => {
+    const fetched = await deps.fetchSubtreeData(e, ref);
+    // Map maintenance rides every *complete* tree fetch — a truncated
+    // walk would make honest entries look stale, so the guard that
+    // fails the response also gates the write. Sync failures are
+    // logged, never fail the response (the map is an accelerator).
+    try {
+      if (fetched.truncatedNodes === 0) await deps.syncIssueMapFromTree(e, fetched);
+    } catch (err) {
+      console.warn(`getLifecycleTopicTree: issueMap sync failed for #${ref.number}`, err);
+    }
+    return fetched;
+  });
 }
 
 /** fetch → error-map → assemble — the post-validation body shared by

@@ -268,6 +268,79 @@ export async function fetchTopicSubtreeData(
   return walkSubtree(entry, [root], 0, gql);
 }
 
+/** One issue plus its sub-issue ancestor chain (ancestors[0] = direct
+ *  parent … last = topmost) — the resolver feed for #1694's
+ *  resolveLifecycleIssue. */
+export interface IssueAncestorChain {
+  issue: LifecycleRawIssue;
+  ancestors: LifecycleRawIssue[];
+}
+
+// Fixed 5-deep parent nesting: Topic → Thread → Blueprint → Task → QA is
+// the deepest real chain; deeper nesting truncates to no-path at the
+// handler rather than silently reporting the wrong root.
+const ANCESTOR_PARENT = `parent {
+  number id title state url updatedAt labels(first: 50) { nodes { name } }
+  parent {
+    number id title state url updatedAt labels(first: 50) { nodes { name } }
+    parent {
+      number id title state url updatedAt labels(first: 50) { nodes { name } }
+      parent {
+        number id title state url updatedAt labels(first: 50) { nodes { name } }
+        parent {
+          number id title state url updatedAt labels(first: 50) { nodes { name } }
+        }
+      }
+    }
+  }
+}`;
+
+const ISSUE_CHAIN = `query($owner: String!, $repo: String!, $issueNumber: Int!) {
+  repository(owner: $owner, name: $repo) {
+    issue(number: $issueNumber) { ${ISSUE_FIELDS_CORE} ${ANCESTOR_PARENT} }
+  }
+}`;
+
+/** Ancestors carry no projectItems — synthesize an empty connection so
+ *  the shared toRaw parser handles them identically. */
+function ancestorToRaw(node: Record<string, any>): LifecycleRawIssue {
+  return toRaw({ ...node, projectItems: { nodes: [] } });
+}
+
+/** resolveLifecycleIssue's fetch (#1695): one query resolves an issue's
+ *  whole ancestor chain via the nested `parent` edge. NOT_FOUND → null;
+ *  a malformed record throws like a bad batch. */
+export async function fetchIssueAncestorChain(
+  entry: SupportedRepo,
+  issueNumber: number,
+  gql: Gql,
+): Promise<IssueAncestorChain | null> {
+  let data: Record<string, any>;
+  try {
+    data = await gql(ISSUE_CHAIN, {
+      owner: entry.owner,
+      repo: entry.repo,
+      issueNumber,
+    });
+  } catch (err) {
+    if (err instanceof GitHubApiError && err.gqlType === 'NOT_FOUND') return null;
+    throw err;
+  }
+  const issue = data.repository?.issue;
+  if (issue === null || issue === undefined) return null;
+  if (!issue.id || typeof issue.number !== 'number' || typeof issue.title !== 'string') {
+    throw new GitHubApiError(200, false, 'GitHub GraphQL: malformed issue probe');
+  }
+  const ancestors: LifecycleRawIssue[] = [];
+  for (let n = issue.parent; n !== null && n !== undefined; n = n.parent) {
+    if (typeof n.number !== 'number' || typeof n.title !== 'string') {
+      throw new GitHubApiError(200, false, 'GitHub GraphQL: malformed parent probe');
+    }
+    ancestors.push(ancestorToRaw(n));
+  }
+  return { issue: toRaw(issue), ancestors };
+}
+
 /** The shared BFS body — frontier of root refs → level-batched walk →
  *  childrenOf/statusOf/maps. `truncatedSeed` carries upstream truncation
  *  (e.g. a truncated root search) into the count. */

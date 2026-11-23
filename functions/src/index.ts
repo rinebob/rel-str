@@ -193,6 +193,7 @@ export { generateTradeDataset } from './paper-trading/analysis/analysis-callable
 export { fetchDatasetCsv } from './paper-trading/analysis/analysis-callables';
 export { analysisDatasetTask } from './paper-trading/analysis/analysis-dataset-task';
 export { getLifecycleTree, getLifecycleTopicIndex, getLifecycleTopicTree } from './gh-lifecycle/callables';
+export { resolveLifecycleIssue } from './gh-lifecycle/resolve-callable';
 export {
   listRepoLabels,
   updateIssueLabels,
