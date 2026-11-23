@@ -93,6 +93,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1651 | `paper-trading-groom-legacy-trades-1651.ts` | legacy signal-trade wipe — census classification (cohort/group/ticket skipped), dry no-delete, apply batching, idempotent re-run (DRY fixture deps; `--live` real census, `--apply` the real wipe + zero-eligible post-check) | [paper-trading-groom-legacy-trades-1651.md](paper-trading-groom-legacy-trades-1651.md) |
 | #1658 | `rh-mcp-refresh-lease-1658.ts` | refresh-lease port on real Firestore — acquire/deny/release + holder fencing + expired-TTL takeover + currentRevision on the real doc; scratch lease doc, credential doc untouched (needs ADC, no KMS key) | [rh-mcp-refresh-lease-1658.md](rh-mcp-refresh-lease-1658.md) |
 | #1675 | `indicator-lib-ibs-1675.ts` | IBS contract surface — `@st/ibs` alias resolution, IBS formula/degenerate-range literals, daily ET-time + weekly weekday availability (injected `now`), real wall-clock agreement (no ctx) | [indicator-lib-ibs-1675.md](indicator-lib-ibs-1675.md) |
+| #1678 | `ibs-trend-rider-filter-1678.ts` | IBS gate on real symbol-data bars — candidates vs emitted vs suppressed per V1/V2 × D/W, bound/subset/recorded-ibs invariants, `--symbol`/`--threshold` args (needs ADC, read-only) | [ibs-trend-rider-filter-1678.md](ibs-trend-rider-filter-1678.md) |
 
 ## Order across tasks
 
@@ -155,6 +156,7 @@ npx tsx scripts/verify/{script-name}.ts
 63. **#1658** — `rh-mcp-refresh-lease-1658.ts` (refresh-lease port: acquire/deny/release + holder fencing + expired-TTL takeover + currentRevision on the real bundle doc; scratch lease doc — needs ADC, no KMS key)
 64. **#1675** — `indicator-lib-ibs-1675.ts` (IBS contract surface: `@st/ibs` alias + formula/degenerate literals + D/W availability with injected `now` + real wall-clock agreement; instant, read-only, no env)
 65. **#1651** — `paper-trading-groom-legacy-trades-1651.ts` (legacy signal-trade wipe: census split — marker-carrying trades skipped, dry no-delete, apply batching + idempotent re-run; DRY fixture deps — `--live` real census needs ADC, `--live --apply` performs the real wipe)
+66. **#1678** — `ibs-trend-rider-filter-1678.ts` (IBS gate empirical check on real `symbol-data` bars: production zone chain → unfiltered vs gated detection; per-cell emitted/suppressed table + bound/subset/recorded-ibs invariants; needs ADC, read-only)
 
 <!-- #1661 — purge-legacy-cohorts-1661.ts is a destructive one-shot (drains
 paper-trading/cohorts, backfills trade.positionGroupId) — dry-run by default,
