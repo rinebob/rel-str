@@ -33,6 +33,7 @@
       "@lifecycle/labels": ["../shared/lifecycle-labels.ts"],
       "@st/collections": ["../shared/st-collections.ts"],
       "@st/ids": ["../shared/st-ids.ts"],
+      "@st/ibs": ["../shared/st-ibs.ts"],
       "@st/types": ["../shared/st-types.ts"],
       "@st/signals": ["../shared/st-signals.ts"],
       "@st/order-tickets": ["../shared/st-order-tickets.ts"],

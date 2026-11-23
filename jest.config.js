@@ -46,6 +46,7 @@ module.exports = {
     '^@lifecycle/labels$': '<rootDir>/shared/lifecycle-labels.ts',
     '^@st/collections$': '<rootDir>/shared/st-collections.ts',
     '^@st/ids$': '<rootDir>/shared/st-ids.ts',
+    '^@st/ibs$': '<rootDir>/shared/st-ibs.ts',
     '^@st/types$': '<rootDir>/shared/st-types.ts',
     '^@st/signals$': '<rootDir>/shared/st-signals.ts',
     '^@st/order-tickets$': '<rootDir>/shared/st-order-tickets.ts',
