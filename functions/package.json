@@ -22,7 +22,7 @@
     "test:rh-agent-mcp-api": "tsx --test ../tests/functions/rh-agent-mcp-observation-api.test.ts",
     "test:rh-agent-mcp-discovery": "tsx --test ../tests/functions/rh-agent-mcp-probe-manifest.test.ts ../tests/functions/rh-agent-mcp-catalog-drift.test.ts ../tests/functions/rh-agent-mcp-probe-runner.test.ts ../tests/functions/rh-agent-mcp-discovery-assembler.test.ts",
     "test:sds": "tsx --test ../tests/functions/sds-pdr-parser.test.ts ../tests/functions/sds-core.test.ts ../tests/functions/sds-worker-core.test.ts ../tests/functions/sds-completion.test.ts ../tests/functions/sds-fallback.test.ts",
-    "test:signal-detection": "tsx --test ../tests/functions/signal-detection-zero-cross.test.ts",
+    "test:signal-detection": "tsx --test ../tests/functions/signal-detection-zero-cross.test.ts ../tests/functions/st-signal-detection-ibs-1677.test.ts",
     "test:gh-lifecycle": "tsx --test ../tests/functions/gh-lifecycle/github-client.test.ts ../tests/functions/gh-lifecycle/callables.test.ts ../tests/functions/gh-lifecycle/label-callables.test.ts",
     "test:options-error-mapping": "tsx --test ../tests/functions/options-error-mapping.test.ts",
     "test:options-availability": "tsx --test ../tests/functions/options-contract-availability.test.ts",

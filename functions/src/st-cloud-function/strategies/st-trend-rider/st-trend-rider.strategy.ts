@@ -22,7 +22,7 @@ import type {
   StrategyConfig,
   StrategyAdapter,
 } from '../base-strategy';
-import { detectLastBarSignals } from '../signal-detection';
+import { detectLastBarSignals, type IbsGateConfig } from '../signal-detection';
 
 // =============================================================================
 // 1. METADATA
@@ -39,6 +39,29 @@ export const metadata: StrategyMetadata = {
   supportedTimeframes: ['1d', '1w'],
   version: '1.0.0',
   author: 'system',
+  configSchema: {
+    ibsThreshold: {
+      type: 'number',
+      min: 0,
+      max: 1,
+      step: 0.05,
+      description: 'IBS gate: longs need signal-bar IBS >= T, shorts <= 1 - T (default 0.5).',
+    },
+    ibsActivateAtEtMin: {
+      type: 'integer',
+      min: 0,
+      max: 1439,
+      step: 15,
+      description: 'ET minutes-since-midnight when daily IBS becomes meaningful (default 720 = 12:00 ET).',
+    },
+    ibsActivateAtWeekday: {
+      type: 'integer',
+      min: 0,
+      max: 6,
+      step: 1,
+      description: 'Weekday (0=Sun..6=Sat) when weekly IBS becomes meaningful (default 3 = Wed).',
+    },
+  },
 };
 
 // =============================================================================
@@ -71,11 +94,28 @@ function lastBarDate(bars: any[]): string {
 // =============================================================================
 
 /**
+ * Read the IBS gate keys out of the heterogeneous StrategyConfig bag.
+ * Recognized keys: `ibsThreshold`, `ibsActivateAtEtMin`, `ibsActivateAtWeekday`
+ * (numeric; non-numeric values are ignored, defaults live downstream).
+ * `now` is never set — the wall clock is the run's truth.
+ */
+export function ibsGateFromConfig(config: StrategyConfig): IbsGateConfig {
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+  return {
+    threshold: num(config['ibsThreshold']),
+    activateAtEtMin: num(config['ibsActivateAtEtMin']),
+    activateAtWeekday: num(config['ibsActivateAtWeekday']),
+  };
+}
+
+/**
  * Execute the ST Trend Rider strategy for the given input.
  * Produces daily and weekly signals gated by the same-timeframe Zone V2 context.
  */
-export function execute(input: StrategyInput, _config: StrategyConfig): StrategyOutput[] {
+export function execute(input: StrategyInput, config: StrategyConfig): StrategyOutput[] {
   const { bars, weeklyBars = [] } = input;
+  const ibs = ibsGateFromConfig(config);
   const signals: StrategyOutput[] = [];
 
   // --- Daily ST Trend Rider signals ---
@@ -89,7 +129,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V1 daily signal — same-timeframe Zone V1 context, no HTF cross-zone check
     const v1Daily = detectLastBarSignals(
-      dailyZoneV1.zone, dailyOhlcv, dailyZoneV1.zone, 'V1', 'D'
+      dailyZoneV1.zone, dailyOhlcv, dailyZoneV1.zone, 'V1', 'D', ibs
     );
     if (v1Daily) {
       signals.push({
@@ -104,7 +144,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V2 daily signal — same-timeframe Zone V2 context, no HTF cross-zone check
     const v2Daily = detectLastBarSignals(
-      dailyZoneV2.zone, dailyOhlcv, dailyZoneV2.zone, 'V2', 'D'
+      dailyZoneV2.zone, dailyOhlcv, dailyZoneV2.zone, 'V2', 'D', ibs
     );
     if (v2Daily) {
       signals.push({
@@ -129,7 +169,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V1 weekly signal — same-timeframe Zone V1 context, no HTF cross-zone check
     const v1Weekly = detectLastBarSignals(
-      weeklyZoneV1.zone, weeklyOhlcv, weeklyZoneV1.zone, 'V1', 'W'
+      weeklyZoneV1.zone, weeklyOhlcv, weeklyZoneV1.zone, 'V1', 'W', ibs
     );
     if (v1Weekly) {
       signals.push({
@@ -144,7 +184,7 @@ export function execute(input: StrategyInput, _config: StrategyConfig): Strategy
 
     // V2 weekly signal — same-timeframe Zone V2 context, no HTF cross-zone check
     const v2Weekly = detectLastBarSignals(
-      weeklyZoneV2.zone, weeklyOhlcv, weeklyZoneV2.zone, 'V2', 'W'
+      weeklyZoneV2.zone, weeklyOhlcv, weeklyZoneV2.zone, 'V2', 'W', ibs
     );
     if (v2Weekly) {
       signals.push({

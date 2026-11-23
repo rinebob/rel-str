@@ -29,7 +29,7 @@ export interface IbsAvailabilityContext {
   now?: Date;
   /** ET minutes since midnight when daily IBS becomes meaningful (default 720 = 12:00). */
   activateAtEtMin?: number;
-  /** ISO weekday (0=Sun … 6=Sat) when weekly IBS becomes meaningful (default 3 = Wed). */
+  /** Weekday (0=Sun … 6=Sat, `Date.getDay` numbering) when weekly IBS becomes meaningful (default 3 = Wed). */
   activateAtWeekday?: number;
 }
 

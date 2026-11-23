@@ -5,6 +5,8 @@
  * last bar. These functions are strategy-agnostic and can be reused by future
  * strategies that operate on zone/indicator transitions.
  */
+import { computeIbs } from '@st/ibs';
+import type { IbsAvailabilityContext } from '@st/ibs';
 import { StSignalDirection } from '../signals';
 import type { OHLCV } from './base-strategy';
 
@@ -30,6 +32,7 @@ export interface ZoneSignal {
  * @param windowV2  - Zone V2 window context per LTF bar
  * @param version   - 'V1' or 'V2' for signal type naming
  * @param timeframe - 'D' or 'W' for signal type prefix
+ * @param ibs       - optional IBS gate — see detectAllStTrendRiderSignals
  */
 export function detectLastBarSignals(
   ltfZone: number[],
@@ -37,16 +40,47 @@ export function detectLastBarSignals(
   windowV2: number[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
+  ibs?: IbsGateConfig,
 ): ZoneSignal | null {
   if (ltfZone.length < 2 || windowV2.length === 0) return null;
 
-  const signals = detectAllStTrendRiderSignals(ltfZone, windowV2, ltfBars, version, timeframe);
+  const signals = detectAllStTrendRiderSignals(ltfZone, windowV2, ltfBars, version, timeframe, ibs);
   const lastSignal = signals.find(s => s.index === ltfZone.length - 1);
   if (!lastSignal) return null;
 
   // Drop the internal index; callers expect the classic ZoneSignal shape.
   const { index: _index, ...rest } = lastSignal;
   return rest;
+}
+
+/**
+ * Optional IBS gate config for the ST Trend Rider confirmation machine.
+ * Passing `{}` gates at defaults; omitting the param leaves detection
+ * unfiltered (the single gate — callers must not also filter upstream).
+ */
+export interface IbsGateConfig extends IbsAvailabilityContext {
+  /** Long bound = T, short bound = 1 − T (both inclusive). Default 0.5. */
+  threshold?: number;
+}
+
+/** IBS of `bar`, or `undefined` when IBS can't gate (young bar or missing/non-finite OHLC). */
+function barIbs(bar: OHLCV | undefined, timeframe: 'D' | 'W', cfg?: IbsGateConfig): number | undefined {
+  if (!bar) return undefined;
+  const high = bar.high ?? bar.h;
+  const low = bar.low ?? bar.l;
+  const close = bar.close ?? bar.c;
+  if (
+    typeof high !== 'number' || typeof low !== 'number' || typeof close !== 'number' ||
+    !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)
+  ) {
+    return undefined;
+  }
+  const date = bar.date ?? bar.d ?? bar.t;
+  return computeIbs(
+    { high, low, close, date: typeof date === 'string' ? date : undefined },
+    timeframe,
+    { now: cfg?.now, activateAtEtMin: cfg?.activateAtEtMin, activateAtWeekday: cfg?.activateAtWeekday },
+  );
 }
 
 /**
@@ -61,6 +95,12 @@ export function detectLastBarSignals(
  * @param ltfBars   - LTF OHLCV bars (for date alignment)
  * @param version   - 'V1' or 'V2' for signal type naming
  * @param timeframe - 'D' or 'W' for signal type prefix
+ * @param ibs       - optional IBS gate: suppresses emission on bars whose close
+ *                    sits in the wrong half of the range (long needs IBS ≥ T,
+ *                    short needs IBS ≤ 1−T). Suppression is emission-only — the
+ *                    READY→FIRED transition still happens so a suppressed uptick
+ *                    can't double-fire on the same swing. `undefined` IBS
+ *                    (young bar / missing OHLC) lets the signal through.
  */
 export function detectAllStTrendRiderSignals(
   ltfZone: number[],
@@ -68,8 +108,11 @@ export function detectAllStTrendRiderSignals(
   ltfBars: OHLCV[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
+  ibs?: IbsGateConfig,
 ): ZoneSignal[] {
   if (ltfZone.length < 2 || windowV2.length === 0) return [];
+
+  const ibsThreshold = ibs?.threshold ?? 0.5;
 
   const signals: ZoneSignal[] = [];
   let longState: 'READY' | 'FIRED' = 'READY';
@@ -91,19 +134,23 @@ export function detectAllStTrendRiderSignals(
       if (delta > 0) {
         // Only valid if the prior zone was already above zero (>= +1)
         if (longState === 'READY' && prevZone >= 1) {
-          signals.push({
-            action: StSignalDirection.LONG,
-            signalType: `${timeframe}_ST_TREND_RIDER_${version}_LONG`,
-            reason: `ST Trend Rider: ${version} zone upticked ${prevZone}→${currZone} with window zone V2 at +${currentWindowV2}`,
-            index: i,
-            indicators: {
-              [`zone${version}`]: currZone,
-              [`zone${version}Prev`]: prevZone,
-              windowV2: currentWindowV2,
-              delta,
-            },
-          });
           longState = 'FIRED';
+          const ibsValue = barIbs(ltfBars[i], timeframe, ibs);
+          if (ibs === undefined || ibsValue === undefined || ibsValue >= ibsThreshold) {
+            signals.push({
+              action: StSignalDirection.LONG,
+              signalType: `${timeframe}_ST_TREND_RIDER_${version}_LONG`,
+              reason: `ST Trend Rider: ${version} zone upticked ${prevZone}→${currZone} with window zone V2 at +${currentWindowV2}`,
+              index: i,
+              indicators: {
+                [`zone${version}`]: currZone,
+                [`zone${version}Prev`]: prevZone,
+                windowV2: currentWindowV2,
+                delta,
+                ibs: ibsValue ?? null,
+              },
+            });
+          }
         }
       } else if (delta < 0) {
         longState = 'READY';
@@ -117,19 +164,25 @@ export function detectAllStTrendRiderSignals(
       if (delta < 0) {
         // Only valid if the prior zone was already below zero (<= -1)
         if (shortState === 'READY' && prevZone <= -1) {
-          signals.push({
-            action: StSignalDirection.SHORT,
-            signalType: `${timeframe}_ST_TREND_RIDER_${version}_SHORT`,
-            reason: `ST Trend Rider: ${version} zone downticked ${prevZone}→${currZone} with window zone V2 at ${currentWindowV2}`,
-            index: i,
-            indicators: {
-              [`zone${version}`]: currZone,
-              [`zone${version}Prev`]: prevZone,
-              windowV2: currentWindowV2,
-              delta,
-            },
-          });
           shortState = 'FIRED';
+          const ibsValue = barIbs(ltfBars[i], timeframe, ibs);
+          // +EPSILON keeps the inclusive bound honest for T where 1−T rounds a
+          // ulp below the mathematical bound (e.g. T=0.15 → 0.8499999999999999).
+          if (ibs === undefined || ibsValue === undefined || ibsValue <= 1 - ibsThreshold + Number.EPSILON) {
+            signals.push({
+              action: StSignalDirection.SHORT,
+              signalType: `${timeframe}_ST_TREND_RIDER_${version}_SHORT`,
+              reason: `ST Trend Rider: ${version} zone downticked ${prevZone}→${currZone} with window zone V2 at ${currentWindowV2}`,
+              index: i,
+              indicators: {
+                [`zone${version}`]: currZone,
+                [`zone${version}Prev`]: prevZone,
+                windowV2: currentWindowV2,
+                delta,
+                ibs: ibsValue ?? null,
+              },
+            });
+          }
         }
       } else if (delta > 0) {
         shortState = 'READY';
