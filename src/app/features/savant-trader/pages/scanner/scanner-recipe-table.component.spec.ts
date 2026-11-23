@@ -8,8 +8,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
+import { provideRouter } from '@angular/router';
 
 import { ScannerRecipeTableComponent } from './scanner-recipe-table.component';
+import { ChartPopupController } from './chart-popup.controller';
 import type { RecipeRunState } from '../../stores/scanner.store';
 import {
   SCANNER_RECIPES,
@@ -75,6 +77,7 @@ describe('ScannerRecipeTableComponent', () => {
       listDefs?: readonly SymbolListDef[];
       listMembership?: ReadonlyMap<string, string>;
       listsLoading?: boolean;
+      chartAuth?: boolean;
     } = {},
   ): void {
     fixture = TestBed.createComponent(ScannerRecipeTableComponent);
@@ -89,6 +92,9 @@ describe('ScannerRecipeTableComponent', () => {
     }
     if (extras.listsLoading !== undefined) {
       fixture.componentRef.setInput('listsLoading', extras.listsLoading);
+    }
+    if (extras.chartAuth !== undefined) {
+      fixture.componentRef.setInput('chartAuth', extras.chartAuth);
     }
     fixture.detectChanges();
   }
@@ -113,7 +119,11 @@ describe('ScannerRecipeTableComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [ScannerRecipeTableComponent],
-      providers: [provideZonelessChangeDetection(), provideNoopAnimations()],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideNoopAnimations(),
+        provideRouter([]),
+      ],
     }).compileComponents();
   });
 
@@ -674,6 +684,283 @@ describe('ScannerRecipeTableComponent', () => {
       );
       fixture.detectChanges();
       expect(el().querySelector('.list-menu')).toBeNull();
+    });
+  });
+
+  describe('chart popup (#1307)', () => {
+    /** Same grace the grid pins (#965) — specs advance the constant,
+     *  not a magic margin. */
+    const POPUP_GRACE = ChartPopupController.HIDE_DELAY_MS;
+    const chartBtn = (tr: Element) =>
+      tr.querySelector('[data-testid="chart-btn"]') as HTMLElement;
+    /** The popup mounts into the body-level overlay container, outside
+     *  the fixture element — query the document. */
+    const popups = () =>
+      document.querySelectorAll('[data-testid="chart-popup"]');
+    const mountRows = (rows: ScanResultRow[], chartAuth = false) =>
+      mount(GAINERS, run({ result: result(rows) }), new Set(), { chartAuth });
+    const openPopup = (tr: Element) => {
+      chartBtn(tr).dispatchEvent(
+        new MouseEvent('mouseenter', { bubbles: false }),
+      );
+      fixture.detectChanges();
+    };
+
+    afterEach(() => jest.useRealTimers());
+
+    it('each row carries a chart button next to the list button', () => {
+      mountRows([wireRow('AAPL'), wireRow('MSFT')]);
+      expect(chartBtn(bodyRows()[0])).not.toBeNull();
+      expect(chartBtn(bodyRows()[1])).not.toBeNull();
+    });
+
+    it('mouseenter on the chart button opens the overlay popup with the row symbol + name', () => {
+      mountRows([wireRow('AAPL', { Name: 'Apple Inc' })]);
+      expect(popups()).toHaveLength(0);
+      openPopup(bodyRows()[0]);
+      expect(popups()).toHaveLength(1);
+      expect(popups()[0].textContent).toContain('AAPL');
+      expect(popups()[0].textContent).toContain('Apple Inc');
+    });
+
+    it('focusin and click open the popup too (a11y/touch paths)', () => {
+      mountRows([wireRow('AAPL'), wireRow('MSFT')]);
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new FocusEvent('focusin', { bubbles: true }),
+      );
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+      (chartBtn(bodyRows()[0]) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+    });
+
+    it('mouseleave schedules the close — the popup survives the grace for pointer travel', () => {
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      jest.useFakeTimers();
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new MouseEvent('mouseleave', { bubbles: false }),
+      );
+      // Still open inside the grace window.
+      jest.advanceTimersByTime(POPUP_GRACE - 1);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+      jest.advanceTimersByTime(2);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('entering the popup cancels the pending close; leaving it closes after the grace', () => {
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      jest.useFakeTimers();
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new MouseEvent('mouseleave', { bubbles: false }),
+      );
+      const popupHost = popups()[0].closest('app-scanner-chart-popup')!;
+      popupHost.dispatchEvent(
+        new MouseEvent('mouseenter', { bubbles: false }),
+      );
+      jest.advanceTimersByTime(POPUP_GRACE * 2);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+      popupHost.dispatchEvent(
+        new MouseEvent('mouseleave', { bubbles: false }),
+      );
+      jest.advanceTimersByTime(POPUP_GRACE + 1);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('only one popup at a time — hovering a second row swaps the symbol', () => {
+      mountRows([wireRow('AAPL'), wireRow('MSFT')]);
+      openPopup(bodyRows()[0]);
+      expect(popups()[0].textContent).toContain('AAPL');
+      openPopup(bodyRows()[1]);
+      expect(popups()).toHaveLength(1);
+      expect(popups()[0].textContent).toContain('MSFT');
+      expect(popups()[0].textContent).not.toContain('AAPL');
+    });
+
+    it('a rows re-emission tears the popup down (recipe switch / filtered-out row / refresh churn)', () => {
+      mountRows([wireRow('AAPL'), wireRow('MSFT')]);
+      openPopup(bodyRows()[0]);
+      fixture.componentRef.setInput(
+        'run',
+        run({ result: result([wireRow('MSFT'), wireRow('AAPL')]) }),
+      );
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('the tracked badge feeds the popup body mode fork', () => {
+      mount(
+        GAINERS,
+        run({ result: result([wireRow('AAPL')]) }),
+        new Set(['AAPL']),
+      );
+      openPopup(bodyRows()[0]);
+      expect(
+        popups()[0].querySelector('.popup-body')!.getAttribute('data-mode'),
+      ).toBe('tracked');
+    });
+
+    it('chartAuth renders the auth state; Re-authorize re-emits reauth and closes the popup', () => {
+      mountRows([wireRow('AAPL')], true);
+      openPopup(bodyRows()[0]);
+      let fired = 0;
+      fixture.componentInstance.reauth.subscribe(() => fired++);
+      const btn = popups()[0].querySelector<HTMLButtonElement>(
+        '.popup-body button',
+      )!;
+      expect(btn.textContent).toContain('Re-authorize');
+      btn.click();
+      fixture.detectChanges();
+      expect(fired).toBe(1);
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('a11y contract — button carries aria-expanded, popup root is a labeled dialog', () => {
+      mountRows([wireRow('AAPL')]);
+      const btn = chartBtn(bodyRows()[0]);
+      expect(btn.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(btn.getAttribute('aria-expanded')).toBe('false');
+      openPopup(bodyRows()[0]);
+      expect(btn.getAttribute('aria-expanded')).toBe('true');
+      expect(popups()[0].getAttribute('role')).toBe('dialog');
+      expect(popups()[0].getAttribute('aria-label')).toContain('AAPL');
+    });
+
+    it('pointer leaving the anchor INTO the popup (relatedTarget) cancels the close outright', () => {
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      const popupHost = popups()[0].closest(
+        'app-scanner-chart-popup',
+      ) as HTMLElement;
+      jest.useFakeTimers();
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new MouseEvent('mouseleave', {
+          bubbles: false,
+          relatedTarget: popupHost,
+        }),
+      );
+      jest.advanceTimersByTime(POPUP_GRACE * 2);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+    });
+
+    it('a focused control inside the popup suppresses the scheduled close entirely', () => {
+      mountRows([wireRow('AAPL')], true);
+      openPopup(bodyRows()[0]);
+      const reauthBtn = popups()[0].querySelector<HTMLElement>(
+        '.popup-body button',
+      )!;
+      reauthBtn.focus();
+      expect(document.activeElement).toBe(reauthBtn);
+      jest.useFakeTimers();
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new MouseEvent('mouseleave', { bubbles: false }),
+      );
+      jest.advanceTimersByTime(POPUP_GRACE * 2);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(1);
+      expect(document.activeElement).toBe(reauthBtn);
+    });
+
+    it('Escape on the anchor closes the popup', () => {
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('Escape inside the popup closes it, refocuses the anchor, and the refocus CANNOT reopen it', () => {
+      // Pins the #965 suppressFocusOpen port: origin.focus() fires
+      // focusin, which the anchor's open binding would otherwise honor —
+      // an unsuppressed refocus instantly resurrects the popup.
+      mountRows([wireRow('AAPL')], true);
+      const anchor = chartBtn(bodyRows()[0]);
+      openPopup(bodyRows()[0]);
+      const popupHost = popups()[0].closest(
+        'app-scanner-chart-popup',
+      ) as HTMLElement;
+      popups()[0].querySelector<HTMLElement>('.popup-body button')!.focus();
+      popupHost.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+      expect(document.activeElement).toBe(anchor);
+      // And it stays closed — no reopen past the grace either.
+      jest.useFakeTimers();
+      jest.advanceTimersByTime(POPUP_GRACE * 2);
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+    });
+
+    it('Enter on the anchor moves focus into the popup', async () => {
+      mountRows([wireRow('AAPL')], true);
+      const anchor = chartBtn(bodyRows()[0]);
+      anchor.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      fixture.detectChanges();
+      anchor.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(
+        popups()[0].querySelector('.popup-body button'),
+      );
+    });
+
+    it('Re-authorize returns focus to the origin button (no <body> drop)', () => {
+      mountRows([wireRow('AAPL')], true);
+      const anchor = chartBtn(bodyRows()[0]);
+      openPopup(bodyRows()[0]);
+      const reauthBtn = popups()[0].querySelector<HTMLElement>(
+        '.popup-body button',
+      )!;
+      reauthBtn.focus();
+      reauthBtn.click();
+      fixture.detectChanges();
+      expect(popups()).toHaveLength(0);
+      expect(document.activeElement).toBe(anchor);
+    });
+
+    it('the header deep-link opens /trading/chart-view?symbol= in a NEW TAB and closes the popup', () => {
+      const open = jest
+        .spyOn(window, 'open')
+        .mockReturnValue(null as unknown as Window);
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      (
+        popups()[0].querySelector(
+          '[data-testid="open-chart-btn"]',
+        ) as HTMLElement
+      ).click();
+      fixture.detectChanges();
+      expect(open).toHaveBeenCalledWith(
+        '/trading/chart-view?symbol=AAPL',
+        '_blank',
+      );
+      expect(popups()).toHaveLength(0);
+      open.mockRestore();
+    });
+
+    it('destroying the table with a pending close does not throw or fire the timer', () => {
+      mountRows([wireRow('AAPL')]);
+      openPopup(bodyRows()[0]);
+      jest.useFakeTimers();
+      chartBtn(bodyRows()[0]).dispatchEvent(
+        new MouseEvent('mouseleave', { bubbles: false }),
+      );
+      expect(() => fixture.destroy()).not.toThrow();
+      jest.advanceTimersByTime(POPUP_GRACE * 2);
+      expect(popups()).toHaveLength(0);
     });
   });
 });

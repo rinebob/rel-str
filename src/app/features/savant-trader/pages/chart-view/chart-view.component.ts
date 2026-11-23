@@ -19,6 +19,7 @@
  */
 import {
   Component,
+  DestroyRef,
   inject,
   effect,
   signal,
@@ -30,9 +31,11 @@ import {
   EnvironmentInjector,
   runInInjectionContext,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { distinctUntilChanged, map } from 'rxjs';
 
 import { DsToastService } from '../../../../shared/ds/ds-toast.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 import { ST_SYMBOLS_ROOT } from '@st/collections';
@@ -71,6 +74,8 @@ export class ChartViewComponent implements OnInit, OnDestroy {
   readonly viewportService = inject(ChartViewViewportService);
   readonly uiStateService = inject(UiStateService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly manualOrderService = inject(ManualOrderService);
   private readonly snackBar = inject(DsToastService);
   private readonly firestore = inject(Firestore);
@@ -239,6 +244,19 @@ export class ChartViewComponent implements OnInit, OnDestroy {
     void this.latestRunStore.loadLatestRuns();
     // Pane names ride the store's session-cached profiles index (#1313).
     void this.symbolListStore.loadProfiles();
+
+    // Deep-link seam — ?symbol=AAPL (scanner chart popup #1307) loads
+    // the symbol as a manual chart target whether or not it's tracked;
+    // a param-less emit is a no-op (option-chain pattern, #965-family).
+    this.route.queryParamMap
+      .pipe(
+        map((params) => params.get('symbol')?.trim().toUpperCase() ?? ''),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((sym) => {
+        if (sym) this.loadManualSymbol(sym);
+      });
   }
 
   /** Leave fullscreen mode when the page is destroyed. */

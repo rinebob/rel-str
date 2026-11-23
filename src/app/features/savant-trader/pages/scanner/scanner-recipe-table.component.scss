@@ -1,4 +1,4 @@
-/* @topic #1098 — RH Scanner | @task #1197, #1199, #1306 */
+/* @topic #1098 — RH Scanner | @task #1197, #1199, #1306, #1307 */
 @use '../../../portfolio-dashboard/styles/pd-visual-language' as vl;
 @use 'index' as ds;
 
@@ -175,7 +175,8 @@
   display: inline-flex;
 }
 
-.list-btn {
+.list-btn,
+.chart-btn {
   .dse-icon {
     font-size: 18px;
     width: 18px;

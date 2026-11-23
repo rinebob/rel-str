@@ -1,5 +1,5 @@
 /**
- * @topic #1098 — RH Scanner | @task #1197, #1199, #1305, #1306
+ * @topic #1098 — RH Scanner | @task #1197, #1199, #1305, #1306, #1307
  *
  * Scanner recipe table — one dumb per-recipe table for the auto-run
  * overview (#1183). Renders the raw PreviewScanResult: header line
@@ -20,11 +20,15 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
   linkedSignal,
   output,
+  viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { OverlayModule } from '@angular/cdk/overlay';
+import { Router } from '@angular/router';
 
 
 import type { ScannerRecipe } from '../../scanner/scanner-recipes';
@@ -48,6 +52,11 @@ import {
   sortRows,
   type SortLevel,
 } from '../../utils/scanner-sort.util';
+import {
+  ScannerChartPopupComponent,
+  type ScannerChartPopupState,
+} from './scanner-chart-popup.component';
+import { ChartPopupController } from './chart-popup.controller';
 
 /** Fixed leading sortable columns — wire row fields, before the dynamic
  *  recipe/extra columns. `key` is the sortLevels key, `label` the header.
@@ -69,7 +78,7 @@ const FIXED_KEYS: ReadonlySet<string> = new Set(FIXED_COLUMNS.map((f) => f.key))
 @Component({
   selector: 'app-scanner-recipe-table',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, OverlayModule, ScannerChartPopupComponent],
   templateUrl: './scanner-recipe-table.component.html',
   styleUrl: './scanner-recipe-table.component.scss',
   host: {
@@ -101,6 +110,11 @@ export class ScannerRecipeTableComponent {
    *  `toggleSymbolInList` (a re-pick of the current key un-assigns —
    *  that decision is the store's, not the menu's). */
   readonly listPick = output<{ symbol: string; listKey: string }>();
+  /** Session-global RH auth failure (#1307) — the chart popup's auth
+   *  branch mirrors the page banner's affordance. */
+  readonly chartAuth = input(false);
+  /** Popup reauth click — the page runs the same flow as its banner. */
+  readonly reauth = output<void>();
 
   protected readonly fixedColumns = FIXED_COLUMNS;
 
@@ -220,8 +234,6 @@ export class ScannerRecipeTableComponent {
     return this.trackedNorm().has(normScanSymbol(row.symbol));
   }
 
-  /** Row whose list menu is open — one at a time per table; the
-   *  document-click host binding clears it on any outside click. */
   /** Row with an open list menu — resets whenever `rows` re-emits so a
    *  silent refresh (auto-refresh or a pick-driven catalog echo changing
    *  sort order) can't strand or resurrect a menu on a stale row. */
@@ -247,6 +259,52 @@ export class ScannerRecipeTableComponent {
     // Emit the canonical spelling — the store's inList/moveToList
     // comparisons key on the same normalized form.
     this.listPick.emit({ symbol: normScanSymbol(row.symbol), listKey });
+  }
+
+  // ── #1307 chart popup — cdkConnectedOverlay + hover intent ─────────
+  // The open/close/grace/teardown mechanics live in ChartPopupController
+  // (chain-grid's DelegatedCellHover precedent, #965); the table wires
+  // its signals and emits reauth.
+
+  /** The live popup instance — the controller's focus guard. */
+  private readonly chartPopupCmp = viewChild(ScannerChartPopupComponent);
+
+  /** `rows` re-emits on every run/result refresh — recipe switch,
+   *  filtered-out rows, churn, and the error unmount all drop the
+   *  anchor instead of resurrecting a stale popup. */
+  protected readonly chartCtl = new ChartPopupController(
+    this.rows,
+    this.chartPopupCmp,
+  );
+
+  protected onChartReauth(): void {
+    this.chartCtl.close();
+    this.reauth.emit();
+  }
+
+  private readonly router = inject(Router);
+
+  /** Popup deep-link — chart-view's `?symbol=` path loads the row's
+   *  symbol as a manual chart target whether or not it's tracked.
+   *  Opens a new tab: the scanner session (runs, filters, scroll) is
+   *  curation state — navigation must not tear it down. */
+  protected onOpenChart(row: ScanRow): void {
+    this.chartCtl.close();
+    const url = this.router.serializeUrl(
+      this.router.createUrlTree(['/trading/chart-view'], {
+        queryParams: { symbol: row.symbol },
+      }),
+    );
+    window.open(url, '_blank');
+  }
+
+  /** #1308/#1309 land the per-symbol fetch states — 'auth' (session-global
+   *  errorKind, the only failure shape reachable today) and 'loading' are
+   *  all the infra can produce; the 'error' shell and `error` input stay
+   *  dormant until those tasks. `requiresReauth` is deliberately not
+   *  wired — it's the dead single-run channel; auth is session-global. */
+  protected chartPopupStateFor(_row: ScanRow): ScannerChartPopupState {
+    return this.chartAuth() ? 'auth' : 'loading';
   }
 
   /** Raw sortable value for a key — shared resolver (scanner-rows.util)

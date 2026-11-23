@@ -1,4 +1,4 @@
-<!-- @topic #1098 — RH Scanner | @task #1199, #1305, #1306 -->
+<!-- @topic #1098 — RH Scanner | @task #1199, #1305, #1306, #1307 -->
 <div class="scanner-page">
   <div class="content-column">
     <header class="scanner-header">
@@ -114,8 +114,10 @@
               [listDefs]="listDefs()"
               [listMembership]="listMembership()"
               [listsLoading]="symbolLists.symbolListsLoading()"
+              [chartAuth]="store.authFailed()"
               (refresh)="store.refreshRecipe(sel.recipe.id)"
               (listPick)="onListPick($event)"
+              (reauth)="onReauth()"
             />
           }
         }

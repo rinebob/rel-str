@@ -25,7 +25,8 @@ import {
   signal,
 } from '@angular/core';
 import { By } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 
 import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 
@@ -151,6 +152,7 @@ describe('ChartViewComponent', () => {
   const manualOrderService = { open: jest.fn().mockResolvedValue(undefined) };
   const snackBar = { open: jest.fn() };
   const router = { navigate: jest.fn().mockResolvedValue(true) };
+  const route = { queryParamMap: new BehaviorSubject(convertToParamMap({})) };
   const uiState = {
     chartLayout: signal(ChartLayout.TRIPLE),
     fullscreen: signal(false),
@@ -161,6 +163,9 @@ describe('ChartViewComponent', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // BehaviorSubject keeps its last emission — a leftover symbol would
+    // auto-load as a manual chart in every spec that follows.
+    route.queryParamMap.next(convertToParamMap({}));
     listCatalog.set([
       { key: 'PRIMARY', label: 'Primary', order: 0, role: 'exclusive', hidden: false, symbols: ['AAPL', 'MSFT'] },
       { key: 'SECONDARY', label: 'Secondary', order: 1, role: 'exclusive', hidden: false, symbols: [] },
@@ -186,6 +191,7 @@ describe('ChartViewComponent', () => {
         { provide: ManualOrderService, useValue: manualOrderService },
         { provide: DsToastService, useValue: snackBar },
         { provide: Router, useValue: router },
+        { provide: ActivatedRoute, useValue: route },
         { provide: UiStateService, useValue: uiState },
         { provide: Firestore, useValue: {} },
       ],
@@ -229,6 +235,21 @@ describe('ChartViewComponent', () => {
     expect(component.selectedSymbol()).toBe('MSFT');
     expect(component.viewedSymbols().has('AAPL')).toBe(true);
     expect(component.viewedSymbols().has('MSFT')).toBe(true);
+  });
+
+  it('?symbol= deep-link (scanner chart popup #1307) loads the symbol as a manual chart target', () => {
+    expect(component.manualSymbol()).toBeNull();
+    route.queryParamMap.next(convertToParamMap({ symbol: 'aapl' }));
+    fixture.detectChanges();
+    expect(component.manualSymbol()).toBe('AAPL');
+    expect(component.activeSymbol()).toBe('AAPL');
+  });
+
+  it('a param-less deep-link re-emit does not wipe an active manual symbol', () => {
+    component.loadManualSymbol('TSLA');
+    route.queryParamMap.next(convertToParamMap({}));
+    fixture.detectChanges();
+    expect(component.manualSymbol()).toBe('TSLA');
   });
 
   it('Trade calls manualOrderService.open(symbol) with no run gating', async () => {

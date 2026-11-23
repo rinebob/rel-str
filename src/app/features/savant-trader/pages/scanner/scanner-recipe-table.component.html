@@ -1,4 +1,4 @@
-<!-- @topic #1098 — RH Scanner | @task #1197, #1199, #1306 -->
+<!-- @topic #1098 — RH Scanner | @task #1197, #1199, #1306, #1307 -->
 @if (run().status !== 'error') {
   <section class="recipe-table" [attr.data-recipe]="recipe().id">
     <header class="recipe-head">
@@ -133,6 +133,27 @@
                       </div>
                     }
                   </span>
+                  <!-- #1307 — chart popup anchor: hover/focus opens the
+                       overlay; leaving starts the close grace. -->
+                  <button
+                    type="button"
+                    class="icon-btn chart-btn"
+                    data-testid="chart-btn"
+                    aria-haspopup="dialog"
+                    [attr.aria-expanded]="chartCtl.active()?.row === row"
+                    [attr.aria-label]="'Show ' + row.symbol + ' chart'"
+                    title="Chart"
+                    (mouseenter)="chartCtl.open(row, $any($event.currentTarget))"
+                    (focusin)="chartCtl.open(row, $any($event.currentTarget))"
+                    (click)="chartCtl.open(row, $any($event.currentTarget))"
+                    (mouseleave)="chartCtl.onAnchorLeave($event.relatedTarget)"
+                    (focusout)="chartCtl.onAnchorLeave($event.relatedTarget)"
+                    (keydown.enter)="chartCtl.activate($event)"
+                    (keydown.space)="chartCtl.activate($event)"
+                    (keydown.escape)="chartCtl.close()"
+                  >
+                    <span class="dse-icon">show_chart</span>
+                  </button>
                 </td>
                 <td class="list-cell" data-testid="list-cell">
                   @if (listKeyFor(row); as k) {
@@ -156,6 +177,35 @@
            carrying no result (interface permits it; bare header would
            otherwise render). -->
       <div class="table-empty">No matching symbols.</div>
+    }
+
+    <!-- #1307 — chart popup: anchored to the row's chart button; the
+         controller's linkedSignal reset (rows re-emit) covers recipe
+         switch, filtered-out rows, refresh churn, and the error unmount. -->
+    @if (chartCtl.active(); as cp) {
+      <ng-template
+        cdkConnectedOverlay
+        [cdkConnectedOverlayOrigin]="cp.origin"
+        [cdkConnectedOverlayOpen]="true"
+        [cdkConnectedOverlayPositions]="chartCtl.positions"
+        [cdkConnectedOverlayScrollStrategy]="chartCtl.scrollStrategy"
+        [cdkConnectedOverlayViewportMargin]="8"
+        [cdkConnectedOverlayPanelClass]="chartCtl.panelClass"
+      >
+        <app-scanner-chart-popup
+          [symbol]="cp.row.symbol"
+          [name]="cp.row.name"
+          [tracked]="isTracked(cp.row)"
+          [state]="chartPopupStateFor(cp.row)"
+          (reauth)="onChartReauth()"
+          (openChart)="onOpenChart(cp.row)"
+          (mouseenter)="chartCtl.onPopupEnter()"
+          (mouseleave)="chartCtl.onPopupLeave()"
+          (focusin)="chartCtl.onPopupEnter()"
+          (focusout)="chartCtl.onPopupLeave()"
+          (keydown.escape)="chartCtl.close()"
+        />
+      </ng-template>
     }
   </section>
 }

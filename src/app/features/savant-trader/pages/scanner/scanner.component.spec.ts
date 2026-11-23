@@ -471,4 +471,44 @@ describe('ScannerComponent (#1199 auto-run overview)', () => {
       );
     });
   });
+
+  describe('chart popup wiring (#1307)', () => {
+    const wireRow = (ticker: string): ScanResultRow => ({
+      ticker,
+      instrument_id: `iid-${ticker.toLowerCase()}`,
+      instrument_type: 'EQUITY',
+      columns: {},
+    });
+    const successRun = (results: ScanResultRow[]): RecipeRunState => ({
+      status: 'success',
+      result: {
+        total_items: results.length,
+        results,
+        sorted_by: 'Last desc',
+      },
+      ranAt: '2026-10-22T14:30:00Z',
+      errorKind: null,
+      error: null,
+    });
+    const mountWithAapl = () => {
+      storeMock.runs.set({
+        ...idleRuns(),
+        [SCANNER_RECIPES[0].id]: successRun([wireRow('AAPL')]),
+      });
+      fixture.detectChanges();
+    };
+
+    it('feeds the session-global auth flag to the table and routes popup reauth to the shared flow', async () => {
+      mcpMock.reauthenticate.mockResolvedValue({ success: true });
+      mountWithAapl();
+      const t = tables()[0];
+      expect(t.chartAuth()).toBe(false);
+      storeMock.authFailed.set(true);
+      fixture.detectChanges();
+      expect(t.chartAuth()).toBe(true);
+      t.reauth.emit();
+      await fixture.whenStable();
+      expect(mcpMock.reauthenticate).toHaveBeenCalled();
+    });
+  });
 });
