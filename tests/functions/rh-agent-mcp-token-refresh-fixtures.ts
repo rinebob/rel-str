@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { CredentialRevisionConflictError } from "../../functions/src/rh-agent-mcp/auth/credential-repository";
 import type {
   OAuthDiscoveryState,
   RobinhoodCredentialBundle,
@@ -47,7 +48,13 @@ export class InMemoryCredentialRepository implements RobinhoodCredentialReposito
     return this.credential;
   }
 
-  async delete(): Promise<void> {
+  async delete(expectedRevision?: number): Promise<void> {
+    if (
+      expectedRevision !== undefined &&
+      (this.credential?.revision ?? null) !== expectedRevision
+    ) {
+      throw new CredentialRevisionConflictError();
+    }
     this.credential = null;
   }
 

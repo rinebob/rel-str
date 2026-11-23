@@ -62,7 +62,11 @@ describe("local OAuth token refresh failures", () => {
     assert.equal(JSON.stringify(result.evidence).includes("synthetic-lost"), false);
   });
 
-  it("does not overwrite a newer credential or start MCP after a refresh CAS conflict", async () => {
+  it("adopts the concurrent winner's rotated grant on a refresh CAS conflict — never stamps a dead position (#1658)", async () => {
+    // The winner's rotation landed between our load and our token store —
+    // our minted tokens are dead server-side, so the store adopts the
+    // winner's live grant and connects with it rather than failing or
+    // overwriting it.
     const original = storedCredential({
       accessToken: "synthetic-expired-access",
       refreshToken: "synthetic-old-refresh",
@@ -87,7 +91,11 @@ describe("local OAuth token refresh failures", () => {
       },
       delete: async () => undefined,
     };
-    let transportCreated = false;
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = new McpServer({ name: "synthetic-server", version: "1.0.0" });
+    server.registerTool("read_only_probe", {}, async () => ({ content: [] }));
+    await server.connect(serverTransport);
+    let bearerToken = "";
 
     const result = await runLocalOAuthBootstrapWithDependencies({
       repository,
@@ -101,20 +109,22 @@ describe("local OAuth token refresh failures", () => {
       openAuthorizationUrl: async () => {
         throw new Error("browser must not open");
       },
-      transportFactory: () => {
-        transportCreated = true;
-        throw new Error("MCP transport must not start after a CAS conflict");
+      transportFactory: (_serverUrl, accessToken) => {
+        bearerToken = accessToken;
+        return clientTransport;
       },
       callbackPort: 0,
       callbackTimeoutMs: 2_000,
     });
 
-    assert.equal(result.state, "TEMPORARILY_UNAVAILABLE");
-    assert.equal(result.evidence.resultCategory, "REFRESH_FAILED");
-    assert.equal(result.evidence.refreshSucceeded, false);
-    assert.equal(transportCreated, false);
-    assert.equal(durable.tokens.access_token, "synthetic-winner-access");
-    assert.equal(durable.tokens.refresh_token, "synthetic-winner-refresh");
+    try {
+      assert.equal(result.state, "CONNECTED");
+      assert.equal(bearerToken, "synthetic-winner-access", "session runs on the adopted winner grant");
+      assert.equal(durable.tokens.access_token, "synthetic-winner-access");
+      assert.equal(durable.tokens.refresh_token, "synthetic-winner-refresh");
+    } finally {
+      await server.close();
+    }
   });
 
   it("connect-path refresh adopts the concurrent winner's credential on CAS conflict", async () => {

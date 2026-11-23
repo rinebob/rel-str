@@ -45,9 +45,9 @@ function memoryBackend(): CredentialDocumentBackend & { doc(): StoredCredentialD
  * TransactionalCredentialDocumentBackend txn body be exercised offline.
  */
 function memoryDocStore(): CredentialDocStore & { peek(path: string): StoredCredentialDoc | null } {
-  const docs = new Map<string, StoredCredentialDoc>();
+  const docs = new Map<string, Record<string, unknown>>();
   return {
-    peek: (path) => docs.get(path) ?? null,
+    peek: (path) => (docs.get(path) as StoredCredentialDoc | undefined) ?? null,
     get: async (path) => ({
       exists: docs.has(path),
       data: () => docs.get(path),
@@ -62,7 +62,10 @@ function memoryDocStore(): CredentialDocStore & { peek(path: string): StoredCred
           data: () => docs.get(path),
         }),
         set: (path, data) => {
-          docs.set(path, data as StoredCredentialDoc);
+          docs.set(path, data);
+        },
+        delete: (path) => {
+          docs.delete(path);
         },
       }),
   };

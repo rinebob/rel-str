@@ -93,11 +93,17 @@ describe("uploadCredentialBundle", () => {
 
   it("replace mode CAS-succeeds on the current revision", async () => {
     const repository = memoryRepository();
-    await uploadCredentialBundle(repository, syntheticBundle(0, "first"));
+    await uploadCredentialBundle(repository, {
+      ...syntheticBundle(0, "first"),
+      lastTokenResponseAt: "2026-11-22T18:00:00.000Z",
+    });
 
     const evidence = await uploadCredentialBundle(
       repository,
-      syntheticBundle(0, "synthetic-access-replaced"),
+      {
+        ...syntheticBundle(0, "synthetic-access-replaced"),
+        lastTokenResponseAt: "2026-11-22T19:00:00.000Z",
+      },
       { replace: true },
     );
     assert.equal(evidence.mode, "replace");
@@ -133,7 +139,10 @@ describe("uploadCredentialBundle", () => {
   it("propagates a CAS conflict raised inside replace (lost the race)", async () => {
     // load returns rev 1 but store has already moved to rev 2.
     const racing: RobinhoodCredentialRepository = {
-      load: async () => syntheticBundle(1, "first"),
+      load: async () => ({
+        ...syntheticBundle(1, "first"),
+        lastTokenResponseAt: "2026-11-22T18:00:00.000Z",
+      }),
       store: async (_bundle, expectedRevision) => {
         if (expectedRevision !== 2) throw new CredentialRevisionConflictError();
         return syntheticBundle(2, "first");
@@ -141,9 +150,14 @@ describe("uploadCredentialBundle", () => {
       delete: async () => undefined,
     };
     await assert.rejects(
-      uploadCredentialBundle(racing, syntheticBundle(0, "second"), {
-        replace: true,
-      }),
+      uploadCredentialBundle(
+        racing,
+        {
+          ...syntheticBundle(0, "second"),
+          lastTokenResponseAt: "2026-11-22T19:00:00.000Z",
+        },
+        { replace: true },
+      ),
       CredentialRevisionConflictError,
     );
   });

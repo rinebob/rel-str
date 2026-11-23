@@ -10,12 +10,14 @@ import {
 import { dirname } from 'node:path';
 import type {
   CredentialCipher,
+  RefreshLeasePort,
   RobinhoodCredentialRepository,
 } from './credential-repository';
 import {
   CredentialRepositoryBusyError,
   CredentialRevisionConflictError,
 } from './credential-repository';
+import { createFileRefreshLease } from './file-refresh-lease';
 import { parseBundle } from './credential-bundle-codec';
 import type { RobinhoodCredentialBundle } from '../contracts/authentication';
 
@@ -27,12 +29,19 @@ function isNodeError(error: unknown, code: string): boolean {
 
 export class EncryptedFileCredentialRepository implements RobinhoodCredentialRepository {
   private readonly lockPath: string;
+  /** Serializes the refresh POST across local processes (issue #1658) —
+   *  distinct from the store() lock so refresh can hold it across a write. */
+  readonly refreshLease: RefreshLeasePort;
 
   constructor(
     private readonly filePath: string,
     private readonly cipher: CredentialCipher,
   ) {
     this.lockPath = `${filePath}.lock`;
+    this.refreshLease = createFileRefreshLease(
+      `${filePath}.refresh.lock`,
+      async () => (await this.load())?.revision ?? null,
+    );
   }
 
   async load(): Promise<RobinhoodCredentialBundle | null> {
@@ -73,9 +82,15 @@ export class EncryptedFileCredentialRepository implements RobinhoodCredentialRep
     }
   }
 
-  async delete(): Promise<void> {
+  async delete(expectedRevision?: number): Promise<void> {
     await this.acquireLock();
     try {
+      if (expectedRevision !== undefined) {
+        const current = await this.load();
+        if ((current?.revision ?? null) !== expectedRevision) {
+          throw new CredentialRevisionConflictError();
+        }
+      }
       await rm(this.filePath, { force: true });
     } finally {
       await this.releaseLock();

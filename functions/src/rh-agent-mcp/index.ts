@@ -11,6 +11,8 @@ export {
 export type { RobinhoodMcpTransportFactory } from './client/robinhood-mcp-session';
 export type {
   CredentialCipher,
+  RefreshLease,
+  RefreshLeasePort,
   RobinhoodCredentialRepository,
 } from './auth/credential-repository';
 export {
