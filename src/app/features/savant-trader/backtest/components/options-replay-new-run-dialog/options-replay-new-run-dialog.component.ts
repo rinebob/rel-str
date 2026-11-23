@@ -1,23 +1,31 @@
 /**
  * Options Replay New Run Dialog
  *
- * Launches a Selection Replay run — template picker bound to the shared
- * REPLAY_TEMPLATES registry (name + description), symbols text field
- * (same comma/space convention as the sim dialog), and a start date
- * entered as three Y/M/D dropdowns (no native datepicker; impossible
- * dates are unconstructable because the day list is clamped to the
- * month). Closes with an OptionsReplayStartRequest; the callable
- * re-validates server-side.
+ * Launches a Selection Replay run. The v1 template picker is replaced by
+ * the two-section variant layout (#1505): a named-variant dropdown bound
+ * to the REPLAY_VARIANTS registry, and a custom section that opens the
+ * shared OptionsVariantBuilderDialog to dial a base template or compose
+ * legs from scratch. Named selections submit `{variantId}`; composed
+ * selections submit `{variantName?, legs[]}` — the request form matches
+ * the selection path. Symbols (same comma/space convention as the sim
+ * dialog) and the three-dropdown start date are unchanged. Closes with
+ * an OptionsReplayStartRequest; the callable re-validates server-side.
  */
-import { Component, ChangeDetectionStrategy, DestroyRef, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { DsDialogRef } from '../../../../../shared/ds/ds-dialog';
+import { DsDialogRef, DsDialogService } from '../../../../../shared/ds/ds-dialog';
 
-import type { OptionsReplayStartRequest } from '@options-replay/contracts';
-import { REPLAY_TEMPLATES } from '@options-replay/templates';
+import type { OptionsReplayStartRequest, ReplayVariant, VariantLeg } from '@options-replay/contracts';
+import { REPLAY_VARIANTS } from '@options-replay/templates';
+
+import {
+  OptionsVariantBuilderDialogComponent,
+  type VariantBuilderDialogData,
+} from '../options-variant-builder-dialog/options-variant-builder-dialog.component';
+import type { VariantBuilderResult, VariantLegsResult } from '../../utils/variant-builder.utils';
 
 const MONTH_OPTIONS = [
   { value: 1, label: 'Jan' }, { value: 2, label: 'Feb' }, { value: 3, label: 'Mar' },
@@ -53,6 +61,20 @@ function parseSymbols(symbolsText: string): string[] {
     .filter(Boolean);
 }
 
+/** The legs-form of a builder result — narrows the union for submit. */
+function isLegsResult(r: VariantBuilderResult): r is VariantLegsResult {
+  return 'legs' in r;
+}
+
+type VariantSelectionKind = 'named' | 'custom';
+
+/** One leg's compact signature — `short put Δ-0.2 45DTE`, `long stock`.
+ *  Enum values are already lowercase literals, so they render as-is. */
+function legSignature(leg: VariantLeg): string {
+  if (leg.kind === 'stock') return `${leg.side} stock`;
+  return `${leg.side} ${leg.type} Δ${leg.targetDelta} ${leg.dte}DTE`;
+}
+
 @Component({
   selector: 'app-options-replay-new-run-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,8 +89,10 @@ export class OptionsReplayNewRunDialogComponent {
   private readonly dialogRef = inject<DsDialogRef<OptionsReplayNewRunDialogComponent, OptionsReplayStartRequest | undefined>>(
     DsDialogRef
   );
+  private readonly dialog = inject(DsDialogService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
-  readonly templates = REPLAY_TEMPLATES;
+  readonly variants = REPLAY_VARIANTS;
   readonly years = yearOptions();
   readonly months = MONTH_OPTIONS;
 
@@ -77,10 +101,15 @@ export class OptionsReplayNewRunDialogComponent {
   private static readonly DEFAULT_START = { y: 2026, m: 1, d: 1 };
 
   readonly form = new FormGroup({
-    templateId: new FormControl<string>(REPLAY_TEMPLATES[0]?.id ?? '', {
+    selectionKind: new FormControl<VariantSelectionKind>('named', {
       nonNullable: true,
       validators: [Validators.required],
     }),
+    variantId: new FormControl<string>(REPLAY_VARIANTS[0]?.id ?? '', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    customResult: new FormControl<VariantLegsResult | null>(null),
     symbolsText: new FormControl<string>('QQQ', {
       nonNullable: true,
       validators: [Validators.required],
@@ -126,16 +155,54 @@ export class OptionsReplayNewRunDialogComponent {
     );
   }
 
-  /** Trigger shows the selected template's name only — the description
-   *  lives in the dropdown options, not mashed into the closed select. */
-  selectedTemplateName(): string {
-    const id = this.form.controls.templateId.value;
-    return this.templates.find((t) => t.id === id)?.name ?? id;
+  /** The registry variant behind the dropdown — feeds the caption that
+   *  carries the description the native <option> can't legibly show. */
+  selectedVariant(): ReplayVariant | undefined {
+    return this.variants.find((v) => v.id === this.form.controls.variantId.value);
+  }
+
+  /** Per-leg signature line under the dropdown, e.g.
+   *  'short put Δ-0.2 45DTE + long put Δ-0.1 45DTE'. */
+  legSummary(variant: ReplayVariant): string {
+    return variant.legs.map(legSignature).join(' + ');
+  }
+
+  /** The request needs a selection on the active section — a custom
+   *  section without a composed result can't start. */
+  canSubmit(): boolean {
+    if (this.form.invalid) return false;
+    if (this.form.controls.selectionKind.value === 'custom') {
+      return this.form.controls.customResult.value !== null;
+    }
+    return true;
+  }
+
+  /** Open the shared builder over this dialog; an Apply result routes to
+   *  the matching section — {variantId} back to named, {legs} to custom. */
+  chooseVariant(): void {
+    const ref = this.dialog.open<
+      OptionsVariantBuilderDialogComponent,
+      VariantBuilderDialogData,
+      VariantBuilderResult | undefined
+    >(OptionsVariantBuilderDialogComponent, {
+      width: '480px',
+      data: { submitLabel: 'Apply' },
+    });
+    ref.afterClosed().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((result) => {
+      if (!result) return;
+      if (isLegsResult(result)) {
+        this.form.patchValue({ selectionKind: 'custom', customResult: result });
+      } else {
+        this.form.patchValue({ selectionKind: 'named', variantId: result.variantId });
+      }
+      // The result lands outside template events — mark the view so OnPush
+      // re-reads the selection branch on the next check.
+      this.cdr.markForCheck();
+    });
   }
 
   submit(): void {
     this.form.markAllAsTouched();
-    if (this.form.invalid) return;
 
     const symbols = parseSymbols(this.form.controls.symbolsText.value);
     if (symbols.length === 0) {
@@ -143,11 +210,29 @@ export class OptionsReplayNewRunDialogComponent {
       return;
     }
 
+    const selection = this.form.controls.selectionKind.value;
+    const custom = this.form.controls.customResult.value;
+    // canSubmit() already gates this in the UI — the return keeps a direct
+    // submit() call from emitting the named form on an uncomposed custom.
+    if (selection === 'custom' && !custom) return;
+    if (this.form.invalid) return;
+
     const { startYear, startMonth, startDay } = this.form.controls;
+    const startDate = `${startYear.value}-${pad2(startMonth.value)}-${pad2(startDay.value)}`;
+
+    if (selection === 'custom' && custom) {
+      this.dialogRef.close({
+        legs: custom.legs,
+        ...(custom.variantName ? { variantName: custom.variantName } : {}),
+        symbols,
+        startDate,
+      });
+      return;
+    }
     this.dialogRef.close({
-      templateId: this.form.controls.templateId.value,
+      variantId: this.form.controls.variantId.value,
       symbols,
-      startDate: `${startYear.value}-${pad2(startMonth.value)}-${pad2(startDay.value)}`,
+      startDate,
     });
   }
 

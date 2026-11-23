@@ -24,8 +24,8 @@ import { VariantBuilderStore, type VariantBuilderMode } from '../../stores/varia
 import { deltaOptionsForBand, type ScratchLeg, type VariantBuilderResult } from '../../utils/variant-builder.utils';
 
 export interface VariantBuilderDialogData {
-  /** Primary action label — 'Run' in the replay dialog, 'Apply' on the
-   *  strategy form. */
+  /** Primary action label — 'Apply' when the result composes back into a
+   *  host surface (replay run dialog, strategy form). */
   submitLabel?: string;
 }
 

@@ -2,14 +2,45 @@
 
 <div class="content">
   <div class="replay-form" [formGroup]="form">
-    <label class="dse-field field-full">
-      <span class="field-label">Template</span>
-      <select class="dse-select" formControlName="templateId">
-        @for (template of templates; track template.id) {
-          <option [value]="template.id">{{ template.name }} — {{ template.description }}</option>
+    <div class="variant-sections">
+      <label class="variant-choice">
+        <input type="radio" formControlName="selectionKind" value="named" />
+        <span class="choice-label">Named variant</span>
+      </label>
+      <label class="variant-choice">
+        <input type="radio" formControlName="selectionKind" value="custom" />
+        <span class="choice-label">Compose from template or scratch</span>
+      </label>
+    </div>
+
+    @if (form.controls.selectionKind.value === 'named') {
+      <label class="dse-field field-full">
+        <span class="field-label">Variant</span>
+        <select class="dse-select" formControlName="variantId">
+          @for (variant of variants; track variant.id) {
+            <option [value]="variant.id">{{ variant.name }}</option>
+          }
+        </select>
+        @if (selectedVariant(); as v) {
+          <span class="variant-caption" data-testid="variant-caption">
+            {{ v.description }}
+            <span class="variant-legs">{{ legSummary(v) }}</span>
+          </span>
         }
-      </select>
-    </label>
+      </label>
+    } @else {
+      <div class="custom-section">
+        <button class="ds-btn outline" type="button" data-testid="choose-variant" (click)="chooseVariant()">Compose…</button>
+        @if (form.controls.customResult.value; as result) {
+          <span class="custom-summary" data-testid="custom-summary">
+            {{ result.legs.length }} legs
+            @if (result.variantName) {· {{ result.variantName }}}
+          </span>
+        } @else {
+          <span class="custom-summary muted" data-testid="custom-summary">No composition yet</span>
+        }
+      </div>
+    }
 
     <div class="row-fields">
       <label class="dse-field field-symbols">
@@ -50,11 +81,11 @@
       </div>
     </div>
 
-    <p class="form-note">Replays the template's daily contract selection across the symbol's trading days, starting on this date.</p>
+    <p class="form-note">Replays the variant's daily contract selection across the symbol's trading days, starting on this date.</p>
   </div>
 </div>
 
 <div class="actions" align="end">
   <button class="ds-btn" type="button" (click)="cancel()">Cancel</button>
-  <button class="ds-btn fill" type="button" [disabled]="form.invalid" (click)="submit()">Start Replay</button>
+  <button class="ds-btn fill" type="button" [disabled]="!canSubmit()" (click)="submit()">Start Replay</button>
 </div>

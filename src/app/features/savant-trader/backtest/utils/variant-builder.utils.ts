@@ -33,12 +33,17 @@ export interface ScratchLeg {
   dte: number;
 }
 
+/** The inline-composition member of `VariantBuilderResult` — concrete
+ *  legs plus an optional display name. */
+export interface VariantLegsResult {
+  legs: readonly VariantLeg[];
+  variantName?: string;
+}
+
 /** Dialog close payload — the caller maps it to its own request shape
  *  (`{variantId}` run form vs `{legs, variantName}` inline form, or form
  *  fields on the strategy surface). */
-export type VariantBuilderResult =
-  | { variantId: string }
-  | { legs: readonly VariantLeg[]; variantName?: string };
+export type VariantBuilderResult = { variantId: string } | VariantLegsResult;
 
 /** Grid Δ magnitudes inside a shape leg's band — the picker's options. */
 export function deltaOptionsForBand(band: readonly [number, number]): number[] {
