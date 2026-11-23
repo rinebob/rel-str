@@ -239,6 +239,8 @@ export enum CallableName {
   UPDATE_ISSUE_LABELS = 'updateIssueLabels',
   /** Dev lifecycle viewer: repo label create/update/delete (#1529) */
   MANAGE_REPO_LABEL = 'manageRepoLabel',
+  /** Dev lifecycle viewer: issue number → Topic root via parent chain (#1695) */
+  RESOLVE_LIFECYCLE_ISSUE = 'resolveLifecycleIssue',
   /** Screenshot capture: spec → SVG+PNG artifacts in the default bucket (#746) */
   CAPTURE_CHART_SNAPSHOT = 'captureChartSnapshot',
 }

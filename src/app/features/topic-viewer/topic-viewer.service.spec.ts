@@ -160,6 +160,7 @@ describe('CallableName parity vs functions/src/index.ts', () => {
     CallableName.LIST_REPO_LABELS,
     CallableName.UPDATE_ISSUE_LABELS,
     CallableName.MANAGE_REPO_LABEL,
+    CallableName.RESOLVE_LIFECYCLE_ISSUE,
   ])('%s is exported by functions/src/index.ts', (name) => {
     expect(exported.has(name)).toBe(true);
   });
