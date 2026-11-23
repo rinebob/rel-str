@@ -90,6 +90,7 @@ npx tsx scripts/verify/{script-name}.ts
 | #1576 | `paper-trading-ledger-ops-1576.ts` | ledger ops — deleteTradeCascade (trade+rq+pap_* gone, signal-scoped, idempotent) + deletePaperTrades buckets + ingest curated dims + SECONDARY admit (fixture through real seam/pass, no env) | [paper-trading-ledger-ops-1576.md](paper-trading-ledger-ops-1576.md) |
 | #1649 | `paper-trading-signal-review-contracts-1649.ts` | signal-review contract surface — signalReview doc id + pick mapper literal + occurrence-id layout + dedupe⇄occurrence non-interchangeability (read-only, no env) | [paper-trading-signal-review-contracts-1649.md](paper-trading-signal-review-contracts-1649.md) |
 | #1650 | `paper-trading-signal-review-callables-1650.ts` | signal-review callables — bundle mapping/dedupe-join/stamp semantics + queue union/ownerUid (DRY fixture deps; `--live` prod deps + real Firestore stamp) | [paper-trading-signal-review-callables-1650.md](paper-trading-signal-review-callables-1650.md) |
+| #1658 | `rh-mcp-refresh-lease-1658.ts` | refresh-lease port on real Firestore — acquire/deny/release + holder fencing + expired-TTL takeover + currentRevision on the real doc; scratch lease doc, credential doc untouched (needs ADC, no KMS key) | [rh-mcp-refresh-lease-1658.md](rh-mcp-refresh-lease-1658.md) |
 
 ## Order across tasks
 
@@ -149,6 +150,7 @@ npx tsx scripts/verify/{script-name}.ts
 60. **#1649** — `paper-trading-signal-review-contracts-1649.ts` (signal-review contract surface: signalReview doc id + pick-mapper literal + occurrence-id layout + dedupe⇄occurrence non-interchangeability; instant, read-only, no env)
 61. **#1503** — `options-simulator-deprecation-1503.ts` (legacy simulator deprecation note: @deprecated marker on runBacktestSimulation + stBacktestPermutation naming Selection Replay + Backtest Analytics / #1240/#1266/#1270 + retained-do-not-extend policy; worker import/invoke, signature head, and index.ts re-export pinned unchanged; static source assertions, no env)
 62. **#1650** — `paper-trading-signal-review-callables-1650.ts` (signal-review callables: bundle occurrence mapping + signalDedupeKey join incl. swapped-layout/accept-flow non-match pins + read-then-stamp semantics + error mapping; queue PRIMARY ∪ SECONDARY dedupe + merges + missing-ownerUid failed-precondition; DRY fixture deps, `--live` prod deps + real Firestore — needs ADC)
+63. **#1658** — `rh-mcp-refresh-lease-1658.ts` (refresh-lease port: acquire/deny/release + holder fencing + expired-TTL takeover + currentRevision on the real bundle doc; scratch lease doc — needs ADC, no KMS key)
 
 <!-- #1661 — purge-legacy-cohorts-1661.ts is a destructive one-shot (drains
 paper-trading/cohorts, backfills trade.positionGroupId) — dry-run by default,

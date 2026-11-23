@@ -78,6 +78,9 @@ const scripts = [
   'options-engine-eod-selection-1501.ts',
   'options-engine-expression-fill-1502.ts',
   'options-simulator-deprecation-1503.ts',
+  // Needs ADC + Firestore (real lease doc ops) — an environment gap where
+  // ADC is absent, same class as the ADC-needing replay/engine scripts.
+  'rh-mcp-refresh-lease-1658.ts',
 ];
 
 let passed = 0;
