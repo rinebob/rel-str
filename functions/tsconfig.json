@@ -68,6 +68,7 @@
     "scripts/archive-legacy-roots-1013.ts",
     "scripts/open-close-strategy-comparison.ts",
     "scripts/seed-options-strategy-instances.ts",
+    "scripts/seed-gh-lifecycle-issue-map.ts",
     "scripts/replay-missing-symbols.ts",
     "scripts/verify/*.ts"
   ]

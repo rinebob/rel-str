@@ -83,6 +83,7 @@ const scripts = [
   // ADC is absent, same class as the ADC-needing replay/engine scripts.
   'rh-mcp-refresh-lease-1658.ts',
   'indicator-lib-ibs-1675.ts',
+  'gh-lifecycle-issue-map-1695.ts',
   'ibs-trend-rider-filter-1678.ts',
 ];
 
