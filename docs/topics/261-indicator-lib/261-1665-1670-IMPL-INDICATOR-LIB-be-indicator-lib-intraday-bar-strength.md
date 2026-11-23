@@ -7,9 +7,9 @@
 **Topic Parent:** #261  
 **Domain:** INDICATOR-LIB  
 **Type:** IMPL  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-21  
-**Last Updated:** 2026-11-21  
+**Last Updated:** 2026-11-23  
 
 # Implementation Plan — BE: IBS gate in ST Trend Rider signal detection
 
@@ -126,6 +126,41 @@ Synthetic zone arrays + synthetic `OHLCV` bars with hand-computed IBS at/around 
 - `cd functions && npm run test:sds`-adjacent — actually the relevant `tests/functions` jest suite: `npx jest tests/functions` (or the suite's package script).
 - Verify script: `npx tsx functions/scripts/verify/ibs-trend-rider-filter-{task#}.ts` — prints suppression table vs unfiltered baseline.
 - `npx tsc --noEmit -p functions` — `@st/ibs` resolution + signature compat.
+
+## As-built notes (#1677)
+
+- `indicator-computation.ts` left **unchanged**: `generateZoneSignals` builds a
+  fake `OHLCV` (`open:0, high:0, low:0, close:0, date: p.d`) — `IndicatorDataPoint`
+  carries no OHLC — so a real IBS cannot be computed there. At the default
+  threshold fake-IBS 0.5 would pass anyway, but any non-default `T` would
+  silently suppress every marker. Those are **chart markers** (`dotMarkers`),
+  not ledger signals — the emitted/suppressed partition belongs to the FE dots
+  work (#1679/#1680). Deviation from §3's "default gate config" wording.
+- `indicators.ibs` is recorded on every emitted signal (gated or unfiltered
+  path) — `null` when IBS is `undefined` (young bar / missing OHLC).
+- The `ibs` param distinguishes **omitted** (unfiltered — replay/paper-trading
+  paths stay regression-identical) from **`{}`** (gate active at defaults).
+- `IbsGateConfig extends IbsAvailabilityContext` — the activation/`now` fields
+  are the shared contract's own type, not redeclared.
+- **Known gap (decision deferred):** paper-trading replay
+  (`functions/src/paper-trading/analysis/replay.ts` — `replayDeps().detectSignals`)
+  injects `detectAllStTrendRiderSignals` unfiltered, so replayed cohorts now
+  include signals production would IBS-suppress. Historical bars make the gate
+  deterministic; wiring `replayDeps()` to pass `{}` would restore parity but is
+  a Topic-553 concern (its wiring spec pins `detectSignals === detectAllStTrendRiderSignals`
+  and would need updating). Tracked for a paper-trading follow-up.
+- Short bound uses `ibsValue <= 1 − T + Number.EPSILON`: `1 − T` can round a
+  ulp below the literal for some T (e.g. `1−0.15 = 0.8499999999999999`), which
+  would suppress an exact-boundary short the contract says is inclusive.
+- `barIbs` computes lazily inside each candidate branch (long/short windows are
+  mutually exclusive) so unfiltered/marker callers pay no per-bar Intl cost;
+  a non-string/malformed date field degrades to `undefined` rather than a bad
+  availability read.
+- `metadata.configSchema` declares `ibsThreshold` / `ibsActivateAtEtMin` /
+  `ibsActivateAtWeekday` — validated by `StrategyRegistry.validateConfig`.
+- Spec suite: `tests/functions/st-signal-detection-ibs-1677.test.ts`
+  (node:test, registered under `test:signal-detection`), incl. an `execute()`
+  integration spec on a 49-bar synthetic path pinned to a last-bar V1 uptick.
 
 ## Risks / open seams
 

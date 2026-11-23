@@ -7,9 +7,9 @@
 **Topic Parent:** #261  
 **Domain:** INDICATOR-LIB  
 **Type:** TEST  
-**Status:** Draft  
+**Status:** Complete  
 **Created:** 2026-11-21  
-**Last Updated:** 2026-11-21  
+**Last Updated:** 2026-11-23  
 
 # Test Plan — BE: IBS gate in ST Trend Rider signal detection
 
@@ -24,7 +24,7 @@ The IBS gate inside `detectAllStTrendRiderSignals`, `StrategyConfig` plumbing th
 ## Integration Tests
 
 - `st-trend-rider.strategy.ts` `execute()`: synthetic `StrategyInput` (daily + weekly bars) + `StrategyConfig` carrying `ibsThreshold` → outputs contain only IBS-passing signals; emitted `indicators.ibs` present and correct.
-- `indicator-computation.ts` path: its `detectAllStTrendRiderSignals` call sites produce gated markers with default config.
+- `indicator-computation.ts` path: ~~its `detectAllStTrendRiderSignals` call sites produce gated markers with default config~~ — superseded by the as-built note in the IMPL doc (the call site's `OHLCV` is a zero-filled date shim, so real IBS can't be computed there; chart markers stay the ungated candidate view until the FE dots partition, #1679/#1680).
 
 ## Unit Tests
 
