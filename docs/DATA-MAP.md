@@ -140,7 +140,7 @@ later (`pairs-data` carries ~80 subcollections per doc).
 | `st-screenshots`, `st-screenshot-verify` | Signal lifecycle chart captures | 45 / 1 | live |
 | `portfolio/{buckets,attributions}/items` | Portfolio domain (anchor pattern) | 6 / 39 | live |
 | `users` | Auth profiles | 2 | live |
-| `rh-agent-credentials` | RH MCP credential bundle | 1 | live |
+| `rh-agent-credentials` | RH MCP credential bundle + transient refresh-lease doc (#1658) | 2 | live |
 | `configs`, `health-metrics`, `system` | Reserved/never used | 0 | dead shells |
 
 ## Domain: frozen Gen-1 legacy (`rh-agent-*`)
