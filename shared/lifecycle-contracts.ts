@@ -47,4 +47,31 @@ export interface LifecycleTreeResponse {
   /** Present only when the inventory doc degraded: non-404 fetch
    *  failure, parse-null, or listing none of the fetched topics. */
   groupingWarning?: string;
+  /** issueNumber → rootTopicNumber for every issue the maintained map
+   *  knows (seeded once, refreshed by every tree fetch). Emitted on the
+   *  getLifecycleTopicIndex response only; absent when the map doc is
+   *  missing/unreadable — the FE falls back to resolveLifecycleIssue. */
+  issueMap?: Record<number, number>;
+}
+
+/** resolveLifecycleIssue input — any issue number in the repo. */
+export interface LifecycleResolveIssueRequest extends LifecycleRepoRequest {
+  issueNumber: number;
+}
+
+export interface LifecycleResolvedIssueMeta {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  url: string;
+  labels: string[];
+}
+
+export interface LifecycleResolveIssueResponse {
+  /** The looked-up issue — always present on success. */
+  issue: LifecycleResolvedIssueMeta;
+  /** Chain of issue numbers from the Topic root down to and including
+   *  this issue — present only when it lives under a `Topic:` root.
+   *  `path[0]` is the root topic number. Absent for standalone issues. */
+  path?: number[];
 }
