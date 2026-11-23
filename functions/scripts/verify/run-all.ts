@@ -72,6 +72,7 @@ const scripts = [
   'paper-trading-ledger-ops-1576.ts',
   'paper-trading-signal-review-contracts-1649.ts',
   'paper-trading-signal-review-callables-1650.ts',
+  'paper-trading-groom-legacy-trades-1651.ts',
   'options-replay-start-forms-1498.ts',
   'options-replay-worker-1499.ts',
   'options-analysis-position-1500.ts',
