@@ -75,8 +75,10 @@ export interface GroomCensus {
   failed: { tradeId: string; error: string }[];
 }
 
-/** Mirrors the marker check `deleteTradeCascade` runs inside its txn. */
-function isAcceptFlowMarker(row: GroomSignalTradeRow): boolean {
+/** Mirrors the marker check `deleteTradeCascade` runs inside its txn.
+ *  Exported so the #1652 retire verifier shares the residue predicate —
+ *  one refusal set, no mirror. */
+export function isAcceptFlowMarker(row: GroomSignalTradeRow): boolean {
   return !!(row.cohortId || row.positionGroupId || row.ticket);
 }
 
