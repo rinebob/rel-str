@@ -586,3 +586,12 @@ _Avoid_: cutoff (implies disabling the filter — the value is absent, not bypas
 
 An ST Trend Rider candidate signal that satisfied the zone state machine but was rejected by the IBS filter. Never persisted — exists only client-side where detection recomputes candidates from bars; rendered as hollow/dimmed dots when the `showSuppressedSignals` indicator config is on, so the filter's kill rate can be evaluated visually.
 _Avoid_: filtered signal (ambiguous with other filters), rejected signal (implies it was emitted then revoked — it never emits)
+## Liquidation Net Mark
+
+The signed dollar value a multi-leg option position would liquidate for at current marks — `Σ(legValueSign × mark × multiplier × quantity)` with LONG +1 / SHORT −1 (`shared/options-position-math.ts` `netMarkValue`, #1710). Credit structures mark negative (a liability — what it costs to close); debit structures mark positive (an asset). The live position-lifecycle convention and the sign-inverse of the backtest's cost-to-close series (`options-analysis/position-net.ts` `signFor`: SHORT +1 / LONG −1) — same Σ shape, opposite pole; the two spaces are never interchangeable. An `undefined` netMark means unpriceable — a missing leg mark never zero-fills.
+_Avoid_: currentValue (the legacy unsigned Σ lastMark — superseded), mark (that's per-leg), cost-to-close (the backtest's opposite-sign convention — same magnitude, flipped sign)
+
+## Signed Entry Premium
+
+The cash flow at position open expressed in liquidation space — `−entryNetMark` (`shared/options-position-math.ts` `signedEntryPremium`): positive for credit structures (premium received), negative for debits (premium paid). The uniform P&L identity is `unrealizedPnl = signedEntryPremium + netMark = netMark − entryNetMark` — one formula for every posture, no credit/debit branching. Supersedes the unsigned `premiumCollected` convention (cash-in only, 0 for debits) for lifecycle math.
+_Avoid_: premiumCollected (unsigned legacy field — not a signed value), credit/debit (a posture label, not the number)
