@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-24]
+
+### Added
+- [Trading Indicator Library] 261-1676_SHARED-IMPL-INDICATOR-LIB: Pine IBS gate in rb-st-zones.pine (Thread #1665) — IBS Signal Filter inputs (threshold 0.5 step 0.05, ET activation hour 12, showSuppressedSignals off); (close-low)/(high-low), zero/inverted -> 0.5, na-OHLC pass-through; availability approximation (completed bars always defined; developing bar gates at hour(timenow,ET) >= 12 daily / Wednesday weekly w/ Sunday->7 normalization); long >= T / short <= 1-T + 1e-15; Emit/Supp partition at plots, emission-only; dimmed ghosts ~35% opacity V1 circles/V2 crosses; zero-cross ungated; verify indicator-lib-1676-pine-parity.{ts,md} 30-check audit
+- [Trading Indicator Library] 261-1676_DOCS-INDICATOR-LIB: CODE-REVIEW (PASS — 3 axes + second pass; Sunday-parity minor + 4 in-gate fixes) + UAT (Complete, #1722 — S1–S4 user-confirmed TradingView SPY 1D; F1 short-marker-on-full-range-bar anomaly logged for forensic audit) + IMPL as-built corrections + changelog
+
 ## [2026-11-23]
 
 ### Added

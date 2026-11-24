@@ -119,3 +119,9 @@ BE and FE Blueprints are **blocked by task 1** (the shared function); Pine is un
 - **Weekly bar dating convention** — must verify at impl how `weeklyBars[].date` is keyed (week-start Monday vs week-end) before writing the ISO-week membership check; the ISO-week approach covers either, but the spec fixtures need the real convention.
 - **`Intl` perf in hot path** — `DateTimeFormat` object must be created once (module-level `const`), not per call.
 - **Pine `time` on intraday charts** — if the Pine script is ever run on non-daily TFs, `hour(...)` semantics shift; doc the daily-chart assumption in the script header.
+
+## As-built notes (#1676)
+
+- §3's literals were loose vs the shipped code (deliberate corrections): `timenow` (wall clock) is used where §3 wrote `time` — `time` is the bar's *open* timestamp and would never reach the activation hour on a daily realtime bar; `dayofweek` is normalized `Sunday → 7` before `>= dayofweek.wednesday` to mirror the TS `0→7` mapping (§3's literal `>= 3` would be Tuesday in Pine numbering); the range guard uses `<= 0` (inverted range also → 0.5, matching `st-ibs.ts`); the short bound carries a `1e-15` guard mirroring the TS `Number.EPSILON` guard.
+- Weekly activation weekday stays hardcoded to Wednesday — BE `StrategyConfig` exposes `ibsActivateAtWeekday` but Pine exposes only the hour knob (accepted config-parity gap).
+- Input variables use the file's `st*` convention (`stIbsThreshold`, `stIbsActivateHourEt`, `stShowSuppressed`); `"America/New_York"` hoisted to `ST_ET_TZ`.
