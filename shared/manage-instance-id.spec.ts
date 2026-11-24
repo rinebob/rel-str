@@ -1,6 +1,7 @@
 /**
  * @topic #137 — STRAT-MANAGE, Thread #1510 (OpsStrat Manage Page Overhaul)
  * @task #1542 — SHARED: Manage instance ID generator
+ * @task #1711 — SHARED: parse + canonical display-name generator
  *
  * ID grammar: {SYM}-{SPREAD}-{DTE}-{ΔLEGS}-{STOP}, ALL-CAPS, hyphen-
  * delimited — the id is the dedup key, so segments must never carry '-'.
@@ -13,11 +14,14 @@ import {
   getManageTemplate,
   getManageVariant,
   MANAGE_CUSTOM_TEMPLATE_ID,
+  MANAGE_VARIANTS,
 } from './manage-variant-catalog';
 import {
   generateManageInstanceId,
+  parseManageInstanceId,
   STOP_CODES,
 } from './manage-instance-id';
+import { variantDisplayName } from './manage-variant-display';
 import { TradeSide } from './common';
 import { OptionType } from './options-common';
 import type { ManageVariant, VariantLeg } from './manage-variant-contracts';
@@ -421,5 +425,250 @@ describe('STOP_CODES', () => {
         stopType: 'ZZ9',
       }),
     ).toThrow();
+  });
+});
+
+describe('parseManageInstanceId', () => {
+  it('parses the canonical grammar into typed segments', () => {
+    expect(parseManageInstanceId('QQQ-CDS-30-50-40-ALL')).toEqual({
+      symbol: 'QQQ',
+      spreadCode: 'CDS',
+      dte: 30,
+      deltaLegs: [50, 40],
+      stop: 'ALL',
+    });
+  });
+
+  it('round-trips: parse(generate) recovers every catalog variant\'s segments', () => {
+    for (const v of MANAGE_VARIANTS) {
+      const tpl = getManageTemplate(v.templateId)!;
+      const id = generateManageInstanceId({
+        symbol: 'QQQ',
+        variant: v,
+        template: tpl,
+        mode: 'paper',
+        stopType: 'ALL',
+      });
+      const p = parseManageInstanceId(id);
+      expect(p.symbol).toBe('QQQ');
+      expect(p.spreadCode).toBe(tpl.code);
+      expect(p.dte).toBe(v.dte);
+      const wantLegs = v.legs.map((l) =>
+        l.kind === 'option' ? Math.round(Math.abs(l.targetDelta) * 100) : 'STK',
+      );
+      expect([...p.deltaLegs]).toEqual(wantLegs);
+      expect(p.stop).toBe('ALL');
+    }
+  });
+
+  it('parses STK pieces, CUSTOM spreads, and real stop codes', () => {
+    const p = parseManageInstanceId('QQQ-CUSTOM-30-STK-50-T8');
+    expect(p.spreadCode).toBe('CUSTOM');
+    expect(p.deltaLegs).toEqual(['STK', 50]);
+    expect(p.stop).toBe('T8');
+  });
+
+  it.each([
+    ['too few segments', 'QQQ-CDS-30-ALL'],
+    ['non-integer DTE', 'QQQ-CDS-X-50-40-ALL'],
+    ['unknown spread code', 'QQQ-FOO-30-50-40-ALL'],
+    ['unknown stop code', 'QQQ-CDS-30-50-40-ZZ9'],
+    ['non-delta ΔLEGS piece', 'QQQ-CDS-30-50-XY-ALL'],
+    ['out-of-range delta', 'QQQ-CDS-30-50-150-ALL'],
+    ['zero delta', 'QQQ-CDS-30-0-50-ALL'],
+    ['lowercase segments', 'qqq-cds-30-50-40-all'],
+  ])('throws on malformed id — %s', (_label, id) => {
+    expect(() => parseManageInstanceId(id)).toThrow();
+  });
+});
+
+describe('variantDisplayName', () => {
+  it('renders the canonical dte-first segment order for a variant', () => {
+    expect(variantDisplayName(v50())).toBe('call debit spread 30 50-40');
+  });
+
+  it('renders an instance id with dte-first order — the CDS shuffle regression', () => {
+    // The stale stored convention was deltas-first ('call debit spread
+    // 50-40 30'); the canonical name derives from the id's grammar
+    // segments, which carry DTE before ΔLEGS.
+    expect(variantDisplayName('SPY-CDS-30-50-40-ALL')).toBe(
+      'call debit spread 30 50-40',
+    );
+  });
+
+  it('derives every catalog variant\'s name identically to its stored name', () => {
+    for (const v of MANAGE_VARIANTS) {
+      expect(variantDisplayName(v)).toBe(v.name);
+    }
+  });
+
+  it('renders every catalog entry\'s name from its instance id (round-trip)', () => {
+    for (const v of MANAGE_VARIANTS) {
+      const tpl = getManageTemplate(v.templateId)!;
+      const id = generateManageInstanceId({
+        symbol: 'QQQ',
+        variant: v,
+        template: tpl,
+        mode: 'paper',
+        stopType: 'ALL',
+      });
+      expect(variantDisplayName(id)).toBe(v.name);
+    }
+  });
+
+  it('produces no duplicate display names across the catalog', () => {
+    const names = MANAGE_VARIANTS.map((v) => variantDisplayName(v));
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('falls back to the authored name for a custom (template-free) variant', () => {
+    const adhoc = variant(v50().legs, {
+      templateId: MANAGE_CUSTOM_TEMPLATE_ID,
+      name: 'my wide fly',
+    });
+    expect(variantDisplayName(adhoc)).toBe('my wide fly');
+  });
+
+  it('falls back to the authored name when legs do not conform to the template', () => {
+    // Swapped leg order breaks positional shape conformance — the derived
+    // name would lie about the structure, so the authored name stands.
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const nonConforming = variant([optLegs[1], optLegs[0]], {
+      name: 'authored cds-ish',
+    });
+    expect(variantDisplayName(nonConforming)).toBe('authored cds-ish');
+  });
+
+  it('throws for a CUSTOM-spread instance id — no structure to name', () => {
+    expect(() => variantDisplayName('QQQ-CUSTOM-30-50-40-ALL')).toThrow(
+      /custom/i,
+    );
+  });
+});
+
+describe('variantDisplayName — honest-render guards', () => {
+  it('throws when an id carries no option deltas (STK-only ΔLEGS)', () => {
+    expect(() => variantDisplayName('QQQ-CDS-30-STK-ALL')).toThrow();
+  });
+
+  it('falls back to the authored name when a leg delta is unrenderable', () => {
+    const badLeg = { ...v50().legs[0], targetDelta: Number.NaN };
+    const v = variant([badLeg, v50().legs[1]], { name: 'authored' });
+    expect(variantDisplayName(v)).toBe('authored');
+  });
+});
+
+describe('parseManageInstanceId — template-shape validation', () => {
+  it('throws when ΔLEGS count disagrees with the spread template', () => {
+    // The generator gates on positional shape — a known-spread id with the
+    // wrong leg count is unmintable, so the inverse refuses it too.
+    expect(() => parseManageInstanceId('QQQ-CDS-30-50-ALL')).toThrow();
+    expect(() => parseManageInstanceId('QQQ-CDS-30-50-40-30-ALL')).toThrow();
+    expect(() => parseManageInstanceId('QQQ-IC-30-50-40-ALL')).toThrow();
+  });
+
+  it('throws when a piece kind disagrees with its template slot', () => {
+    // CDS is option-only — an STK piece could never be generated under it.
+    expect(() => parseManageInstanceId('QQQ-CDS-30-STK-40-ALL')).toThrow();
+  });
+
+  it('skips shape validation for CUSTOM spreads (no template to check)', () => {
+    expect(parseManageInstanceId('QQQ-CUSTOM-30-50-ALL').deltaLegs).toEqual([
+      50,
+    ]);
+  });
+
+  it.each([
+    ['leading-zero DTE', 'QQQ-CDS-030-50-40-ALL'],
+    ['leading-zero delta', 'QQQ-CDS-30-050-40-ALL'],
+    ['numeric-format unknown stop', 'QQQ-CDS-30-50-40-8'],
+    ['delta above range', 'QQQ-CDS-30-101-40-ALL'],
+  ])('throws on non-canonical encoding — %s', (_label, id) => {
+    expect(() => parseManageInstanceId(id)).toThrow();
+  });
+
+  it('accepts boundary deltas 1 and 100', () => {
+    expect(parseManageInstanceId('QQQ-CDS-30-1-100-ALL').deltaLegs).toEqual([
+      1, 100,
+    ]);
+  });
+});
+
+describe('generateManageInstanceId — encodability', () => {
+  it('throws when a delta rounds to a piece the grammar cannot carry (|Δ| < 0.5%)', () => {
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const tiny = variant(
+      [{ ...optLegs[0], targetDelta: 0.004 }, optLegs[1]],
+      { templateId: MANAGE_CUSTOM_TEMPLATE_ID },
+    );
+    expect(() =>
+      generateManageInstanceId({
+        symbol: 'QQQ',
+        variant: tiny,
+        mode: 'paper',
+        stopType: 'ALL',
+      }),
+    ).toThrow();
+  });
+});
+
+describe('variantDisplayName — derive-gate completeness', () => {
+  it('falls back when variant.dte is not a positive integer', () => {
+    expect(
+      variantDisplayName(variant(v50().legs, { dte: 30.5, name: 'a' })),
+    ).toBe('a');
+    expect(variantDisplayName(variant(v50().legs, { dte: 0, name: 'b' }))).toBe(
+      'b',
+    );
+  });
+
+  it('falls back when option legs disagree on expiry (diagonal)', () => {
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const diagonal = variant(
+      [{ ...optLegs[0] }, { ...optLegs[1], dte: 45 }],
+      { name: 'authored diagonal' },
+    );
+    expect(variantDisplayName(diagonal)).toBe('authored diagonal');
+  });
+
+  it('falls back when a leg dte disagrees with variant.dte', () => {
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const mismatch = variant([optLegs[0], { ...optLegs[1], dte: 45 }], {
+      dte: 30,
+      name: 'authored mismatch',
+    });
+    expect(variantDisplayName(mismatch)).toBe('authored mismatch');
+  });
+
+  it('falls back when a targetDelta is not a number (wire shape)', () => {
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const wire = variant(
+      [
+        { ...optLegs[0], targetDelta: '0.5' as unknown as number },
+        optLegs[1],
+      ],
+      { name: 'authored wire' },
+    );
+    expect(variantDisplayName(wire)).toBe('authored wire');
+  });
+
+  it('falls back when legs violate the template\'s direction (credit-ordered CDS)', () => {
+    // Shape conforms positionally, but |Δ|long < |Δ|short is a credit
+    // spread — 'call debit spread 30 20-50' would lie about posture.
+    const optLegs = v50().legs.filter((l) => l.kind === 'option');
+    const credit = variant(
+      [
+        { ...optLegs[0], targetDelta: 0.2 },
+        { ...optLegs[1], targetDelta: 0.5 },
+      ],
+      { name: 'authored credit' },
+    );
+    expect(variantDisplayName(credit)).toBe('authored credit');
+  });
+
+  it('throws a friendly error on null input', () => {
+    expect(() =>
+      variantDisplayName(null as unknown as ManageVariant),
+    ).toThrow(/ManageVariant|instance-id/);
   });
 });

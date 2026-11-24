@@ -1,6 +1,7 @@
 /**
  * @topic #137 — STRAT-MANAGE, Thread #1510 (OpsStrat Manage Page Overhaul)
  * @task #1542 — SHARED: Manage instance ID generator
+ * @task #1711 — SHARED: parse + canonical display-name generator
  *
  * Manage-domain instance IDs: `{SYM}-{SPREAD}-{DTE}-{ΔLEGS}-{STOP}`,
  * ALL-CAPS, hyphen-delimited — e.g. `QQQ-CDS-30-50-40-ALL`.
@@ -36,6 +37,12 @@
  *
  * Replaces `generateInstanceId` (strategy-instance-id.ts) for manage
  * instances; the legacy function stays for its remaining readers.
+ *
+ * This module is the identity-grammar home: it generates the id and
+ * parses it back to typed segments. The display-name generator
+ * (`variantDisplayName`) lives in `manage-variant-display.ts` — its
+ * string-input overload needs this parser, and hosting it in the
+ * catalog would close a module cycle.
  */
 
 import type { InstanceMode, StopType } from './manage-instance-contracts';
@@ -49,6 +56,7 @@ import type {
   ManageVariant,
 } from './manage-variant-contracts';
 import {
+  getManageTemplateByCode,
   MANAGE_CUSTOM_TEMPLATE_ID,
   variantMatchesTemplateShape,
 } from './manage-variant-catalog';
@@ -176,7 +184,17 @@ function dlegsPiece(leg: ManageVariant['legs'][number]): string {
       `option-leg targetDelta ${leg.targetDelta} must be finite with |Δ| in (0,1]`,
     );
   }
-  return String(Math.round(a * 100));
+  const piece = Math.round(a * 100);
+  // |Δ| < 0.5% rounds to 0 — a segment the grammar can't carry back
+  // through parseManageInstanceId's (0,100] check. Refuse it at mint
+  // rather than mint an id its own inverse rejects.
+  if (piece < 1 || piece > 100) {
+    throw new Error(
+      `option-leg targetDelta ${leg.targetDelta} encodes to '${piece}' — ` +
+        'outside (0,100], the id would not round-trip',
+    );
+  }
+  return String(piece);
 }
 
 /** SPREAD segment — template code, or CUSTOM for ad hoc variants. */
@@ -244,6 +262,119 @@ function dteSegment(variant: ManageVariant): number {
     );
   }
   return variant.dte;
+}
+
+// ==========================
+// Instance-ID parse
+// ==========================
+
+/**
+ * The typed segments of a manage instance id — the inverse of
+ * {@link generateManageInstanceId}. `deltaLegs` preserves the ΔLEGS
+ * segment's leg order: `round(|Δ|*100)` per option leg, `'STK'` per
+ * stock leg.
+ */
+export interface ParsedManageInstanceId {
+  symbol: string;
+  /** Template `code` ('CDS', 'IC', …) or 'CUSTOM'. */
+  spreadCode: string;
+  dte: number;
+  deltaLegs: readonly (number | 'STK')[];
+  stop: string;
+}
+
+/**
+ * Parse a manage instance id back into its grammar segments. Strict —
+ * the id is a dedup key, so anything the generator could not have
+ * emitted throws instead of returning a plausible-looking lie: wrong
+ * segment count, lowercase, unknown spread/stop codes, non-integer or
+ * out-of-range ΔLEGS pieces, non-canonical encodings (leading zeros —
+ * the generator's `String(n)` never emits them), and ΔLEGS that
+ * disagree with the named spread's leg shape. No trimming or
+ * case-folding — a stored id is already canonical.
+ */
+export function parseManageInstanceId(id: string): ParsedManageInstanceId {
+  if (typeof id !== 'string') {
+    throw new Error(`instance id '${id}' is not a string`);
+  }
+  const segs = id.split('-');
+  // SYM-SPREAD-DTE-ΔLEGS…-STOP — ΔLEGS carries at least one piece.
+  if (segs.length < 5) {
+    throw new Error(
+      `instance id '${id}' has ${segs.length} segments — the grammar needs ≥5`,
+    );
+  }
+  const [symbol, spread, dteSeg, ...rest] = segs;
+  const stop = rest[rest.length - 1];
+  const dlegsSegs = rest.slice(0, -1);
+
+  assertSegment('symbol', symbol, /^[A-Z0-9]+(\.[A-Z0-9]+)*$/);
+
+  const tpl = spread === 'CUSTOM' ? undefined : getManageTemplateByCode(spread);
+  if (spread !== 'CUSTOM' && !tpl) {
+    throw new Error(`spread segment '${spread}' is not a known template code`);
+  }
+  assertSegment('spread', spread, /^[A-Z0-9]+$/);
+
+  const dte = parseNumericSegment('DTE', dteSeg, 1, Number.MAX_SAFE_INTEGER);
+
+  const deltaLegs = dlegsSegs.map((piece) =>
+    piece === 'STK' ? ('STK' as const) : parseNumericSegment('ΔLEGS', piece, 1, 100),
+  );
+
+  // ΔLEGS↔template conformance for named spreads — the generator gates
+  // on positional leg shape, so the inverse holds parse to the same
+  // contract: piece count and per-slot kind (option→number, stock→'STK').
+  if (tpl) {
+    if (deltaLegs.length !== tpl.legs.length) {
+      throw new Error(
+        `ΔLEGS has ${deltaLegs.length} piece(s) but spread '${spread}' ` +
+          `(${tpl.name}) declares ${tpl.legs.length} leg(s) — unmintable id`,
+      );
+    }
+    tpl.legs.forEach((slot, i) => {
+      const isStk = deltaLegs[i] === 'STK';
+      if (slot.kind === 'stock' ? !isStk : isStk) {
+        throw new Error(
+          `ΔLEGS piece ${i + 1} ('${dlegsSegs[i]}') does not match ` +
+            `template '${tpl.id}' slot kind '${slot.kind}'`,
+        );
+      }
+    });
+  }
+
+  assertSegment('stop', stop, /^[A-Z0-9]+$/);
+  if (!Object.prototype.hasOwnProperty.call(STOP_CODES, stop)) {
+    throw new Error(`stop code '${stop}' is not in STOP_CODES`);
+  }
+
+  return { symbol, spreadCode: spread, dte, deltaLegs, stop };
+}
+
+/**
+ * One all-digit grammar piece → its integer, validated against the
+ * canonical encoding (no leading zeros — `String(n)` is the only
+ * encoder) and an inclusive range.
+ */
+function parseNumericSegment(
+  name: string,
+  seg: string,
+  min: number,
+  max: number,
+): number {
+  if (!/^\d+$/.test(seg)) {
+    throw new Error(`${name} segment '${seg}' is not numeric`);
+  }
+  const n = Number(seg);
+  if (String(n) !== seg) {
+    throw new Error(
+      `${name} segment '${seg}' is a non-canonical encoding (leading zeros)`,
+    );
+  }
+  if (n < min || n > max) {
+    throw new Error(`${name} segment '${seg}' is outside [${min},${max}]`);
+  }
+  return n;
 }
 
 /**

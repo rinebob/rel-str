@@ -62,5 +62,6 @@ module.exports = {
     '^@manage/instance-contracts$': '<rootDir>/shared/manage-instance-contracts.ts',
     '^@manage/variant-catalog$': '<rootDir>/shared/manage-variant-catalog.ts',
     '^@manage/instance-id$': '<rootDir>/shared/manage-instance-id.ts',
+    '^@manage/variant-display$': '<rootDir>/shared/manage-variant-display.ts',
   },
 };

@@ -57,7 +57,8 @@
       "@manage/variant-contracts": ["./shared/manage-variant-contracts.ts"],
       "@manage/instance-contracts": ["./shared/manage-instance-contracts.ts"],
       "@manage/variant-catalog": ["./shared/manage-variant-catalog.ts"],
-      "@manage/instance-id": ["./shared/manage-instance-id.ts"]
+      "@manage/instance-id": ["./shared/manage-instance-id.ts"],
+      "@manage/variant-display": ["./shared/manage-variant-display.ts"]
     },
     "importHelpers": true,
     "target": "ES2022",
