@@ -23,6 +23,8 @@ export enum AppRoutes {
 	/** Chart View — generic symbol-list chart viewer (#1232/#1256). */
 	CHART_VIEW = 'trading/chart-view',
 	SIGNAL_REVIEW = 'signals/review',
+	/** Paper-trading signal review — per-symbol occurrence pane (#553/#1117). */
+	SYMBOL_REVIEW = 'signals/symbol-review',
 	/** Signal Order — the live order ticket (#660). */
 	SIGNAL_ORDER = 'trading/live',
 	RH_ACCOUNT_INQUIRY = 'tools/account',

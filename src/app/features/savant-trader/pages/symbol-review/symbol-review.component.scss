@@ -1,0 +1,126 @@
+.symbol-review {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height, 48px));
+  min-height: 400px;
+  padding: 16px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.symbol-review-header {
+  h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    opacity: 0.7;
+  }
+}
+
+.master-detail-container {
+  display: flex;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+}
+
+.symbol-list-wrapper {
+  width: 220px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.symbol-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  flex: 1;
+}
+
+.symbol-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &.selected {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  .symbol {
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .last-signal {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  .new-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mat-sys-primary);
+    flex-shrink: 0;
+  }
+}
+
+.detail-wrapper {
+  flex: 1;
+  background: var(--mat-sys-surface-container);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pane-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  font-size: 13px;
+  opacity: 0.6;
+  padding: 24px;
+  text-align: center;
+
+  &.error {
+    opacity: 1;
+    color: var(--mat-sys-error);
+  }
+}
+
+.error-banner {
+  margin: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  font-size: 12px;
+}

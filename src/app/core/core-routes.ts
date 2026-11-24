@@ -158,6 +158,12 @@ import { authGuard } from './auth/auth.guard';
                 .then(mod => mod.SignalReviewComponent),
                 canActivate: [authGuard],
             },
+            {path: AppRoutes.SYMBOL_REVIEW,
+                title: PAGE_INFO[AppRoutes.SYMBOL_REVIEW].title,
+                loadComponent: () => import('../features/savant-trader/pages/symbol-review/symbol-review.component')
+                .then(mod => mod.SymbolReviewComponent),
+                canActivate: [authGuard],
+            },
             {path: AppRoutes.SIGNAL_ORDER,
                 title: PAGE_INFO[AppRoutes.SIGNAL_ORDER].title,
                 loadComponent: () => import('../features/savant-trader/pages/signal-order/order.component')

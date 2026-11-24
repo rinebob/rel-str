@@ -1,0 +1,73 @@
+<div class="symbol-review">
+  <header class="symbol-review-header">
+    <h1>Symbol Review</h1>
+    <p class="subtitle">Curate signals into paper trades — checked rows mint, unchecked delete.</p>
+  </header>
+
+  <div class="master-detail-container">
+    <aside class="symbol-list-wrapper">
+      @if (store.queueLoading() && store.queueRows().length === 0) {
+        <div class="pane-placeholder"><span class="dse-spinner"></span> Loading symbols…</div>
+      } @else if (store.queueRows().length === 0) {
+        @if (store.queueError(); as qerr) {
+          <div class="pane-placeholder error">Could not load the symbol queue — {{ qerr }}</div>
+        } @else {
+          <div class="pane-placeholder">No symbols with un-groomed signals.</div>
+        }
+      } @else {
+        <ul class="symbol-list">
+          @for (row of store.pickerRows(); track row.symbol) {
+            <li>
+              <button
+                class="symbol-row"
+                [class.selected]="store.selectedSymbol() === row.symbol"
+                [attr.aria-current]="store.selectedSymbol() === row.symbol ? 'true' : null"
+                (click)="onSymbolSelected(row.symbol)">
+                <span class="symbol">{{ row.symbol }}</span>
+                @if (row.lastDailySignalDate) {
+                  <span class="last-signal">{{ row.lastDailySignalDate }}</span>
+                }
+                @if (row.hasNewSignal) {
+                  <span class="new-dot" title="New signal since last open"></span>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+      @if (store.queueError() && store.queueRows().length > 0) {
+        <div class="error-banner">{{ store.queueError() }}</div>
+      }
+    </aside>
+
+    <section class="detail-wrapper">
+      @if (store.bundleLoading()) {
+        <div class="pane-placeholder"><span class="dse-spinner"></span> Loading {{ store.selectedSymbol() }}…</div>
+      } @else if (store.selectedSymbol() === null) {
+        <div class="pane-placeholder">Select a symbol to review its signals.</div>
+      } @else if (store.bundle(); as bundle) {
+        @if (bundle.symbol === store.selectedSymbol()) {
+          @if (bundle.occurrences.length === 0) {
+            <div class="pane-placeholder">No un-groomed signals for {{ bundle.symbol }}.</div>
+          } @else {
+            <!-- Phase 2: occurrence list + checkboxes + mint/delete actions.
+                 Phase 3: chart with plotted signals. -->
+            <div class="pane-placeholder">
+              {{ bundle.symbol }} — {{ bundle.occurrences.length }} signal(s) queued
+              (occurrence pane lands in the next phase)
+            </div>
+          }
+        } @else {
+          <!-- Kept bundle is keyed to another symbol — a failed select left
+               it behind. Never render it under the new selection. -->
+          <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
+        }
+      } @else {
+        <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
+      }
+      @if (store.bundleError(); as berr) {
+        <div class="error-banner">{{ berr }}</div>
+      }
+    </section>
+  </div>
+</div>

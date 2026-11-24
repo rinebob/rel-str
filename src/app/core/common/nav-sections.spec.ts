@@ -38,7 +38,7 @@ describe('NAV_SECTIONS — grouped nav model (#700)', () => {
 
   it.each<[string, string[]]>([
     ['Portfolio', ['Portfolio Dashboard', 'Portfolio Allocation']],
-    ['Signals', ['Runs', 'Signal Review', 'Chart View']],
+    ['Signals', ['Runs', 'Signal Review', 'Symbol Review', 'Chart View']],
     ['Trading', ['Gallery', 'Live', 'Paper', 'Analysis', 'Scanner']],
     [
       'Options',

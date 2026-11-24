@@ -20,6 +20,7 @@ describe('core-routes — canonical journey paths (#699)', () => {
     ['portfolio/allocation', 'Portfolio Allocation'],
     ['signals/runs', 'Run Dashboard'],
     ['signals/review', 'Signal Review'],
+    ['signals/symbol-review', 'Symbol Review'],
     ['trading/chart-view', 'Chart View'],
     ['trading/live', 'Signal Order'],
     ['trading/paper', 'Paper Trading'],
@@ -136,6 +137,7 @@ describe('core-routes — canonical journey paths (#699)', () => {
       PORTFOLIO_ALLOCATION: 'portfolio/allocation',
       RUN_DASHBOARD: 'signals/runs',
       SIGNAL_REVIEW: 'signals/review',
+      SYMBOL_REVIEW: 'signals/symbol-review',
       CHART_VIEW: 'trading/chart-view',
       SIGNAL_ORDER: 'trading/live',
       PAPER_TRADING: 'trading/paper',
@@ -186,6 +188,7 @@ describe('PAGE_INFO registry + route titles (#852)', () => {
 
   it('resolvePageInfo: exact match, nested-path ancestor inheritance, unkeyed → undefined', () => {
     expect(resolvePageInfo('signals/review')).toBe(PAGE_INFO[AppRoutes.SIGNAL_REVIEW]);
+    expect(resolvePageInfo('signals/symbol-review')).toBe(PAGE_INFO[AppRoutes.SYMBOL_REVIEW]);
     // Param template keys directly — joined routeConfig.path, not resolved URL.
     expect(resolvePageInfo('heatmap-chart/:baseline/:symbol'))
       .toBe(PAGE_INFO[AppRoutes.HEATMAP_CHART]);

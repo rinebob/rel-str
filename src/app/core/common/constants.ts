@@ -20,6 +20,7 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
             { name: 'run-dashboard', text: 'Runs', href: 'signals/runs' },
             { name: 'signal-review', text: 'Signal Review', href: 'signals/review' },
+            { name: 'symbol-review', text: 'Symbol Review', href: 'signals/symbol-review' },
             { name: 'chart-view', text: 'Chart View', href: 'trading/chart-view' },
         ],
     },
@@ -131,6 +132,7 @@ export const PAGE_INFO: Record<AppRoutes, PageInfo> = {
     [AppRoutes.RUN_DASHBOARD]:                { title: 'Run Dashboard',              icon: 'view_list' },
     [AppRoutes.CHART_VIEW]:                   { title: 'Chart View',                 icon: 'candlestick_chart' },
     [AppRoutes.SIGNAL_REVIEW]:                { title: 'Signal Review',              icon: 'rate_review' },
+    [AppRoutes.SYMBOL_REVIEW]:                { title: 'Symbol Review',              icon: 'checklist' },
     [AppRoutes.SIGNAL_ORDER]:                 { title: 'Signal Order',               icon: 'bolt' },
     [AppRoutes.RH_ACCOUNT_INQUIRY]:           { title: 'Account Inquiry',            icon: 'account_balance' },
     [AppRoutes.STRATEGY_BACKTEST]:            { title: 'Strategy Backtest',          icon: 'science' },
@@ -223,6 +225,14 @@ export enum CallableName {
   CLOSE_PAPER_TRADE = 'closePaperTrade',
   /** Paper trading: cancel a PENDING trade before its fill pass (#553/#652) */
   CANCEL_PAPER_TRADE = 'cancelPaperTrade',
+  /** Paper trading: symbol queue for the signal-review pane (#553/#1117) */
+  GET_SIGNAL_REVIEW_QUEUE = 'getSignalReviewQueue',
+  /** Paper trading: per-symbol occurrence bundle + openedAt stamp (#553/#1117) */
+  GET_SIGNAL_REVIEW_BUNDLE = 'getSignalReviewBundle',
+  /** Paper trading: mint PaperTrades from checked occurrences (#553/#1117) */
+  GENERATE_PAPER_SIGNAL_TRADES = 'generatePaperSignalTrades',
+  /** Paper trading: hard-delete unwanted curated signal trades (#553/#1117) */
+  DELETE_PAPER_TRADES = 'deletePaperTrades',
   /** Paper trading analysis: enqueue dataset generation (#553/#1059) */
   GENERATE_TRADE_DATASET = 'generateTradeDataset',
   /** Paper trading analysis: server-side CSV read for the workbench (#553/#1059) */
