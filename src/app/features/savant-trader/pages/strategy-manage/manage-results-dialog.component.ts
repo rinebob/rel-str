@@ -62,9 +62,9 @@ const SPARK_H = 40;
             <div class="stat"><span class="stat-label">Premium collected</span>
               <span class="stat-value" data-testid="stat-premium">{{ fmt(s.totalPremiumCollected) }}</span></div>
             <div class="stat"><span class="stat-label">Open trades</span>
-              <span class="stat-value" data-testid="stat-open-count">{{ s.openTradeCount ?? '—' }}</span></div>
+              <span class="stat-value" data-testid="stat-open-count">{{ s.openTradeCount }}</span></div>
             <div class="stat"><span class="stat-label">Closed trades</span>
-              <span class="stat-value" data-testid="stat-closed-count">{{ s.closedTradeCount ?? '—' }}</span></div>
+              <span class="stat-value" data-testid="stat-closed-count">{{ s.closedTradeCount }}</span></div>
             <div class="stat"><span class="stat-label">Max drawdown</span>
               <span class="stat-value" data-testid="stat-max-dd">{{ fmt(s.maxDrawdown) }}</span></div>
           }
