@@ -28,6 +28,10 @@
 - [GitHub read-only issue UI] 619-1695_FE-IMPL-DEV-TOOLS: RESOLVE_LIFECYCLE_ISSUE CallableName + deployed-export parity row (FE digit-query consumer lands in #1696)
 - [GitHub read-only issue UI] 619-1695_DOCS-DEV-TOOLS: CODE-REVIEW (PASS — 3 axes; 1 critical deps-stub + 4 majors remediated in-gate: truncation-gated sync, self-root resolve, txn'd sync, write-shape specs) + UAT (Complete, #1698 — S1–S6 green incl. live heal+prune probe; S7 deployed-smoke deferred to ship) + changelog
 
+- [Paper Trading Infra] 553-1652_BE-IMPL-PAPER-TRADING: Auto-mint retire verify — config-gate census (Thread #1117) — paper-trading-signal-review-retire-1652.{ts,md}: DRY fixture deps through the REAL runAutoPaperIngestPass (disabled→skipped/'disabled', enabled→'ready' discrimination, missing-config, disabled-beats-date precedence); --live reads st-config/autoPaper (enabled==false), censuses source==SIGNAL residue vs 27 preserved accept-flow, real nightly payload → skipped/'disabled' — a dispatched ingest returns before session/quotes/mint; isAcceptFlowMarker exported from the groom script (one refusal predicate); ops flip procedure documented (console or .devin/tmp tsx)
+- [Paper Trading Infra] 553-1652_BE-CHORE-PAPER-TRADING: Verify registration — run-all + README (#1652 row + order entry 68; DRY stage run-all safe, --live needs ADC read-only)
+- [Paper Trading Infra] 553-1652_DOCS-PAPER-TRADING: CODE-REVIEW (PASS — 2 passes; in-gate fixes: shared refusal predicate export + .devin/tmp flip path) + UAT (Complete, #1700 — S1–S5 green; flip read-back, 7/7 verify, discrimination proven pre/post-flip 5/2 → 7/0) + changelog
+
 ## [2026-11-22]
 
 ### Added
