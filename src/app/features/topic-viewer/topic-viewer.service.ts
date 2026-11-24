@@ -10,6 +10,8 @@ import { from, map, Observable } from 'rxjs';
 import { CallableName } from '../../core/common/constants';
 import type {
   LifecycleRepoRequest,
+  LifecycleResolveIssueRequest,
+  LifecycleResolveIssueResponse,
   LifecycleTopicTreeRequest,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
@@ -74,6 +76,19 @@ export class TopicViewerService {
     return from(runInInjectionContext(this.env, () => {
       const callable = httpsCallable<LifecycleTopicTreeRequest, LifecycleTreeResponse>(
         this.functions, CallableName.GET_LIFECYCLE_TOPIC_TREE,
+      );
+      return callable(request);
+    })).pipe(map((res) => res.data));
+  }
+
+  /** Cold-miss issue resolver (#1695 BE / #1696 FE consumer) — walks the
+   *  GitHub `parent` chain; `path` present only under a `Topic:` root. */
+  resolveLifecycleIssue$(
+    request: LifecycleResolveIssueRequest,
+  ): Observable<LifecycleResolveIssueResponse> {
+    return from(runInInjectionContext(this.env, () => {
+      const callable = httpsCallable<LifecycleResolveIssueRequest, LifecycleResolveIssueResponse>(
+        this.functions, CallableName.RESOLVE_LIFECYCLE_ISSUE,
       );
       return callable(request);
     })).pipe(map((res) => res.data));

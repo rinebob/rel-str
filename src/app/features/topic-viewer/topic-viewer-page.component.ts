@@ -16,7 +16,7 @@ import { NgTemplateOutlet } from '@angular/common';
 
 
 import { stageOrdinal } from '@lifecycle/tree';
-import { TopicViewerStore } from './topic-viewer.store';
+import { TopicViewerStore, type IssueResolution } from './topic-viewer.store';
 import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
 
 @Component({
@@ -66,6 +66,15 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
         <label class="dse-check"><input type="checkbox" [checked]="store.showClosed()" data-testid="show-closed"
           (change)="store.setShowClosed($any($event.target).checked)">Show closed</label>
       </header>
+
+      @if (store.issueResolution(); as r) {
+        <div class="resolution-note" [attr.data-phase]="r.phase" data-testid="resolution-note">
+          @if (r.phase === 'resolving') {
+            <span class="dse-spinner small" style="--spinner-size: 14px" role="progressbar" aria-label="Resolving issue"></span>
+          }
+          {{ resolutionCopy(r) }}
+        </div>
+      }
 
       @if (store.error(); as err) {
         <div class="banner error" role="alert" data-testid="error-banner">
@@ -140,6 +149,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
                   (click)="store.resumeAllTopics()">Resume</button>
               </div>
             }
+            <div class="tree-scroll">
             @for (sec of store.allTopicsSections(); track sec.name) {
               <div class="section-name" [attr.data-testid]="'allsec-' + sec.name">{{ sec.name }}</div>
               @for (b of sec.topics; track b.topic.number) {
@@ -181,6 +191,7 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
                 </div>
               }
             }
+            </div>
           } @else if (store.selectedTopic(); as sel) {
             <div class="tree-head">
               <a class="tree-topic" [href]="sel.url" target="_blank" rel="noopener noreferrer"
@@ -188,7 +199,9 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
               >#{{ sel.number }} {{ sel.title }}</a>
               <ng-container *ngTemplateOutlet="treeActions" />
             </div>
-            <app-topic-viewer-tree />
+            <div class="tree-scroll">
+              <app-topic-viewer-tree />
+            </div>
           } @else if (store.selectedTreeLoading()) {
             <div class="empty topic-state column" data-testid="tree-loading">
               <span class="dse-spinner" style="--spinner-size: 32px" role="progressbar" aria-label="Loading topic tree"></span>
@@ -218,6 +231,18 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     .repo-picker { width: 180px; }
     .search { width: 220px; }
     .dim { color: var(--mat-sys-on-surface-variant); font-size: 0.8rem; }
+    /* Deep-resolution note (#1696) — scoped search-box indicator; the
+       phases tint so resolving/ok vs miss/error read instantly. */
+    .resolution-note {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; color: var(--mat-sys-on-surface-variant);
+    }
+    .resolution-note[data-phase='resolved'] { color: var(--mat-sys-tertiary); }
+    .resolution-note[data-phase='not-in-tree'],
+    .resolution-note[data-phase='not-found'],
+    .resolution-note[data-phase='error'] {
+      color: var(--mat-sys-error);
+    }
     .banner {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;
@@ -257,7 +282,8 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
       font-size: 0.65rem; padding: 1px 6px; border-radius: 8px; flex: none;
       @include sc.stage-chip-palette;
     }
-    .tree-pane { flex: 1; overflow: auto; min-width: 0; }
+    .tree-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .tree-scroll { flex: 1; min-height: 0; overflow: auto; }
     .tree-head {
       display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
       margin-bottom: 8px; padding-bottom: 6px;
@@ -282,6 +308,18 @@ export class TopicViewerPageComponent implements OnInit {
   protected readonly store = inject(TopicViewerStore);
 
   protected readonly ordinal = stageOrdinal;
+
+  /** Resolution-note copy (#1696) — the store already composes the
+   *  honest messages for miss/error phases; resolving/resolved get a
+   *  compact synthetic line. */
+  protected resolutionCopy(r: IssueResolution): string {
+    if (r.phase === 'resolving') return `Resolving #${r.issueNumber}…`;
+    if (r.phase === 'resolved') {
+      const base = `#${r.issueNumber} found under #${r.rootNumber}`;
+      return r.message ? `${base} — ${r.message}` : base;
+    }
+    return r.message ?? `Issue #${r.issueNumber} couldn't be resolved`;
+  }
 
   /** Empty-state copy — a filter-empty pane should say so, not claim
    *  the repo has no Topics (review M2). */

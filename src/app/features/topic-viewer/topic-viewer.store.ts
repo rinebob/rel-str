@@ -12,7 +12,7 @@
  * label-write patch path (patches the index AND any memoized tree).
  */
 
-import { computed, inject } from '@angular/core';
+import { computed, DestroyRef, inject } from '@angular/core';
 import {
   signalStore,
   withState,
@@ -32,6 +32,13 @@ import {
   TopicViewerService,
   type TopicViewerRepo,
 } from './topic-viewer.service';
+import {
+  deepResolveCandidate,
+  errMessage,
+  type DeepResolveHost,
+  type IssueResolution,
+  resolveIssueNumber as deepResolve,
+} from './topic-viewer-deep-resolve';
 
 export interface TopicRow {
   number: number;
@@ -52,6 +59,8 @@ export interface TreeRow {
 }
 
 export type TopicSortMode = 'grouped' | 'number';
+
+export type { IssueResolution } from './topic-viewer-deep-resolve';
 
 /** The single left-pane view model (#1531) — the pane binds this one
  *  signal and branches on `mode`: section headers + rows in grouped
@@ -117,6 +126,16 @@ interface LifecycleState {
   /** Memo epoch — bumped on refresh/repo switch; in-flight subtree
    *  fetches from an older epoch discard their result on resolve. */
   memoSeq: number;
+  /** Deep resolution status (#1696) — null when no digit query is in
+   *  play; drives the page's scoped note (resolving / resolved /
+   *  not-in-tree / not-found / error). */
+  issueResolution: IssueResolution | null;
+  /** Monotonic resolution epoch — a newer query, repo switch, or refresh
+   *  bumps it so an in-flight resolution's continuation no-ops. */
+  resolveSeq: number;
+  /** The node a successful resolution landed on — the tree's distinct
+   *  resolved-row highlight (kept separate from query matchSet). */
+  resolvedNodeNumber: number | null;
 }
 
 const initialState: LifecycleState = {
@@ -140,13 +159,10 @@ const initialState: LifecycleState = {
   fetchedAt: null,
   fetchSeq: 0,
   memoSeq: 0,
+  issueResolution: null,
+  resolveSeq: 0,
+  resolvedNodeNumber: null,
 };
-
-function errMessage(err: unknown): string {
-  const code = (err as { code?: string })?.code;
-  const msg = err instanceof Error ? err.message : String(err);
-  return code ? `${code}: ${msg}` : msg;
-}
 
 function toRow(n: LifecycleNode): TopicRow {
   return {
@@ -167,8 +183,8 @@ function matchesQuery(
 ): boolean {
   if (!needle) return true;
   if (n.title.toLowerCase().includes(needle)) return true;
-  const digits = needle.replace(/^#/, '');
-  if (/^\d+$/.test(digits) && n.number === Number(digits)) return true;
+  const dn = deepResolveCandidate(needle);
+  if (dn !== null && n.number === dn) return true;
   return n.labels.some(l => l.toLowerCase().includes(needle));
 }
 
@@ -256,15 +272,26 @@ export const TopicViewerStore = signalStore(
 
   withComputed((store) => ({
     /** Topics passing the closed filter AND the search predicate
-     *  (#1531) — the single filtered set every view consumes. */
+     *  (#1531) — the single filtered set every view consumes. A deep
+     *  resolution's root stays in the set (#1696): its number never
+     *  matches the digit query textually, but the pane must render the
+     *  landing — in all-topics mode the section appears, in single mode
+     *  the row shows selected. */
     filteredTopics: computed<LifecycleTopic[]>(() => {
       const res = store.response();
       if (!res) return [];
       const showClosed = store.showClosed();
       const q = store.query();
       const needle = q.trim().toLowerCase();
-      return res.topics.filter(
+      const list = res.topics.filter(
         t => (showClosed || t.state !== 'closed') && matchesQuery(t, needle));
+      const resolvedRoot = store.issueResolution()?.rootNumber ?? null;
+      if (resolvedRoot !== null
+          && list.every(t => t.number !== resolvedRoot)) {
+        const root = res.topics.find(t => t.number === resolvedRoot);
+        if (root) list.push(root);
+      }
+      return list;
     }),
 
     selectedRepo: computed(() => store.repos()[store.selectedRepoIndex()] ?? null),
@@ -542,12 +569,15 @@ export const TopicViewerStore = signalStore(
 
     /** Drop the memo + queue/in-flight bookkeeping (refresh and repo
      *  switch). In-flight promises still resolve — the bumped epoch
-     *  makes their patches no-ops. */
+     *  makes their patches no-ops. Deep-resolution state dies with the
+     *  dataset too: the resolved node and learned overlay belong to the
+     *  old repo's trees (#1696). */
     function dropMemo(): void {
       inFlight.clear();
       queue = [];
       queueActive = 0;
       queueEpoch++;
+      if (debounceTimer !== null) { clearTimeout(debounceTimer); debounceTimer = null; }
       patchState(store, {
         trees: {},
         treeFetchedAt: {},
@@ -555,6 +585,9 @@ export const TopicViewerStore = signalStore(
         treeErrors: {},
         allTopicsDrained: false,
         memoSeq: store.memoSeq() + 1,
+        issueResolution: null,
+        resolveSeq: store.resolveSeq() + 1,
+        resolvedNodeNumber: null,
       });
     }
 
@@ -628,6 +661,71 @@ export const TopicViewerStore = signalStore(
       return p;
     }
 
+    // ── deep issue-number resolution (#1696) ────────────────────────────
+    // The orchestration lives in topic-viewer-deep-resolve.ts — the
+    // store keeps the trigger (setQuery's digit branch + debounce) and
+    // hands the module its surface through DeepResolveHost.
+
+    /** Debounce on the digit-query trigger — per-keystroke resolution
+     *  would hammer the callable while the user is still typing.
+     *  DestroyRef cleanup: a pending fire after teardown would patch a
+     *  dead store (spec teardown, route-away). */
+    const DEEP_RESOLVE_DEBOUNCE_MS = 350;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    inject(DestroyRef).onDestroy(() => {
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+    });
+
+    /** selectTopic's patch — a closure so the resolver can share it:
+     *  seed the root expanded (additive under all-topics so a resolution
+     *  can't collapse sibling trees), clear query-scoped suppressions. */
+    function doSelectTopic(number: number): void {
+      patchState(store, {
+        selectedTopicNumber: number,
+        expandedIds: store.showAllTopics()
+          ? [...new Set([...store.expandedIds(), number])]
+          : [number],
+        suppressedIds: [],
+      });
+    }
+
+    /** The seam into the deep-resolve module — signals as callables,
+     *  shared collaborators, the service's resolver wrapper as a
+     *  promise, and patchState forwarded. */
+    const deepResolveHost: DeepResolveHost = {
+      selectedRepo: () => store.selectedRepo(),
+      selectedTopicNumber: () => store.selectedTopicNumber(),
+      resolveSeq: () => store.resolveSeq(),
+      response: () => store.response(),
+      expandedIds: () => store.expandedIds(),
+      suppressedIds: () => store.suppressedIds(),
+      showClosed: () => store.showClosed(),
+      treeErrors: () => store.treeErrors(),
+      resolveLifecycleIssue$: (req) => firstValueFrom(
+        service.resolveLifecycleIssue$(req)),
+      ensureTopic,
+      selectRoot: doSelectTopic,
+      patch: (p) => patchState(store, p),
+    };
+
+    function resolveIssueNumber(issueNumber: number): Promise<void> {
+      return deepResolve(deepResolveHost, issueNumber);
+    }
+
+    /** Debounced trigger for digit queries (#1696 AC6) — a newer query
+     *  supersedes the pending timer AND any in-flight resolution via
+     *  resolveSeq. */
+    function scheduleResolve(issueNumber: number): void {
+      const seq = store.resolveSeq() + 1;
+      patchState(store, { resolveSeq: seq });
+      if (debounceTimer !== null) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        if (store.resolveSeq() === seq) void resolveIssueNumber(issueNumber);
+      }, DEEP_RESOLVE_DEBOUNCE_MS);
+    }
+
+
     /** Rebuild the queue from the CURRENT filtered set — only unfetched,
      *  not-in-flight topics. Runs on all-topics enable and on any filter
      *  change while it's enabled (top-up). */
@@ -688,18 +786,14 @@ export const TopicViewerStore = signalStore(
       },
 
       selectTopic(number: number): void {
-        // Seed the root expanded — depth-1 rows (threads) visible by
-        // default. In all-topics mode the seed is additive: reseeding
-        // would collapse every other rendered tree (#1532 review).
-        patchState(store, {
-          selectedTopicNumber: number,
-          expandedIds: store.showAllTopics()
-            ? [...new Set([...store.expandedIds(), number])]
-            : [number],
-          suppressedIds: [], // suppressions are scoped to the old tree's query
-        });
+        doSelectTopic(number);
         void ensureTopic(number); // subtree fetch — skeleton → tree (#1637)
       },
+
+      /** Deep issue-number resolution (#1696) — map lookup → navigate;
+       *  miss/stale → resolveLifecycleIssue fallback. setQuery's digit
+       *  branch calls this via the debounce; specs drive it directly. */
+      resolveIssueNumber,
 
       /** Index refetch → memo drop → refetch ONLY the rendered set
        *  (filtered topics in all-topics mode, the selection otherwise).
@@ -775,6 +869,39 @@ export const TopicViewerStore = signalStore(
           ...(q.trim() ? {} : { suppressedIds: [] }),
         });
         if (store.showAllTopics()) enqueueFiltered(); // top-up on filter change
+
+        // Deep digit resolution (#1696): fires only when no VISIBLE
+        // topic root already matches the number — root hits stay on the
+        // existing index predicate. Non-digit queries retire any
+        // resolution state and supersede in-flight work.
+        const n = deepResolveCandidate(q);
+        const cur = store.issueResolution();
+        if (n !== null && cur?.issueNumber === n
+            && (cur.phase === 'resolved' || cur.phase === 'resolving')) {
+          return; // same number already landed or in flight — retyping
+                  // is a no-op (a miss phase re-arms: the map may have
+                  // healed since)
+        }
+        if (n !== null
+            && !store.filteredTopics().some(t => t.number === n)) {
+          scheduleResolve(n);
+        } else {
+          // A pending debounce carries no issueResolution yet — clear it
+          // unconditionally or it fires under a superseding query (#1696
+          // review: '30' → '30x' inside 350ms used to still resolve #30).
+          const hadTimer = debounceTimer !== null;
+          if (debounceTimer !== null) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+          }
+          if (hadTimer || cur !== null || store.resolvedNodeNumber() !== null) {
+            patchState(store, {
+              resolveSeq: store.resolveSeq() + 1,
+              issueResolution: null,
+              resolvedNodeNumber: null,
+            });
+          }
+        }
       },
 
       setShowAllTopics(v: boolean): void {

@@ -92,6 +92,28 @@ describe('TopicViewerService', () => {
     // side without the other breaks the call silently at runtime.
     expect(CallableName.GET_LIFECYCLE_TOPIC_INDEX).toBe('getLifecycleTopicIndex');
     expect(CallableName.GET_LIFECYCLE_TOPIC_TREE).toBe('getLifecycleTopicTree');
+    expect(CallableName.RESOLVE_LIFECYCLE_ISSUE).toBe('resolveLifecycleIssue');
+  });
+
+  // ── issue-number deep search (task #1696) ──────────────────────────────
+
+  it('calls resolveLifecycleIssue with owner/repo/issueNumber and unwraps .data', async () => {
+    const payload = {
+      issue: {
+        number: 1696, title: 'FE-IMPL: deep search', state: 'open' as const,
+        url: 'https://github.com/rinebob/rel-str/issues/1696', labels: ['FE'],
+      },
+      path: [619, 1609, 1694, 1696],
+    };
+    callable.mockResolvedValue({ data: payload });
+    const res = await firstValueFrom(service.resolveLifecycleIssue$({
+      owner: 'rinebob', repo: 'rel-str', issueNumber: 1696,
+    }));
+    expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), CallableName.RESOLVE_LIFECYCLE_ISSUE);
+    expect(callable).toHaveBeenCalledWith({
+      owner: 'rinebob', repo: 'rel-str', issueNumber: 1696,
+    });
+    expect(res).toEqual(payload);
   });
 
   // ── label callables (task #1531) ─────────────────────────────────────────

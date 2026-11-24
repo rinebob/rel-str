@@ -18,7 +18,7 @@ import { NAV_MENU_ITEMS } from '../../core/common/constants';
 import { AppRoutes } from '../../core/common/interfaces';
 import CORE_ROUTES from '../../core/core-routes';
 import type { LifecycleNode, LifecycleTopic, LifecycleTreeResponse } from '@lifecycle/contracts';
-import type { AllTopicBlock, AllTopicsSection, TopicSortMode, TreeRow, VisibleTopics } from './topic-viewer.store';
+import type { AllTopicBlock, AllTopicsSection, IssueResolution, TopicSortMode, TreeRow, VisibleTopics } from './topic-viewer.store';
 
 // Children never carry `group` — the factory returns a plain LifecycleNode;
 // `topic` wraps it with the stamped group for the flat response surface.
@@ -67,6 +67,8 @@ describe('TopicViewerPageComponent', () => {
   const anyTreeError = signal(false);
   const selectedTreeLoading = signal(false);
   const selectedTreeError = signal<string | null>(null);
+  const issueResolution = signal<IssueResolution | null>(null);
+  const resolvedNodeNumber = signal<number | null>(null);
   const refresh = jest.fn(async () => undefined);
   const selectRepo = jest.fn(async () => undefined);
   const selectTopic = jest.fn();
@@ -101,6 +103,8 @@ describe('TopicViewerPageComponent', () => {
     anyTreeError.set(false);
     selectedTreeLoading.set(false);
     selectedTreeError.set(null);
+    issueResolution.set(null);
+    resolvedNodeNumber.set(null);
     TestBed.resetTestingModule();
   });
 
@@ -146,6 +150,10 @@ describe('TopicViewerPageComponent', () => {
             selectedTreeError,
             anyTreeLoading,
             anyTreeError,
+            // Deep-resolution state (#1696) — the header note + the tree
+            // child's resolved-row highlight both read these.
+            issueResolution,
+            resolvedNodeNumber,
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
             refresh, selectRepo, selectTopic, setShowClosed,
@@ -545,6 +553,67 @@ describe('TopicViewerPageComponent', () => {
   function resp2Empty(): LifecycleTreeResponse {
     return { topics: [], groupOrder: [], fetchedAt: 'x' };
   }
+  // ── deep-resolution note (#1696) ────────────────────────────────────
+
+  it('resolution-note is absent until a resolution is in play', async () => {
+    response.set(RESPONSE);
+    await setup();
+    expect(fixture.nativeElement.querySelector('[data-testid="resolution-note"]')).toBeNull();
+  });
+
+  it('resolving phase shows a scoped spinner + number — not a global block', async () => {
+    response.set(RESPONSE);
+    issueResolution.set({
+      issueNumber: 1696, phase: 'resolving', message: null, rootNumber: null,
+    });
+    await setup();
+    const note = fixture.nativeElement.querySelector('[data-testid="resolution-note"]')!;
+    expect(note.textContent).toContain('Resolving #1696');
+    expect(note.querySelector('[role="progressbar"]')).toBeTruthy();
+    expect(note.getAttribute('data-phase')).toBe('resolving');
+    // Scoped — the tree pane is untouched, no global overlay.
+    expect(fixture.nativeElement.querySelector('[data-testid="topic-1"]')).toBeTruthy();
+  });
+
+  it('resolved phase reports the owning root; hidden note surfaces too', async () => {
+    response.set(RESPONSE);
+    issueResolution.set({
+      issueNumber: 30, phase: 'resolved', rootNumber: 2,
+      message: 'Issue #30 sits under a closed ancestor — enable Show closed',
+    });
+    await setup();
+    const note = fixture.nativeElement.querySelector('[data-testid="resolution-note"]')!;
+    expect(note.textContent).toContain('#30');
+    expect(note.textContent).toContain('#2');
+    expect(note.textContent).toContain('Show closed');
+  });
+
+  it('not-in-tree phase shows the honest message, not a generic empty list', async () => {
+    response.set(RESPONSE);
+    issueResolution.set({
+      issueNumber: 77, phase: 'not-in-tree', rootNumber: null,
+      message: "Issue #77 — A standalone issue — isn't in a lifecycle tree",
+    });
+    await setup();
+    const note = fixture.nativeElement.querySelector('[data-testid="resolution-note"]')!;
+    expect(note.getAttribute('data-phase')).toBe('not-in-tree');
+    expect(note.textContent).toContain("isn't in a lifecycle tree");
+    expect(note.textContent).toContain('#77');
+  });
+
+  it("not-found phase reports the issue doesn't exist", async () => {
+    response.set(RESPONSE);
+    issueResolution.set({
+      issueNumber: 999999, phase: 'not-found', rootNumber: null,
+      message: "Issue #999999 doesn't exist in rinebob/rel-str",
+    });
+    await setup();
+    const note = fixture.nativeElement.querySelector('[data-testid="resolution-note"]')!;
+    expect(note.getAttribute('data-phase')).toBe('not-found');
+    expect(note.textContent).toContain("doesn't exist");
+  });
+
+
 });
 
 describe('TopicViewer route + nav (task #644)', () => {

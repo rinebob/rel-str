@@ -30,6 +30,7 @@ describe('TopicViewerTreeComponent', () => {
   const expandedIds = signal<number[]>([]);
   const showClosed = signal(true);
   const matchSet = signal<ReadonlySet<number>>(new Set());
+  const resolvedNodeNumber = signal<number | null>(null);
   // Mirrors the store's expandableIds: a node is expandable when it has at
   // least one *visible* child (all children pass when showClosed is on).
   const expandableIds = computed(() =>
@@ -43,6 +44,7 @@ describe('TopicViewerTreeComponent', () => {
     expandedIds.set([]);
     showClosed.set(true);
     matchSet.set(new Set());
+    resolvedNodeNumber.set(null);
     jest.clearAllMocks();
   });
 
@@ -59,6 +61,7 @@ describe('TopicViewerTreeComponent', () => {
           effectiveExpandedIds: expandedIds,
           showClosed, // specs control visibility via treeRows
           matchSet, // #1532 — query-hit highlight
+          resolvedNodeNumber, // #1696 — deep-resolution row highlight
         } },
       ],
     }).compileComponents();
@@ -191,5 +194,24 @@ describe('TopicViewerTreeComponent', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="tree-node-3"]')!.classList).toContain('match');
     expect(el.querySelector('[data-testid="tree-node-2"]')!.classList).not.toContain('match');
+  });
+
+  // ── #1696: resolved-node highlight (distinct from query .match) ──────
+
+  it('the resolved node carries .resolved — present alongside or without .match', async () => {
+    treeRows.set([
+      { node: node(2), depth: 0 },
+      { node: node(30), depth: 1 },
+      { node: node(31), depth: 1 },
+    ]);
+    resolvedNodeNumber.set(30);
+    await setup();
+    const el = fixture.nativeElement as HTMLElement;
+    const target = el.querySelector('[data-testid="tree-node-30"]')!;
+    expect(target.classList).toContain('resolved');
+    expect(el.querySelector('[data-testid="tree-node-31"]')!.classList)
+      .not.toContain('resolved');
+    expect(el.querySelector('[data-testid="tree-node-2"]')!.classList)
+      .not.toContain('resolved');
   });
 });

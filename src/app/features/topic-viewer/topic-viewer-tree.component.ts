@@ -26,6 +26,7 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
     @for (row of visibleRows(); track row.node.number) {
       <div class="tree-row" [class.closed]="row.node.state === 'closed'"
         [class.match]="isMatch(row.node.number)"
+        [class.resolved]="isResolved(row.node.number)"
         [style.padding-left.px]="row.depth * 20"
         [style.--guides]="row.depth * 20"
         [attr.data-testid]="'tree-node-' + row.node.number"
@@ -91,6 +92,15 @@ const NOISE_LABELS = new Set(['INTERNAL', 'FEATURE']);
     .tree-row.match:hover {
       background: color-mix(in srgb, var(--mat-sys-primary) 18%, transparent);
     }
+    /* Resolved node (#1696) — a tertiary ring + tint, distinct from the
+       primary match tint so a deep-search landing reads at a glance. */
+    .tree-row.resolved {
+      background: color-mix(in srgb, var(--mat-sys-tertiary) 14%, transparent);
+      box-shadow: inset 0 0 0 1.5px var(--mat-sys-tertiary);
+    }
+    .tree-row.resolved:hover {
+      background: color-mix(in srgb, var(--mat-sys-tertiary) 20%, transparent);
+    }
     /* Force the 24px box to truly center its icon on the guide line. */
     .caret {
       width: 24px; height: 24px; flex: none; padding: 0;
@@ -143,6 +153,12 @@ export class TopicViewerTreeComponent {
   /** Query-hit highlight — nodes in the store's matchSet render tinted. */
   protected isMatch(n: number): boolean {
     return this.store.matchSet().has(n);
+  }
+
+  /** Deep-resolution landing row (#1696) — the number a digit query
+   *  navigated to, highlighted with a ring distinct from .match. */
+  protected isResolved(n: number): boolean {
+    return this.store.resolvedNodeNumber() === n;
   }
 
   /** Effective expansion (manual ∪ match ancestors) — must match the
