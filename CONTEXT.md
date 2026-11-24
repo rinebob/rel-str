@@ -595,3 +595,8 @@ _Avoid_: currentValue (the legacy unsigned Σ lastMark — superseded), mark (th
 
 The cash flow at position open expressed in liquidation space — `−entryNetMark` (`shared/options-position-math.ts` `signedEntryPremium`): positive for credit structures (premium received), negative for debits (premium paid). The uniform P&L identity is `unrealizedPnl = signedEntryPremium + netMark = netMark − entryNetMark` — one formula for every posture, no credit/debit branching. Supersedes the unsigned `premiumCollected` convention (cash-in only, 0 for debits) for lifecycle math.
 _Avoid_: premiumCollected (unsigned legacy field — not a signed value), credit/debit (a posture label, not the number)
+
+## Canonical Variant Display Name
+
+The derived display string for a Manage Variant — `'{template name, lowercase} {dte} {optionΔs joined}'`, dte-first (e.g., `call debit spread 30 50-40`), produced by the single generator `variantDisplayName` (`shared/manage-variant-display.ts`, #1711). The generator derives only when the structure is truthful — template resolves, legs conform to its slots (arity + option/stock kind + credit/debit direction), one uniform `dte`, and every Δ renders canonically; otherwise the authored `variant.name` stands as the honest label (custom and malformed variants keep their name). Supersedes reading stored `name` strings at display seams — the fix for stored variants seeded with shuffled segments (`50-40 30`, deltas-first).
+_Avoid_: variant.name (the stored string — authoritative only as the fallback), suggestedName (the create dialog's private preview — a second impl slated to consume this generator in #1717)

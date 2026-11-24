@@ -39,6 +39,7 @@ Blocked by BE (marks/settle must write real data) and SHARED (contracts).
 - `src/app/features/savant-trader/stores/options-strategy-dashboard.store.ts` — population filtering, derived fields.
 - `src/app/features/savant-trader/services/options-strategy.types.ts` — contract fields (`currentValueAsOf`, signed premium semantics, leg detail shape).
 - Manage table (`options-strategy-manage` component area) — consumes `variantDisplayName`; Results dialog alignment on the signed numbers.
+- `manage-create-strategy.component.ts` `suggestedName` — a second, private implementation of the name convention; rebind it to `variantDisplayName` on a lite variant (legs from `legInputs`, not `name()` — reading `draftVariant` would cycle through `name()`'s suggestion effect).
 
 ## Contracts
 

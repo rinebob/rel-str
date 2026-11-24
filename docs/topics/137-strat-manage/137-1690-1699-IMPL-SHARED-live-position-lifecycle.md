@@ -42,7 +42,7 @@ Three shared contracts, all in `shared/` and consumed by both the BE passes and 
 - `unrealizedPnl(signedEntryPremium, netMark): number` — one line, pinned by specs for all four spread postures + naked strangle.
 - `signedEntryPremium(trade): number` — credit positive, debit negative — the field or derivation the position doc must expose.
 - `hasOptionLegs(trade): boolean` — the selection predicate; spec-pinned against signal stock trades (no legs → excluded) and manage/legacy option trades.
-- `variantDisplayName(idOrVariant): string` — segment-order-safe; `SPY-CDS-30-50-40` → "call debit spread 30-50 40" (spec-pinned round-trip: parse → render → re-parse).
+- `variantDisplayName(idOrVariant): string` — segment-order-safe; `SPY-CDS-30-50-40-ALL` → "call debit spread 30 50-40" (spec-pinned round-trip: parse → render → re-parse).
 
 ## Decisions
 
