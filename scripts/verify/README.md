@@ -100,6 +100,9 @@ deliberately, on-demand.
 | #1542 — SHARED Manage instance id generator | [strat-manage-instance-id-1542.md](strat-manage-instance-id-1542.md) | `@manage/instance-id` alias + grammar shape/normalization + seeded uniqueness + mode⇒stop + fail-closed rejects (diagonal, mismatched, hyphen) | `strat-manage-instance-id-1542.ts` (no credentials) |
 | #1539 — BE Manage instance reader + open-pass rework | [strat-manage-open-pass-1539.md](strat-manage-open-pass-1539.md) | reader validate/normalize + legacy skip + invariant rejects + `runManageOpenPass` e2e with injected fakes (2-leg chain resolution, dedup, cap, signal gate, stock-leg throw) | `strat-manage-open-pass-1539.ts` (no credentials) |
 | #1543 — BE Manage contract-list writer | [strat-manage-contract-list-1543.md](strat-manage-contract-list-1543.md) | `st-options-contract-lists/{instanceId}` create/append — v1 pick rows per leg (analysis-gate fields), same-index repeatsPrevious, synthetic pickDocMeta, NaN-not-0 missingness, pass seam tolerates append failure | `strat-manage-contract-list-1543.ts` (no credentials) |
+| #1544 — BE Manage exit-scan pass | [strat-manage-exit-scan-1544.md](strat-manage-exit-scan-1544.md) | `st-options-analysis-results/{instanceId}_{exitId}` — one doc per registry exit; signed net cost-to-close series (inner-join legs), exit/expired/open/error outcomes, missing-marks skip, SA series fetch (no RH session) | `strat-manage-exit-scan-1544.ts` (no credentials) |
+| #1545 — BE Manage manual open callable | [strat-manage-open-callable-1545.md](strat-manage-open-callable-1545.md) | `manageOpenPassManual` — auth + arg gates, not-found/not_active/non_paper skips, session-bound pass invoke, close-on-throw, `internal` error mapping | `strat-manage-open-callable-1545.ts` (no credentials) |
+| #1711 — SHARED Canonical variant identity | [strat-manage-variant-identity-1711.md](strat-manage-variant-identity-1711.md) | `parseManageInstanceId` typed-segment recovery + generate→parse→name round-trips for all catalog variants + `variantDisplayName` dte-first derivation (CDS shuffle fix) + derived===stored parity + honest fails | `strat-manage-variant-identity-1711.ts` (no credentials) |
 
 ## Run All
 
@@ -115,6 +118,3 @@ Runs every verification script in documented order and reports a pass/fail summa
 - Per-task guides: `scripts/verify/{domain}-{task-slug}.md`.
 - Runner: `scripts/verify/run-all.ts` — single invocation for all scripts.
 - Never wired into `npm test` or CI — these hit prod directly.
-
-| #1544 — BE Manage exit-scan pass | [strat-manage-exit-scan-1544.md](strat-manage-exit-scan-1544.md) | `st-options-analysis-results/{instanceId}_{exitId}` — one doc per registry exit; signed net cost-to-close series (inner-join legs), exit/expired/open/error outcomes, missing-marks skip, SA series fetch (no RH session) | `strat-manage-exit-scan-1544.ts` (no credentials) |
-| #1545 — BE Manage manual open callable | [strat-manage-open-callable-1545.md](strat-manage-open-callable-1545.md) | `manageOpenPassManual` — auth + arg gates, not-found/not_active/non_paper skips, session-bound pass invoke, close-on-throw, `internal` error mapping | `strat-manage-open-callable-1545.ts` (no credentials) |

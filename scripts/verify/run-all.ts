@@ -470,6 +470,11 @@ const scripts: VerifyScript[] = [
     needsAccount: false,
   },
   {
+    name: 'manage variant identity',
+    file: 'strat-manage-variant-identity-1711.ts',
+    needsAccount: false,
+  },
+  {
     name: 'manage open pass',
     file: 'strat-manage-open-pass-1539.ts',
     needsAccount: false,
