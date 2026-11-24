@@ -43,6 +43,7 @@ import {
   injectTriggerBandsData,
   convertTriggerBandsDotMarkers,
   UptickDotColors,
+  type ChartScatterPoint,
 } from '../../utils/chart-indicators';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type {
@@ -69,6 +70,7 @@ import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
   detectZoneUptickDots,
+  type UptickDotResult,
 } from '../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { aggregateDailyToTwoDay } from './two-day-bars';
 import {
@@ -189,6 +191,27 @@ export class FlexChartSandboxComponent implements OnDestroy {
     ...this.paramOverrides()[this.zigzagIndicatorId],
   }));
 
+  // ── Trend Rider dots params (#1679) ──────────────────────────────────────
+  // IBS gate params on the two dots options — they only affect the TWO_DAY
+  // path (client-side detection); D/W dots are backend markers (#1680
+  // covers their partition). One strip per enabled dots option.
+  readonly dotsParams = ST_ZONE_V1_UPTICK_DOTS_INDICATOR.params;
+  readonly dotsParamIndicators = computed(() =>
+    [ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR]
+      .filter((o) => this.enabledIndicators().has(o.id)),
+  );
+  readonly dotsValues = computed(() =>
+    Object.fromEntries(
+      [ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id, ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id].map((id) => [
+        id,
+        {
+          ...Object.fromEntries(this.dotsParams.map((p) => [p.key, p.default])),
+          ...this.paramOverrides()[id],
+        },
+      ]),
+    ),
+  );
+
   @ViewChild('indicatorPicker') private indicatorPicker?: ElementRef<HTMLDetailsElement>;
   private readonly flexChart = viewChild(FlexChartComponent);
 
@@ -217,19 +240,31 @@ export class FlexChartSandboxComponent implements OnDestroy {
 
   /** Trend Rider dots computed on the 2D bars — zones come from the
    *  client-side engines and the zone series doubles as its own window
-   *  context, mirroring the backend detection call (windowV2 = zone). */
+   *  context, mirroring the backend detection call (windowV2 = zone).
+   *  #1679: the IBS gate partitions emitted vs suppressed; the threshold
+   *  + ghost toggle come from the indicator's paramOverrides. */
   private readonly twoDayUptickDotsV1 = computed(() => this.twoDayUptickDots(true));
   private readonly twoDayUptickDotsV2 = computed(() => this.twoDayUptickDots(false));
 
-  private twoDayUptickDots(v1: boolean): { x: Date; y: number; color: string }[] {
+  private twoDayUptickDots(v1: boolean): UptickDotResult {
     const bars = this.twoDayBars();
-    if (bars.length === 0) return [];
+    if (bars.length === 0) return { emitted: [], suppressed: [] };
     const zone = (v1 ? calculateStZone : calculateStZoneV2)(bars, {});
+    const id = v1 ? ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id : ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id;
+    const ov = this.paramOverrides()[id];
     return detectZoneUptickDots(
       zone, zone, bars,
       v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long,
       v1 ? UptickDotColors.v1Short : UptickDotColors.v2Short,
+      { threshold: typeof ov?.['ibsThreshold'] === 'number' ? ov['ibsThreshold'] : undefined },
     );
+  }
+
+  /** Ghost-dot sets, gated by the indicator's showSuppressedSignals param. */
+  private twoDaySuppressed(v1: boolean): ChartScatterPoint[] | undefined {
+    const id = v1 ? ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id : ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id;
+    if (this.paramOverrides()[id]?.['showSuppressedSignals'] !== true) return undefined;
+    return (v1 ? this.twoDayUptickDotsV1() : this.twoDayUptickDotsV2()).suppressed;
   }
 
   readonly chartData = computed<FlexChartDataset | null>(() => {
@@ -368,8 +403,10 @@ export class FlexChartSandboxComponent implements OnDestroy {
             ? addChartExtras(base, {
                 // No backend-fed extras exist for 2D — trend-rider dots are
                 // computed locally on the aggregated bars.
-                uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV1() : undefined,
-                uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV2() : undefined,
+                uptickDotsV1: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV1().emitted : undefined,
+                uptickDotsV2: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.twoDayUptickDotsV2().emitted : undefined,
+                uptickDotsV1Suppressed: has(ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id) ? this.twoDaySuppressed(true) : undefined,
+                uptickDotsV2Suppressed: has(ST_ZONE_V2_UPTICK_DOTS_INDICATOR.id) ? this.twoDaySuppressed(false) : undefined,
                 triggerBandsDots: tbDots,
               })
             : interval === ChartIntervalKey.MONTHLY

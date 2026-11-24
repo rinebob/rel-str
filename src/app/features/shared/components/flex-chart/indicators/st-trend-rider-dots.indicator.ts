@@ -12,9 +12,19 @@
  * Short (Zone V2 < 0): zone was rising/flat while already ≤ -1, then downticks once → signal.
  *   No repeat until zone rises or goes flat again, then downticks.
  *
+ * IBS GATE (#1679)
+ * ----------------
+ * With `ibs` passed, each candidate is partitioned by its signal bar's IBS:
+ * long needs ibs ≥ threshold, short ibs ≤ 1−threshold (inclusive, same
+ * Number.EPSILON guard as the BE gate in signal-detection.ts). Suppressed
+ * candidates still consume the state's only shot — suppression is
+ * emission-only, identical to the backend. Omit `ibs` for the unfiltered
+ * candidate set (every candidate emits).
+ *
  * DATA FLOW
  * ---------
- * Pre-computed in signal-detail using:
+ * The only runtime caller is the flex-chart sandbox's TWO_DAY path
+ * (prod surfaces consume backend `dotMarkers`, not this function):
  *   1. LTF zone data (V1 or V2) — from calculator
  *   2. Zone V2 same-timeframe data — for ST Trend Rider window open check
  *   3. LTF price bars — for dot Y placement (high/low ± ATR offset)
@@ -22,17 +32,27 @@
 
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
+import { computeIbs, type IbsAvailabilityContext } from '@st/ibs';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
 // =============================================================================
+
+/** IBS gate params shared by both uptick-dots indicators (#1679).
+ *  `showSuppressedSignals` renders IBS-rejected candidates as ghost dots;
+ *  `ibsThreshold` is display-eval only — the BE truth lives in
+ *  StrategyConfig.ibsThreshold. */
+const UPTICK_DOTS_IBS_PARAMS: IndicatorOption['params'] = [
+  { key: 'showSuppressedSignals', label: 'Show Suppressed Signals', default: false },
+  { key: 'ibsThreshold', label: 'IBS Threshold', default: 0.5, min: 0, max: 1, input: 'number' },
+];
 
 export const ST_ZONE_V1_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   id: 'st-zone-v1-uptick-dots',
   label: 'ST Trend Rider V1',
   type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
-  params: [],
+  params: [...UPTICK_DOTS_IBS_PARAMS],
   defaultOptions: {
     name: 'ST Trend Rider V1',
   },
@@ -43,7 +63,7 @@ export const ST_ZONE_V2_UPTICK_DOTS_INDICATOR: IndicatorOption = {
   label: 'ST Trend Rider V2',
   type: StIndicator.ZONE_UPTICK_DOTS,
   defaultPane: 'overlay',
-  params: [],
+  params: [...UPTICK_DOTS_IBS_PARAMS],
   defaultOptions: {
     name: 'ST Trend Rider V2',
   },
@@ -57,6 +77,25 @@ export interface UptickDotPoint {
   x: Date;
   y: number;
   color: string;
+}
+
+/** #1679 — emitted/suppressed partition of detected uptick dots. Emitted
+ *  dots render exactly as the legacy flat list did; suppressed points are
+ *  IBS-rejected candidates carrying identical placement math — consumers
+ *  render them as ghosts only when `showSuppressedSignals` is on. */
+export interface UptickDotResult {
+  emitted: UptickDotPoint[];
+  suppressed: UptickDotPoint[];
+}
+
+/** Display-side IBS gate config (#1679) — mirrors the BE `IbsGateConfig`
+ *  shape: `threshold` matches StrategyConfig.ibsThreshold semantics (long
+ *  needs ≥ T, short ≤ 1−T, inclusive) and the inherited availability
+ *  fields let a caller pin `now`/activation for specs and replay — wall
+ *  clock + default activation when omitted, same as the BE gate. Omit the
+ *  whole `ibs` argument for the unfiltered candidate set. */
+export interface UptickDotsIbsConfig extends IbsAvailabilityContext {
+  threshold?: number;
 }
 
 /**
@@ -114,6 +153,9 @@ function buildDotPlacementContext(bars: PriceBar[]): DotPlacementContext {
  * @param ltfBars      - LTF price bars
  * @param longColor    - Dot color for long signals
  * @param shortColor   - Dot color for short signals
+ * @param ibs          - Optional IBS gate config; omit for the unfiltered set
+ * @returns            - `{ emitted, suppressed }` — identical placement math,
+ *                       suppressed = IBS-rejected candidates for ghost rendering
  */
 export function detectZoneUptickDots(
   ltfZoneData: { x: Date; y: number }[],
@@ -121,8 +163,30 @@ export function detectZoneUptickDots(
   ltfBars: PriceBar[],
   longColor: string,
   shortColor: string,
-): UptickDotPoint[] {
-  if (ltfZoneData.length === 0 || htfZoneData.length === 0 || ltfBars.length === 0) return [];
+  ibs?: UptickDotsIbsConfig,
+): UptickDotResult {
+  if (ltfZoneData.length === 0 || htfZoneData.length === 0 || ltfBars.length === 0) {
+    return { emitted: [], suppressed: [] };
+  }
+  const ibsThreshold = ibs?.threshold ?? 0.5;
+  /** Signal-bar IBS for the gate — undefined (uncomputable or unavailable
+   *  under the activation clock) passes the candidate through, matching
+   *  the BE gate in signal-detection.ts. 'D' availability semantics
+   *  apply to any bar granularity the caller feeds. The finite guard
+   *  mirrors the BE one — malformed OHLC can't gate (NaN would otherwise
+   *  fail both comparisons and suppress where BE emits). */
+  const barIbs = (bar: PriceBar): number | undefined => {
+    if (ibs === undefined) return undefined;
+    const { high, low, close } = bar;
+    if (!Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) {
+      return undefined;
+    }
+    return computeIbs(
+      { high, low, close, date: bar.date },
+      'D',
+      { now: ibs.now, activateAtEtMin: ibs.activateAtEtMin, activateAtWeekday: ibs.activateAtWeekday },
+    );
+  };
 
   // Build bar lookup + ATR offset context
   const { barMap, atr } = buildDotPlacementContext(ltfBars);
@@ -144,7 +208,8 @@ export function detectZoneUptickDots(
     return val;
   }
 
-  const dots: UptickDotPoint[] = [];
+  const emitted: UptickDotPoint[] = [];
+  const suppressed: UptickDotPoint[] = [];
 
   // State machine
   // For longs: READY means zone was falling/flat, FIRED means uptick already signalled
@@ -174,8 +239,11 @@ export function detectZoneUptickDots(
       if (delta > 0) {
         // Zone upticked — only valid if the prior value was already above zero (≥ +1)
         if (longState === 'READY' && prevZone >= 1) {
-          // First valid uptick → signal
-          dots.push({
+          // First valid uptick → candidate; IBS gate partitions the dot.
+          // Suppression is emission-only — FIRED is consumed either way,
+          // so a suppressed uptick can't double-fire on the next delta.
+          const v = barIbs(bar);
+          (v === undefined || v >= ibsThreshold ? emitted : suppressed).push({
             x: bar.x,
             y: bar.low - offset,
             color: longColor,
@@ -198,8 +266,10 @@ export function detectZoneUptickDots(
       if (delta < 0) {
         // Zone downticked — only valid if the prior value was already below zero (≤ -1)
         if (shortState === 'READY' && prevZone <= -1) {
-          // First valid downtick → signal
-          dots.push({
+          // First valid downtick → candidate; short bound mirrors the BE
+          // gate (≤ 1−T, EPSILON ulp guard for the float complement).
+          const v = barIbs(bar);
+          (v === undefined || v <= 1 - ibsThreshold + Number.EPSILON ? emitted : suppressed).push({
             x: bar.x,
             y: bar.high + offset,
             color: shortColor,
@@ -218,5 +288,5 @@ export function detectZoneUptickDots(
     }
   }
 
-  return dots;
+  return { emitted, suppressed };
 }

@@ -15,6 +15,7 @@ export {
   addHtfZoneWindow,
   addSignalDots,
   addUptickDots,
+  addSuppressedDots,
   addTriggerBandsDots,
   addChartExtras,
   UptickDotColors,

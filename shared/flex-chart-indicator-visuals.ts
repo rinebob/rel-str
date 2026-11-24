@@ -67,6 +67,21 @@ export const ST_UPTICK_DOT_COLORS = {
   v2Short: '#ff9800',
 } as const;
 
+/** #1679 — IBS-suppressed uptick dots render as "ghosts" of the real
+ *  signal: same hue at ~35% opacity (the scatter renderer has no
+ *  per-point hollow/outline channel, so the suppressed series dims via
+ *  per-point color). Hex-8 alpha derivation keeps hue parity structural —
+ *  a solid color change tracks automatically. Keyed on the solid
+ *  `ST_UPTICK_DOT_COLORS` values so the base-indicators mapper can look
+ *  the ghost color up by the candidate's own color. */
+const SUPPRESSED_ALPHA = '59'; // 89/255 ≈ 0.35
+export const ST_SUPPRESSED_DOT_COLORS: Record<string, string> = {
+  [ST_UPTICK_DOT_COLORS.v1Long]: ST_UPTICK_DOT_COLORS.v1Long + SUPPRESSED_ALPHA,
+  [ST_UPTICK_DOT_COLORS.v1Short]: ST_UPTICK_DOT_COLORS.v1Short + SUPPRESSED_ALPHA,
+  [ST_UPTICK_DOT_COLORS.v2Long]: ST_UPTICK_DOT_COLORS.v2Long + SUPPRESSED_ALPHA,
+  [ST_UPTICK_DOT_COLORS.v2Short]: ST_UPTICK_DOT_COLORS.v2Short + SUPPRESSED_ALPHA,
+};
+
 /** Trend-strength signal dots (lower-1) — signal-marker-converters. */
 export const ST_SIGNAL_DOT_COLORS = {
   long: '#4caf50',

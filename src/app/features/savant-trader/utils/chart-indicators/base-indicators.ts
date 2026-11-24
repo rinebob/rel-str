@@ -13,7 +13,7 @@ import { ST_SIGNAL_DOTS_INDICATOR } from '../../../../features/shared/components
 import { ST_TRIGGER_BANDS_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trigger-bands.indicator';
 import { ST_ZONE_V1_UPTICK_DOTS_INDICATOR, ST_ZONE_V2_UPTICK_DOTS_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
 import { ST_ZONE_WINDOW_MONTHLY_INDICATOR, ST_ZONE_WINDOW_WEEKLY_INDICATOR } from '../../../../features/shared/components/flex-chart/indicators/st-zone-window.indicator';
-import { ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
+import { ST_SUPPRESSED_DOT_COLORS, ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
 
 /** Single scatter/dot point used for signal dots, uptick dots, and HTF window markers. */
 export type ChartScatterPoint = { x: Date; y: number; color?: string; index?: number };
@@ -131,6 +131,26 @@ export function addUptickDots(
   return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
+/** Add IBS-suppressed Trend Rider dots as a parallel ghost series
+ *  (#1679). Suppressed points keep their candidate's placement + side
+ *  color — this builder remaps each point's color through
+ *  ST_SUPPRESSED_DOT_COLORS so the series renders dimmed. Distinct id
+ *  (`${option.id}-suppressed`) keeps it a sibling, never a merge, of the
+ *  emitted series. */
+export function addSuppressedDots(
+  indicators: IndicatorConfig[],
+  option: IndicatorOption,
+  data: ChartScatterPoint[],
+): IndicatorConfig[] {
+  if (data.length === 0) return indicators;
+  const cfg = buildDefaultConfig(option);
+  cfg.id = `${cfg.id}-suppressed`;
+  cfg.options = { ...cfg.options, name: `${option.defaultOptions?.name ?? option.label} (suppressed)` };
+  cfg.pane = 'overlay';
+  cfg.data = data.map(p => ({ ...p, color: ST_SUPPRESSED_DOT_COLORS[p.color ?? ''] ?? p.color }));
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
+}
+
 /** Add the Trigger Bands pullback/breakout dots, returning a new indicator list. Upserts by id. */
 export function addTriggerBandsDots(
   indicators: IndicatorConfig[],
@@ -149,10 +169,15 @@ export interface ChartExtras {
   signalDots?: ChartScatterPoint[];
   uptickDotsV1?: ChartScatterPoint[];
   uptickDotsV2?: ChartScatterPoint[];
+  /** #1679 — IBS-suppressed candidates per version; only populated when
+   *  the consumer's `showSuppressedSignals` param is on. */
+  uptickDotsV1Suppressed?: ChartScatterPoint[];
+  uptickDotsV2Suppressed?: ChartScatterPoint[];
   triggerBandsDots?: ChartScatterPoint[];
 }
 
-/** Conditionally add HTF windows, signal dots, and uptick dots, returning a new indicator list. */
+/** Conditionally add HTF windows, signal dots, uptick dots, and their
+ *  IBS-suppressed ghost siblings, returning a new indicator list. */
 export function addChartExtras(
   indicators: IndicatorConfig[],
   extras: ChartExtras,
@@ -169,6 +194,12 @@ export function addChartExtras(
   }
   if (extras.uptickDotsV2) {
     result = addUptickDots(result, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, extras.uptickDotsV2);
+  }
+  if (extras.uptickDotsV1Suppressed) {
+    result = addSuppressedDots(result, ST_ZONE_V1_UPTICK_DOTS_INDICATOR, extras.uptickDotsV1Suppressed);
+  }
+  if (extras.uptickDotsV2Suppressed) {
+    result = addSuppressedDots(result, ST_ZONE_V2_UPTICK_DOTS_INDICATOR, extras.uptickDotsV2Suppressed);
   }
   if (extras.triggerBandsDots) {
     result = addTriggerBandsDots(result, extras.triggerBandsDots);

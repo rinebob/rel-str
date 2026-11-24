@@ -162,6 +162,37 @@
     </div>
   }
 
+  @for (opt of dotsParamIndicators(); track opt.id) {
+    <div class="params-strip" [attr.data-testid]="'dots-params-' + opt.id">
+      <span class="params-strip-title">{{ opt.label }} dots <small>(2D only)</small></span>
+      @for (p of dotsParams; track p.key) {
+        @if (typeof p.default === 'boolean') {
+          <label class="field">
+            <input
+              type="checkbox"
+              [attr.data-testid]="'dots-' + opt.id + '-' + p.key"
+              [checked]="dotsValues()[opt.id]?.[p.key]"
+              (change)="onParam(opt.id, p, $event)"
+            />
+            {{ p.label }}
+          </label>
+        } @else {
+          <label class="field">
+            {{ p.label }}
+            <input
+              [type]="p.input ?? 'text'"
+              [attr.data-testid]="'dots-' + opt.id + '-' + p.key"
+              [attr.min]="p.min ?? null"
+              [attr.max]="p.max ?? null"
+              [value]="dotsValues()[opt.id]?.[p.key]"
+              (change)="onParam(opt.id, p, $event)"
+            />
+          </label>
+        }
+      }
+    </div>
+  }
+
   <div class="debug-readout" data-testid="debug-readout">
     <span data-testid="dbg-source">source: {{ debugSourceText() }}</span>
     <span data-testid="dbg-scale">scale: {{ logScale() ? 'log' : 'linear' }}</span>

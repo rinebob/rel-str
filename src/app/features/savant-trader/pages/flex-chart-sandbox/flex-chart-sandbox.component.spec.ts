@@ -25,6 +25,12 @@ jest.mock('@angular/fire/auth', () => ({
   Auth: class {},
   authState: jest.fn(() => of({ uid: 'user-123' })),
 }));
+// #1679 — the 2D detection seam is mocked so the params-strip →
+// suppressed-series plumbing is pinned without fabricating zone fixtures.
+jest.mock('../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator', () => {
+  const actual = jest.requireActual('../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator');
+  return { ...actual, detectZoneUptickDots: jest.fn(actual.detectZoneUptickDots) };
+});
 
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -62,6 +68,8 @@ import {
 } from './avwap-settings-dialog.component';
 import { SANDBOX_SETTINGS_KEY, SANDBOX_SETTINGS_VERSION } from './sandbox-settings';
 import { SYNTHETIC_BAR_COUNT } from './synthetic-data';
+import { detectZoneUptickDots } from '../../../shared/components/flex-chart/indicators/st-trend-rider-dots.indicator';
+import { ST_SUPPRESSED_DOT_COLORS, ST_UPTICK_DOT_COLORS } from '@flex-chart/indicator-visuals';
 import CORE_ROUTES from '../../../../core/core-routes';
 import { AppRoutes } from '../../../../core/common/interfaces';
 import { authGuard } from '../../../../core/auth/auth.guard';
@@ -832,6 +840,113 @@ describe('ZigZag bespoke params (#935)', () => {
 
     setInput(fixture, 'zigzag-rightDepth', '');
     expect(zigzagConfig(chart)!.params['rightDepth']).toBe(5);
+  });
+});
+
+// =============================================================================
+// Trend Rider dots params strip + suppressed ghosts — Topic #261 / Task #1679
+//
+// Same strip pattern as ZigZag: one params strip per enabled dots option,
+// committing through the shared paramOverrides map. The IBS gate +
+// suppressed ghost series only run on the TWO_DAY path — the mocked
+// detectZoneUptickDots pins that seam without zone fixtures.
+// =============================================================================
+
+describe('Trend Rider dots params + suppressed ghosts (#1679)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const V1 = 'st-zone-v1-uptick-dots';
+  const SUPPRESSED_V1 = `${V1}-default-suppressed`;
+  const detectMock = detectZoneUptickDots as jest.Mock;
+
+  /** The dots option ships enabled in the default suite — drive the picker
+   *  checkbox to a known state instead of blindly clicking. */
+  function setDots(fixture: ComponentFixture<FlexChartSandboxComponent>, on: boolean): void {
+    const box = fixture.nativeElement.querySelector(`[data-testid="ind-${V1}"]`) as HTMLInputElement;
+    if (box.checked !== on) {
+      box.click();
+      fixture.detectChanges();
+    }
+  }
+
+  function toTwoDay(fixture: ComponentFixture<FlexChartSandboxComponent>): void {
+    fixture.nativeElement.querySelector('[data-testid="interval-two-day"]').click();
+    fixture.detectChanges();
+  }
+
+  it('shows the params strip only while the dots indicator is enabled', async () => {
+    const { fixture } = await setup();
+    const strip = () => fixture.nativeElement.querySelector(`[data-testid="dots-params-${V1}"]`);
+    setDots(fixture, true);
+    expect(strip()).toBeTruthy();
+    setDots(fixture, false);
+    expect(strip()).toBeNull();
+    setDots(fixture, true);
+    expect(strip()).toBeTruthy();
+  });
+
+  it('showSuppressedSignals + ibsThreshold controls commit through paramOverrides', async () => {
+    const { fixture } = await setup();
+    setDots(fixture, true);
+    const box = fixture.nativeElement.querySelector(
+      `[data-testid="dots-${V1}-showSuppressedSignals"]`,
+    ) as HTMLInputElement;
+    expect(box.type).toBe('checkbox');
+    expect(box.checked).toBe(false); // declared default
+
+    box.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.paramOverrides()[V1]?.['showSuppressedSignals']).toBe(true);
+
+    box.click();
+    fixture.detectChanges();
+    // back to default → override cleared
+    expect(fixture.componentInstance.paramOverrides()[V1]?.['showSuppressedSignals']).toBeUndefined();
+  });
+
+  it('the threshold field clamps to [0,1] and reaches the detection call', async () => {
+    const { fixture } = await setup();
+    setDots(fixture, true);
+    toTwoDay(fixture);
+    const input = fixture.nativeElement.querySelector(
+      `[data-testid="dots-${V1}-ibsThreshold"]`,
+    ) as HTMLInputElement;
+    input.value = '0.7';
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.paramOverrides()[V1]?.['ibsThreshold']).toBe(0.7);
+    // V1's call carries the override; V2's stays at its default (undefined).
+    expect(detectMock.mock.calls.map((c) => c[5]?.threshold)).toContain(0.7);
+
+    input.value = '2'; // over max → clamps to 1
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(detectMock.mock.calls.map((c) => c[5]?.threshold)).toContain(1);
+  });
+
+  it('2D + showSuppressedSignals renders the ghost series; off keeps it out', async () => {
+    const emitted = { x: new Date('2026-01-09T00:00:00Z'), y: 88, color: ST_UPTICK_DOT_COLORS.v1Long };
+    const suppressed = { x: new Date('2026-01-11T00:00:00Z'), y: 87, color: ST_UPTICK_DOT_COLORS.v1Long };
+    detectMock.mockReturnValue({ emitted: [emitted], suppressed: [suppressed] });
+    const { fixture, chart } = await setup();
+    setDots(fixture, true);
+    toTwoDay(fixture);
+
+    // Toggle off → no ghost series.
+    expect(chart.config!.indicators.some((i) => i.id === SUPPRESSED_V1)).toBe(false);
+
+    (fixture.nativeElement.querySelector(
+      `[data-testid="dots-${V1}-showSuppressedSignals"]`,
+    ) as HTMLInputElement).click();
+    fixture.detectChanges();
+
+    const ghost = chart.config!.indicators.find((i) => i.id === SUPPRESSED_V1);
+    expect(ghost).toBeTruthy();
+    const data = ghost!.data as { x: Date; y: number; color: string }[];
+    expect(data).toHaveLength(1);
+    expect(data[0].x).toEqual(suppressed.x);
+    expect(data[0].y).toBe(suppressed.y);
+    expect(data[0].color).toBe(ST_SUPPRESSED_DOT_COLORS[ST_UPTICK_DOT_COLORS.v1Long]);
   });
 });
 
