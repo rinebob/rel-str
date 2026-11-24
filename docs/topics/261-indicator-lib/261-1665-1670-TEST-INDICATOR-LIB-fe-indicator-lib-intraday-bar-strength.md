@@ -62,3 +62,9 @@
 - `npx jest` scoped to `st-trend-rider-dots` + `chart-indicators` + `flex-chart-sandbox` specs.
 - `npx tsc --noEmit` (app) — `UptickDotResult` compat across all callers.
 - Sandbox manual pass per the E2E journey.
+
+## As-built corrections (added at #1679 review, 2026-11-23)
+
+- **E2E journey (corrected)**: the suppressed partition only exists on the sandbox's **2D interval** — D/W dots are backend `dotMarkers` (ungated by design; #1680 supplies the partition). Journey: `/dev/flex-chart` → real mode → symbol loads daily bars → click **2D** → enable ST Trend Rider V1/V2 (on by default) → in the `ST Trend Rider V1 dots (2D only)` params strip check **Show Suppressed Signals** → ghost dots appear at suppressed candidates alongside solid emitted dots; uncheck → ghosts gone. **IBS Threshold** field changes the gate live.
+- **Integration seam tested differently**: no prod caller of `detectZoneUptickDots` exists; the sandbox spec mocks it at the module seam and pins `paramOverrides → twoDaySuppressed → addChartExtras → config` end-to-end (ghost series id, remapped color, placement identity).
+- **Gate-active specs pin `now`** — a fixed date after the fixtures so IBS is always computable; availability specs inject their own `now` (never fake the clock).

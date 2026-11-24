@@ -32,6 +32,9 @@
 - [Paper Trading Infra] 553-1652_BE-CHORE-PAPER-TRADING: Verify registration — run-all + README (#1652 row + order entry 68; DRY stage run-all safe, --live needs ADC read-only)
 - [Paper Trading Infra] 553-1652_DOCS-PAPER-TRADING: CODE-REVIEW (PASS — 2 passes; in-gate fixes: shared refusal predicate export + .devin/tmp flip path) + UAT (Complete, #1700 — S1–S5 green; flip read-back, 7/7 verify, discrimination proven pre/post-flip 5/2 → 7/0) + changelog
 
+- [Trading Indicator Library] 261-1679_FE-IMPL-INDICATOR-LIB: IBS gate in detectZoneUptickDots + suppressed ghost dots (Thread #1665) — UptickDotResult {emitted,suppressed} + trailing ibs?: UptickDotsIbsConfig extends IbsAvailabilityContext (BE IbsGateConfig parity); long ibs >= T / short <= 1-T+EPSILON inclusive, undefined/non-finite pass-through; suppression emission-only (FIRED consumed); showSuppressedSignals + ibsThreshold params (false/0.5 defaults) on both dots options; ST_SUPPRESSED_DOT_COLORS hex-8 ghost map; addSuppressedDots -suppressed sibling series + ChartExtras suppressed fields; sandbox sole-caller updated + dots-params-{id} strip (IMPL 5 toggle delivered); 13+3+4 new specs
+- [Trading Indicator Library] 261-1679_DOCS-INDICATOR-LIB: CODE-REVIEW (PASS — 3 axes; 4 majors remediated in-gate: vacuous FIRED spec, wall-clock specs, missing param UI writer, caller-premise drift; minors: finite guard, hex-8 ghosts, ctx extension, JSDoc/barrel/imports) + UAT (Complete, #1702 — S1–S8; dev-sandbox 2D surface; D/W ghosts deferred to #1680) + IMPL/TEST as-built notes + changelog
+
 ## [2026-11-22]
 
 ### Added

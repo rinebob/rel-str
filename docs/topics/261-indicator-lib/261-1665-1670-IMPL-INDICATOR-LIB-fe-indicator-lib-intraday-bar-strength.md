@@ -104,3 +104,13 @@ The derived-signal bundle carries `uptickDotsV1`/`uptickDotsV2` today; extend wi
 - **Return-type ripple** — `UptickDotResult` touches several chart callers; all must be updated in the same task or dots silently disappear (compile error actually — acceptable blast radius, TS catches it).
 - **Threshold display vs BE truth** — a user could set FE `ibsThreshold: 0.7` while BE emits at `0.5` → chart shows suppression where the store has signals. Mitigate: label/doc the param as display-eval; default matches BE.
 - **`now` under jest fake timers** — availability specs must inject `now` via the param, never fake the clock (AGENTS.md: no `jasmine.clock`, `jest.useFakeTimers` + `setTimeout` flush hangs).
+
+## As-built notes (added at #1679 review, 2026-11-23)
+
+- **Caller premise corrected**: `detectZoneUptickDots` has exactly ONE runtime caller — the flex-chart sandbox's TWO_DAY path. `extras-signals.ts`, signal-detail, quick-charts, and the gallery/position-card charts consume backend `dotMarkers` via `convertZoneDotMarkers`, never this function (the #318-320 review had already flagged it as near-dead). `extras-signals.ts` is therefore untouched — there is no suppressed data to thread on D/W.
+- **D/W suppressed markers**: impossible in #1679 — the BE marker path is deliberately the ungated candidate view (zero-OHLC shim, can't compute IBS). Data-source work is #1680's scope; the new `ChartExtras.uptickDotsV{1,2}Suppressed` fields + `addSuppressedDots` are the generic machinery ready to receive it.
+- **§1 `step: 0.05`**: `IndicatorParamDef` has no `step` field — shipped `input:'number'` + `min`/`max` (clamped by `onParam`/`sanitizeParamValue`).
+- **§1 "daily-only today"**: the sole caller feeds 2-day aggregated bars; the `'D'` availability literal is still correct (a pair's end date carries the developing-bar semantics).
+- **§5 toggle**: delivered as a ZigZag-pattern params strip (`dots-params-{id}`) — one strip per enabled dots option, committing through `paramOverrides` → `onParam`. Reachable now, not deferred.
+- **Suppressed visuals**: ghost colors derived structurally (`solid + hex-8 '59'` ≈ 35% alpha) via `ST_SUPPRESSED_DOT_COLORS`, keyed on the solid color — not literal rgba copies.
+- **Gate config**: `UptickDotsIbsConfig extends IbsAvailabilityContext` — mirrors the BE `IbsGateConfig` shape so activation overrides can be mirrored; `barIbs` carries the BE non-finite-OHLC guard (uncomputable → pass-through, never suppressed).
