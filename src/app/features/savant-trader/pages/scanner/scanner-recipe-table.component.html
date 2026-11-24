@@ -185,7 +185,7 @@
     @if (chartCtl.active(); as cp) {
       <ng-template
         cdkConnectedOverlay
-        [cdkConnectedOverlayOrigin]="cp.origin"
+        [cdkConnectedOverlayOrigin]="cp.overlayOrigin"
         [cdkConnectedOverlayOpen]="true"
         [cdkConnectedOverlayPositions]="chartCtl.positions"
         [cdkConnectedOverlayScrollStrategy]="chartCtl.scrollStrategy"

@@ -5,13 +5,14 @@
  * visibility, all wire fields as columns, percent/blank formatting,
  * tracked badge, dedupe, and the click-cycle multi-sort.
  */
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 
 import { ScannerRecipeTableComponent } from './scanner-recipe-table.component';
 import { ChartPopupController } from './chart-popup.controller';
+import { ScannerChartStore } from '../../stores/scanner-chart.store';
 import type { RecipeRunState } from '../../stores/scanner.store';
 import {
   SCANNER_RECIPES,
@@ -123,6 +124,18 @@ describe('ScannerRecipeTableComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         provideRouter([]),
+        // The popup injects ScannerChartStore (#1308) — stub it or DI
+        // would pull the real MCP/HttpClient graph when a popup opens.
+        {
+          provide: ScannerChartStore,
+          useValue: {
+            bars: signal<Record<string, unknown[]>>({}),
+            loading: signal<Record<string, boolean>>({}),
+            error: signal<Record<string, unknown>>({}),
+            ensureBars: jest.fn(),
+            clearError: jest.fn(),
+          },
+        },
       ],
     }).compileComponents();
   });

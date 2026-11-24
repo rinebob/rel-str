@@ -3,7 +3,8 @@
  *
  * ChartPopupController — the recipe table's `show_chart` overlay
  * lifecycle, extracted so the table stays a dumb renderer. Same role
- * DelegatedCellHover plays for the chain grid (#965): anchored open,
+ * DelegatedCellHover plays for the chain grid (#965): viewport-centered
+ * open (#1308 — the chart body overflows button-anchored placement),
  * delayed-close grace for pointer travel, focus guards, and teardown
  * when the reset source re-emits (rows re-emit on recipe switch,
  * filtered-out rows, refresh churn, and the error-status unmount).
@@ -20,10 +21,18 @@ import { Overlay, type ConnectedPosition } from '@angular/cdk/overlay';
 import type { ScanRow } from '../../utils/scanner-rows.util';
 import type { ScannerChartPopupComponent } from './scanner-chart-popup.component';
 
-/** The open popup's row + anchor button. */
+/** The open popup's row, anchor button, and overlay origin. */
 export interface ChartPopupTarget {
   row: ScanRow;
+  /** The anchor button — kept for focus restore on close, NOT for
+   *  overlay placement (the popup centers on `overlayOrigin`). */
   origin: HTMLElement;
+  /** Zero-size point the overlay anchors to — the viewport center,
+   *  captured at open so the chart popup lands mid-screen regardless
+   *  of where the row's icon sits (#1308 — the chart body is too tall
+   *  for button-anchored placement near the viewport's bottom edge).
+   *  (CDK's `Point` isn't public — the structural type suffices.) */
+  overlayOrigin: { x: number; y: number };
 }
 
 export class ChartPopupController {
@@ -32,21 +41,22 @@ export class ChartPopupController {
   static readonly PANEL_CLASS = 'scanner-chart-popup-panel';
   readonly panelClass = ChartPopupController.PANEL_CLASS;
 
-  /** Anchor-leave grace before teardown — same value chain-grid pins
-   *  (POPUP_HIDE_DELAY_MS, #965). Public so specs advance the constant. */
-  static readonly HIDE_DELAY_MS = 250;
+  /** Anchor-leave grace before teardown — longer than chain-grid's
+   *  250ms (#965): the popup is viewport-centered (#1308), so the
+   *  pointer travels farther to reach it. Public so specs advance the
+   *  constant. */
+  static readonly HIDE_DELAY_MS = 600;
 
-  /** Right-below the button first, then the flip above, then the
-   *  left-side pair — same fallback shape as chain-grid (#965). */
+  /** One position — the overlay's center on the origin point's center
+   *  (the origin point IS the viewport center, captured at open). No
+   *  fallbacks: there is no anchor-relative placement to flip. */
   readonly positions: ConnectedPosition[] = [
-    { originX: 'end', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 4 },
-    { originX: 'end', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -4 },
-    { originX: 'start', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 4 },
-    { originX: 'start', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -4 },
+    { originX: 'center', originY: 'center', overlayX: 'center', overlayY: 'center' },
   ];
 
-  /** Popup follows its row when the table scrolls — the default noop
-   *  strategy would leave it floating over unrelated rows. */
+  /** Reposition on scroll — the origin is a fixed viewport point, so
+   *  re-application keeps the popup centered (a noop strategy would
+   *  behave the same; reposition is harmless and consistent). */
   readonly scrollStrategy = inject(Overlay).scrollStrategies.reposition();
 
   /** One popup at a time — re-opening for another row swaps it. Resets
@@ -74,7 +84,11 @@ export class ChartPopupController {
   open(row: ScanRow, origin: HTMLElement): void {
     if (this.suppressFocusOpen) return;
     this.cancelHide();
-    this.active.set({ row, origin });
+    this.active.set({
+      row,
+      origin,
+      overlayOrigin: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+    });
   }
 
   /** Pointer/focus leaving the anchor — cancel when it landed inside
