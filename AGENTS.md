@@ -228,3 +228,19 @@ diagnostics/tooling code especially: correct, readable, and tested beats
 defense-in-depth. When a review loop finds only edge-case findings on
 surfaces outside the original scope, stop and flag the scope question to
 the user rather than continuing to armor.
+
+## Savant Trader — signal algorithms
+
+Applies to signal algorithms that emit `st-signals` records or `dotMarkers`
+(the Trend Rider family and its successors) — not generic chart-annotation
+detectors like `flex-chart/signals/*.signals.ts` unless they grow a records
+path. Every such algorithm is implemented **once** in `shared/` (detectors
+return filter-agnostic `SignalCandidate`s) and passes through
+`shared/st-signal-filter.ts` (`partitionByIbs`) before emission — the IBS
+**filter** (not "gate") is a structural pipeline stage, not a per-detector
+option. Per-surface emitters (BE st-signals records, BE dotMarkers, FE
+dots) map partitioned candidates to their output shape; Pine is
+hand-mirrored with a parity-audit script as its contract. BE and FE
+visual output must be identical — any divergence is a defect.
+(User directive, 2026-11-24 — Topic #261 / Thread #1665, decision doc
+`docs/topics/261-indicator-lib/261-1672-1727-DECISION-INDICATOR-LIB-shared-signal-engine.md`.)
