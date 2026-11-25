@@ -16,6 +16,7 @@
 
 import { OptionType, OptionQuoteSource } from '@options/common';
 import { TradeSide } from '@common';
+import { netMarkValue } from '@options/position-math';
 import {
   DEFAULT_TRAILING_STOP_KEY,
   NONE_VARIANT_KEY,
@@ -264,10 +265,18 @@ export function tradeToPosition(trade: PaperTrade): Position {
   const entryFill = trade.fills.find((f) => f.role === 'entry');
   const isShort = trade.order.side === TradeSide.SHORT;
 
-  const currentValue = trade.legs.reduce(
-    (sum, l) => sum + l.lastMark * l.multiplier * l.quantity,
-    0,
-  );
+  // Signed liquidation value (#1712): LONG legs +, SHORT legs −. A leg
+  // missing a mark is unpriceable → 0 fallback only fires on malformed
+  // docs (lastMark is required on PaperTradeLeg).
+  const currentValue =
+    netMarkValue(
+      trade.legs.map((l) => ({
+        side: l.side,
+        mark: l.lastMark,
+        multiplier: l.multiplier,
+        quantity: l.quantity,
+      })),
+    ) ?? 0;
 
   return {
     id: trade.id,

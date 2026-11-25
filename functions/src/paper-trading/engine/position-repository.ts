@@ -2,7 +2,7 @@
  * @topic #553 — Paper Trading Infra (task #562)
  *
  * Position view repository — same API surface the engine passes have always
- * used (`getPosition`, `listOpenPositions`, `markPosition`, …) but backed by
+ * used (`getPosition`, `listOpenPositions`, `markPositionLegs`, …) but backed by
  * `st-paper-trading/trades/items` + `st-paper-trading/raw-quotes/items`
  * (`paper-trading/*` pre-#1007) instead of the legacy
  * `options-strategy-positions` tree.
@@ -15,6 +15,7 @@
 
 import { OptionQuoteSource, OptionType } from '@options/common';
 import { TradeSide } from '@common';
+import { isOpenOptionPosition } from '@options/position-math';
 import { PaperTradeSource, PaperTradingKind, PaperTradeStatus } from '@paper-trading/contracts';
 import type { PaperAccount, PaperMark, PaperTrade } from '@paper-trading/contracts';
 import { buildAccountId, buildRawQuoteId } from '@paper-trading/ids';
@@ -50,6 +51,7 @@ import type {
   DailyUpdate,
   Position,
   PositionLeg,
+  PositionMarkUpdate,
   RawQuote,
   SettlementData,
   LegOutcomeUpdate,
@@ -139,6 +141,20 @@ export async function listAllPositions(instanceId?: string): Promise<Position[]>
   return trades
     .map((t) => ({ ...tradeToPosition(t), legs: t.legs.map(paperLegToPositionLeg) }))
     .sort((a, b) => b.openDate.localeCompare(a.openDate));
+}
+
+/**
+ * The unified mark pass's selection (#1712): every OPEN trade carrying at
+ * least one option leg. Era-agnostic (legacy + manage docs share the
+ * PaperTrade shape) and source-agnostic — instance enumeration is
+ * deliberately absent so manage positions mark on the same pass. Legs are
+ * embedded on the trade doc — no N+1 fetch.
+ */
+export async function listOpenOptionTrades(): Promise<PaperTrade[]> {
+  const trades = await queryTrades([
+    { field: 'status', value: PaperTradeStatus.OPEN },
+  ]);
+  return trades.filter(isOpenOptionPosition);
 }
 
 export async function listHeldSharesPositions(
@@ -297,20 +313,18 @@ export async function writeRawQuote(
 }
 
 /**
- * Mark pass write: stamp the per-contract mark on the trade's marks map and
- * each leg's lastMark, refresh lastMarkedAt + unrealizedPnl, and persist the
- * raw quote — all in one transaction.
- *
- * Single-leg only: the order-level mark is stamped onto every leg's
- * `lastMark` (same limitation as `applyExitFill`) — a multi-leg expression
- * would need per-leg marks.
+ * Unified mark pass write (#1712): stamp each option leg's OWN lastMark
+ * (`legMarks` keyed by OCC contractID — a leg absent from the map keeps its
+ * stored mark), the position mark (order-level exit price — the convention
+ * eval/settlement/live-snapshot readers consume) on `marks[date].mark`,
+ * plus unrealizedPnl, lastMarkedAt, and the raw quote doc — all in one
+ * transaction.
  */
-export async function markPosition(
+export async function markPositionLegs(
   positionId: string,
-  update: Partial<Position>,
+  update: PositionMarkUpdate,
   rawQuote: RawQuote,
 ): Promise<void> {
-  const mark = (update.currentValue ?? 0) / SHARES_PER_CONTRACT;
   const now = new Date().toISOString();
   const rqDoc = rawQuoteToDoc(
     positionId,
@@ -330,13 +344,17 @@ export async function markPosition(
     const marks = { ...(trade.marks ?? {}) };
     marks[rawQuote.date] = {
       ...marks[rawQuote.date],
-      mark,
+      mark: update.mark,
     } as PaperMark;
     txn.update(ref, {
-      legs: trade.legs.map((leg) => ({ ...leg, lastMark: mark })),
+      legs: trade.legs.map((leg) =>
+        leg.kind === 'option' && update.legMarks[leg.contractID] !== undefined
+          ? { ...leg, lastMark: update.legMarks[leg.contractID] }
+          : leg,
+      ),
       marks,
-      unrealizedPnl: update.unrealizedPnl ?? trade.unrealizedPnl,
-      lastMarkedAt: update.currentValueAsOf ?? now,
+      unrealizedPnl: update.unrealizedPnl,
+      lastMarkedAt: update.currentValueAsOf,
       updatedAt: now,
     });
     txn.set(paperDocRef(db, PaperTradingKind.RAW_QUOTE, rqDoc.id), rqData, { merge: true });

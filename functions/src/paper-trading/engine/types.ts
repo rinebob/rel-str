@@ -9,9 +9,7 @@
 
 import type { Timestamp } from 'firebase-admin/firestore';
 import { TradeSide } from '@common';
-import {
-  OptionType,
-} from '@options/common';
+import { OptionType } from '@options/common';
 
 // Re-export unified types from shared contracts so existing BE imports work.
 export type {
@@ -94,6 +92,21 @@ export interface DailyUpdate {
 export interface RawQuote {
   date: string;
   rawResponse: unknown;
+}
+
+/**
+ * Unified mark-pass write payload (#1712): each option leg's own mark plus
+ * the position-level values stamped on the trade doc in one transaction.
+ */
+export interface PositionMarkUpdate {
+  /** OCC contractID → per-contract mark, one entry per option leg. */
+  legMarks: Record<string, number>;
+  /** Order-level exit price → `marks[date].mark` (the convention
+   *  eval/settlement/live-snapshot readers consume — cost-to-close for a
+   *  SHORT order, exit proceeds for a LONG order). */
+  mark: number;
+  unrealizedPnl: number;
+  currentValueAsOf: string;
 }
 
 // ── Portfolio-level stats ──────────────────────────────────────────────────

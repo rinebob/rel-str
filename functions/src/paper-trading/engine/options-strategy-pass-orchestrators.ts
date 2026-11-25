@@ -12,7 +12,11 @@ import { getMarketDatePT } from '../../common/pt-date-utils';
 import { listActiveInstances, listManageableInstances } from './strategy-instance-repository';
 import { runEodNightlySelection } from './eod-orchestrator';
 import { runOpenPass } from './passes/open-pass';
-import { runMarkPass } from './passes/mark-pass';
+import {
+  runMarkPass,
+  type BatchQuoteProvider,
+  type MarkPassDependencies,
+} from './passes/mark-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { runExitEvalPass, type ExitEvalSummary } from '../exits/eval-pass';
@@ -33,7 +37,6 @@ import {
   type SignalEodClosePassSummary,
 } from '../passes/signal-eod-close-pass';
 import { db as paperDb } from '../../firebase-admin-init';
-import type { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import { getUnderlyingClose, getUnderlyingCloseForDate } from './options-strategy-market-data';
 import { createLogger } from './logging';
 
@@ -200,32 +203,31 @@ type MarkPassSummary = {
 };
 
 /**
- * Run the mark pass for every manageable strategy instance using the given
- * quote provider. Logs per-instance outcomes and returns a summary record
- * keyed by instance ID.
+ * Run the unified position-grain mark pass (#1712): one sweep over every
+ * OPEN trade carrying option legs — no instance enumeration, so legacy and
+ * manage positions mark together on the same cadence. Returns a flat
+ * summary (positions marked, per-position errors isolated inside the pass)
+ * or `{ error }` when the pass itself throws.
  */
-export async function runMarkPassForAllInstances(
-  provider: RobinhoodMcpOptionQuoteProvider,
-  listInstances: () => Promise<StrategyInstanceConfig[]> = listManageableInstances,
-  markPass: (
-    instanceId: string,
-    config: StrategyInstanceConfig,
-    deps: { quoteProvider: RobinhoodMcpOptionQuoteProvider },
-  ) => ReturnType<typeof runMarkPass> = runMarkPass,
-): Promise<Record<string, MarkPassSummary | { error: string }>> {
-  return runPassForManageableInstances(
-    'Mark pass',
-    async (instance) => {
-      const result = await markPass(instance.id, instance, {
-        quoteProvider: provider,
-      });
-      return {
-        positions: result.positions.length,
-        errors: result.errors.length,
-      };
-    },
-    listInstances,
-  );
+export async function runUnifiedMarkPass(
+  provider: BatchQuoteProvider,
+  markPass: (deps: MarkPassDependencies) => ReturnType<typeof runMarkPass> =
+    runMarkPass,
+): Promise<MarkPassSummary | { error: string }> {
+  try {
+    const result = await markPass({ quoteProvider: provider });
+    log.info(
+      `Mark pass complete: marked=${result.positions.length} errors=${result.errors.length}`,
+    );
+    return {
+      positions: result.positions.length,
+      errors: result.errors.length,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error(`Mark pass failed: ${message}`);
+    return { error: message };
+  }
 }
 
 type SettlementPassSummary = {

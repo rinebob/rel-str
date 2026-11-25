@@ -30,6 +30,7 @@ module.exports = {
     '^@options-replay/templates$': '<rootDir>/shared/options-replay-templates.ts',
     '^@options-analysis/contracts$': '<rootDir>/shared/options-analysis-contracts.ts',
     '^@options-analysis/registry$': '<rootDir>/shared/options-analysis-registry.ts',
+    '^@options/position-math$': '<rootDir>/shared/options-position-math.ts',
     '^@common$': '<rootDir>/shared/common.ts',
     '^@options-strategy-engine/contracts$': '<rootDir>/shared/options-strategy-engine-contracts.ts',
     '^@options-strategy-engine/id$': '<rootDir>/shared/strategy-instance-id.ts',

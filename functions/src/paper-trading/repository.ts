@@ -303,7 +303,7 @@ export async function commitBackfilledTrade(
 /**
  * Mark a signal-source trade (task #676): `marks[date].mark`, per-leg
  * `lastMark`, `unrealizedPnl`, `lastMarkedAt`, and the raw-quote audit doc in
- * one txn. Unlike `markPosition` in the position-repository this takes the
+ * one txn. Unlike `markPositionLegs` in the position-repository this takes the
  * order-level mark directly — share legs (multiplier 1) and option legs
  * (multiplier 100) both work. `unrealizedPnl` undefined → keep the stored
  * value (a trade with no entry fill keeps whatever it had rather than

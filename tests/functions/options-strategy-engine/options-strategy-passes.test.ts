@@ -7,13 +7,18 @@ import { spreadTypeToOptionSide } from '../../../functions/src/options-strategy-
 import {
   runOptionsSelectionPass,
   runOptionsOpenPass,
-  runMarkPassForAllInstances,
+  runUnifiedMarkPass,
   runSettlementForAllInstances,
 } from '../../../functions/src/options-strategy-engine/options-strategy-pass-orchestrators';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
 import { LifecycleState } from '../../../shared/options-strategy-engine-contracts';
 import type { StrategyInstanceConfig } from '../../../functions/src/options-strategy-engine/types';
+import type {
+  MarkPassDependencies,
+  MarkPassPositionResult,
+  MarkPassResult,
+} from '../../../functions/src/options-strategy-engine/passes/mark-pass';
 
 function makeInstance(overrides: Partial<StrategyInstanceConfig> = {}): StrategyInstanceConfig {
   return {
@@ -206,24 +211,43 @@ describe('runOptionsSelectionPass', () => {
   });
 });
 
-describe('runMarkPassForAllInstances', () => {
-  it('runs the mark pass for every manageable instance', async () => {
-    const instance = makeInstance({ id: 'PAUSED-1', lifecycleState: LifecycleState.PAUSED });
-    const calls: string[] = [];
-    const fakeProvider = { getQuotes: async () => [] } as unknown as import('../../../functions/src/options-strategy-engine/quote-providers/rh-mcp-option-quote-provider').RobinhoodMcpOptionQuoteProvider;
-    const fakeMarkPass = async (instanceId: string) => {
-      calls.push(instanceId);
-      return { instanceId, markedAt: new Date().toISOString(), positions: [], errors: [] };
+describe('runUnifiedMarkPass', () => {
+  it('runs one position-grain mark pass — no instance enumeration', async () => {
+    const calls: { quoteProvider: unknown }[] = [];
+    const fakeProvider = { getQuotes: async () => [] };
+    const markedPos: MarkPassPositionResult = {
+      positionId: 'p',
+      contractIDs: ['C'],
+      netMark: 0,
+      mark: 0,
+      unrealizedPnl: 0,
+      interpolatedClose: false,
+      asOf: '2025-08-15T18:00:00Z',
+    };
+    const fakeMarkPass = async (
+      deps: MarkPassDependencies,
+    ): Promise<MarkPassResult> => {
+      calls.push({ quoteProvider: deps.quoteProvider });
+      return {
+        markedAt: new Date().toISOString(),
+        positions: [markedPos, markedPos],
+        errors: [{ positionId: 'err-pos', error: 'quote missing' }],
+      };
     };
 
-    await runMarkPassForAllInstances(
-      fakeProvider,
-      async () => [instance],
-      fakeMarkPass as unknown as Parameters<typeof runMarkPassForAllInstances>[2],
-    );
+    const summary = await runUnifiedMarkPass(fakeProvider, fakeMarkPass);
 
     assert.equal(calls.length, 1);
-    assert.equal(calls[0], 'PAUSED-1');
+    assert.equal(calls[0].quoteProvider, fakeProvider);
+    assert.deepEqual(summary, { positions: 2, errors: 1 });
+  });
+
+  it('returns { error } when the pass itself throws', async () => {
+    const fakeProvider = { getQuotes: async () => [] };
+    const summary = await runUnifiedMarkPass(fakeProvider, async () => {
+      throw new Error('firestore unavailable');
+    });
+    assert.deepEqual(summary, { error: 'firestore unavailable' });
   });
 });
 

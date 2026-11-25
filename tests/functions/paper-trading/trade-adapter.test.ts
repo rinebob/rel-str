@@ -236,14 +236,30 @@ describe('tradeToPosition', () => {
     assert.equal(back.status, PositionStatus.OPEN);
   });
 
-  it('derives currentValue from embedded leg lastMark', () => {
+  it('derives signed netMark currentValue — SHORT leg marks negative (#1712)', () => {
     const trade = positionToTrade(makePosition(), [makeLeg()], []);
     const marked: PaperTrade = {
       ...trade,
       legs: trade.legs.map((l) => ({ ...l, lastMark: 1.5 })),
     };
     const back = tradeToPosition(marked);
-    assert.equal(back.currentValue, 150);
+    assert.equal(back.currentValue, -150);
+  });
+
+  it('nets multi-leg marks — credit spread marks negative, debit positive', () => {
+    const short = makeLeg({ contractID: 'SHORT-C', premium: 0.6 });
+    const long = makeLeg({ contractID: 'LONG-C', side: TradeSide.LONG, premium: 0.35 });
+    const trade = positionToTrade(makePosition(), [short, long], []);
+    const marked: PaperTrade = {
+      ...trade,
+      legs: trade.legs.map((l) => ({
+        ...l,
+        lastMark: l.kind === 'option' && l.contractID === 'SHORT-C' ? 0.5 : 0.3,
+      })),
+    };
+    const back = tradeToPosition(marked);
+    // −0.50×100 + 0.30×100 = −20 (a credit liability)
+    assert.equal(back.currentValue, -20);
   });
 
   it('maps realizedPnl into unrealizedPnl for ledger-closed trades (engine stats convention)', () => {

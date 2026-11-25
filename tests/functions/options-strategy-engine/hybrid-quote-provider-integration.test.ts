@@ -9,11 +9,12 @@ import { runEodNightlySelection } from '../../../functions/src/options-strategy-
 import { runOpenPass } from '../../../functions/src/options-strategy-engine/passes/open-pass';
 import { runMarkPass } from '../../../functions/src/options-strategy-engine/passes/mark-pass';
 import type { BatchQuoteProvider } from '../../../functions/src/options-strategy-engine/passes/mark-pass';
+import { positionToTrade } from '../../../functions/src/paper-trading/engine/trade-adapter';
 import { OptionType, OptionQuoteSource, PositionSpreadType, StrategyFrequency } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
 import { ExitPolicy, LifecycleState, type StrategyInstanceConfig, type OptionQuote, type OvernightDeltaSimulation } from '../../../shared/options-strategy-engine-contracts';
 import type { HistoricalOptionContract } from '../../../functions/src/types/partner';
-import type { Position, PositionLeg, RawQuote } from '../../../functions/src/options-strategy-engine/types';
+import type { Position, PositionLeg, PositionMarkUpdate, RawQuote } from '../../../functions/src/options-strategy-engine/types';
 import { PositionStatus } from '../../../functions/src/options-strategy-engine/types';
 import { OccRhInstrumentMapService } from '../../../functions/src/options-strategy-engine/instrument-map/occ-rh-instrument-map-service';
 
@@ -181,7 +182,7 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       getQuotes: async (_contractIDs: string[], _side: TradeSide) => [mockQuote],
     };
 
-    const markResults: { positionId: string; update: Partial<Position>; rawQuote: RawQuote }[] = [];
+    const markResults: { positionId: string; update: PositionMarkUpdate; rawQuote: RawQuote }[] = [];
     const positionLegs: PositionLeg[] = [
       {
         id: 'PUT-100.00-2025-08-17',
@@ -195,32 +196,31 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       },
     ];
 
-    const markResult = await runMarkPass(
-      INSTANCE_ID,
-      makeConfig(),
-      {
-        listOpenPositions: async () => createdPositions,
-        getLegs: async () => positionLegs,
-        quoteProvider: mockQuoteProvider,
-        markPosition: async (positionId, update, rawQuote) => {
-          markResults.push({ positionId, update, rawQuote });
-        },
+    const markResult = await runMarkPass({
+      listOpenOptionTrades: async () =>
+        createdPositions.map((p) => positionToTrade(p, positionLegs, [])),
+      quoteProvider: mockQuoteProvider,
+      markPositionLegs: async (positionId, update, rawQuote) => {
+        markResults.push({ positionId, update, rawQuote });
       },
-    );
+    });
 
-    assert.equal(markResult.instanceId, INSTANCE_ID);
     assert.equal(markResult.positions.length, 1);
     assert.equal(markResult.errors.length, 0);
     assert.equal(markResult.positions[0].positionId, `${INSTANCE_ID}-${NEXT_DAY}`);
-    assert.equal(markResult.positions[0].contractID, 'SPY250817P00100000');
+    assert.deepEqual(markResult.positions[0].contractIDs, ['SPY250817P00100000']);
     assert.equal(markResult.positions[0].mark, 0.45);
-    assert.equal(markResult.positions[0].currentValue, 45);
-    // SHORT P&L = premiumCollected - currentValue
-    // premiumCollected comes from the BS simulation's nearest grid point mark
-    const expectedPnl = createdPositions[0].premiumCollected - 45;
-    assert.equal(markResult.positions[0].unrealizedPnl, expectedPnl);
+    assert.equal(markResult.positions[0].netMark, -45);
+    // SHORT P&L = signedEntryPremium + netMark — the entry premium comes
+    // from the legs' entryMark (0.55 → +55), not the Position view's
+    // premiumCollected.
+    const expectedPnl = 55 - 45;
+    assert.ok(
+      Math.abs(markResult.positions[0].unrealizedPnl - expectedPnl) < 1e-9,
+      `expected ~${expectedPnl}, got ${markResult.positions[0].unrealizedPnl}`,
+    );
     assert.equal(markResults.length, 1);
-    assert.equal(markResults[0].update.unrealizedPnl, expectedPnl);
+    assert.ok(Math.abs(markResults[0].update.unrealizedPnl - expectedPnl) < 1e-9);
   });
 
   it('skips open pass when a position was already opened that day', async () => {
@@ -301,25 +301,22 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       },
     };
 
-    const result = await runMarkPass(
-      INSTANCE_ID,
-      makeConfig(),
-      {
-        listOpenPositions: async () => [position],
-        getLegs: async () => legs,
-        quoteProvider: failingProvider,
-        markPosition: async () => { throw new Error('Should not mark'); },
-      },
-    );
+    const result = await runMarkPass({
+      listOpenOptionTrades: async () => [positionToTrade(position, legs, [])],
+      quoteProvider: failingProvider,
+      markPositionLegs: async () => { throw new Error('Should not mark'); },
+    });
 
     assert.equal(result.positions.length, 0);
     assert.equal(result.errors.length, 1);
     assert.equal(result.errors[0].positionId, 'SPY-WHEEL-INT-ERR');
-    assert.equal(result.errors[0].contractID, 'SPY250817P00100000');
+    // A provider-wide throw isn't attributable to one contract — no
+    // firstContract fallback mis-naming a sibling leg.
+    assert.equal(result.errors[0].contractID, undefined);
     assert.match(result.errors[0].error, /missing close\.price/);
   });
 
-  it('passes all contract IDs to quote provider in a single batch call', async () => {
+  it('quotes each position separately — per-position error isolation', async () => {
     const positions: Position[] = [];
     const legsMap = new Map<string, PositionLeg[]>();
     for (let i = 0; i < 5; i++) {
@@ -353,12 +350,10 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       ]);
     }
 
-    let batchCallCount = 0;
-    let lastBatchSize = 0;
+    let callCount = 0;
     const batchProvider: BatchQuoteProvider = {
       getQuotes: async (contractIDs: string[], _side: TradeSide) => {
-        batchCallCount++;
-        lastBatchSize = contractIDs.length;
+        callCount++;
         return contractIDs.map((contractID) => ({
           contractID,
           symbol: SYMBOL,
@@ -373,20 +368,16 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       },
     };
 
-    const result = await runMarkPass(
-      INSTANCE_ID,
-      makeConfig(),
-      {
-        listOpenPositions: async () => positions,
-        getLegs: async (posId) => legsMap.get(posId) ?? [],
-        quoteProvider: batchProvider,
-        markPosition: async () => {},
-      },
-    );
+    const result = await runMarkPass({
+      listOpenOptionTrades: async () =>
+        positions.map((p) => positionToTrade(p, legsMap.get(p.id) ?? [], [])),
+      quoteProvider: batchProvider,
+      markPositionLegs: async () => {},
+    });
 
-    // All 5 contract IDs should be sent in a single getQuotes call
-    assert.equal(batchCallCount, 1);
-    assert.equal(lastBatchSize, 5);
+    // One getQuotes call per position — a missing contract can only fail
+    // its own position, never the whole batch.
+    assert.equal(callCount, 5);
     assert.equal(result.positions.length, 5);
     assert.equal(result.errors.length, 0);
   });
@@ -435,22 +426,17 @@ describe('hybrid quote provider integration — selection → open → mark', ()
       getQuotes: async () => [interpolatedQuote],
     };
 
-    const result = await runMarkPass(
-      INSTANCE_ID,
-      makeConfig(),
-      {
-        listOpenPositions: async () => [position],
-        getLegs: async () => legs,
-        quoteProvider: provider,
-        markPosition: async () => {},
-      },
-    );
+    const result = await runMarkPass({
+      listOpenOptionTrades: async () => [positionToTrade(position, legs, [])],
+      quoteProvider: provider,
+      markPositionLegs: async () => {},
+    });
 
     assert.equal(result.positions.length, 1);
     assert.equal(result.positions[0].interpolatedClose, true);
-    // P&L = premiumCollected - (mark * 100) = 55 - 42 = 13
-    assert.equal(result.positions[0].unrealizedPnl, 13);
-    assert.equal(result.positions[0].mark, 0.42);
+    // P&L = signedEntryPremium + netMark = 55 - 42 = 13
+    assert.ok(Math.abs(result.positions[0].unrealizedPnl - 13) < 1e-9);
+    assert.ok(Math.abs(result.positions[0].mark - 0.42) < 1e-9);
   });
 
   it('handles null selection result gracefully in the full flow', async () => {

@@ -1,11 +1,14 @@
 /**
  * @topic #553 — Paper Trading Infra (task #676)
  *
- * Signal-trade mark pass. The engine mark pass
- * (`runMarkPassForAllInstances`) only iterates strategy-instance trades —
- * signal-accepted trades (`source=SIGNAL`, no instance) never got marks,
- * so a governing `trailing-{pct}` run could never fire and every OPEN
- * signal trade became a permanent eval-pass `skipsNoMark` candidate.
+ * Signal-trade mark pass. Created because signal-accepted trades
+ * (`source=SIGNAL`, no instance) never got marks — a governing
+ * `trailing-{pct}` run could never fire and every OPEN signal trade became
+ * a permanent eval-pass `skipsNoMark` candidate. Since #1712 the unified
+ * engine mark pass (`runUnifiedMarkPass`) covers signal OPTION trades too
+ * (per-leg marks, same order-level mark space) — this pass still owns
+ * signal STOCK trades and refreshes signal option trades order-level
+ * (redundant but consistent — the #1710 contract keeps the stock leg here).
  *
  * For each OPEN signal trade this pass computes the order-level mark with
  * the SAME liquidation-price seam the close callable uses

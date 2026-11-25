@@ -16,7 +16,7 @@ import { TradeSide } from '@common';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './options-strategy-cors';
 import { getMarketDatePT } from '../../common/pt-date-utils';
 import {
-  runMarkPassForAllInstances,
+  runUnifiedMarkPass,
   runSettlementForAllInstances,
 } from './options-strategy-pass-orchestrators';
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
@@ -96,13 +96,10 @@ export const optionsMarkPass = onSchedule(
     const provider = new RobinhoodMcpOptionQuoteProvider({ callTool });
 
     try {
-      // Isolated stages: an instance-marking failure must not cost signal
-      // trades their marks, and vice versa.
-      try {
-        await runMarkPassForAllInstances(provider);
-      } catch (err) {
-        log.error(`Instance mark pass failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      // Isolated stages: runUnifiedMarkPass isolates option-position
+      // marking internally (per-position errors + a {error} envelope); a
+      // signal-mark failure must not escape either.
+      await runUnifiedMarkPass(provider);
       // Signal-source trades have no instance — mark them on the same
       // cadence so governing trailing stops have fresh marks to eval
       // (#676). Same quote plumbing as the close callable.
@@ -168,14 +165,11 @@ export const optionsMarkPassManual = onCall(
     const callTool = manager.callTool.bind(manager);
     const provider = new RobinhoodMcpOptionQuoteProvider({ callTool });
 
-    let instances: unknown;
+    let markPass: unknown;
     let signals: unknown;
     try {
-      try {
-        instances = await runMarkPassForAllInstances(provider);
-      } catch (err) {
-        instances = { error: err instanceof Error ? err.message : String(err) };
-      }
+      // runUnifiedMarkPass returns {error} internally — no catch needed.
+      markPass = await runUnifiedMarkPass(provider);
       try {
         signals = await runSignalMarkPass(
           defaultSignalMarkDeps(paperDb, {
@@ -189,7 +183,7 @@ export const optionsMarkPassManual = onCall(
     } finally {
       await manager.close();
     }
-    return { instances, signals };
+    return { markPass, signals };
   },
 );
 
