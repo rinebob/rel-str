@@ -1,12 +1,12 @@
 /**
- * #1679 — FE: IBS gate in detectZoneUptickDots + UptickDotResult partition
+ * #1679 — FE: IBS filter in detectZoneUptickDots + UptickDotResult partition
  * (Thread #1665, Topic #261).
  *
- * Spec-first suite for the gate: candidate partition emitted vs suppressed
+ * Spec-first suite for the filter: candidate partition emitted vs suppressed
  * on the signal bar's IBS, inclusive bounds, availability pass-through
  * (undefined → emitted), param plumbing, and FIRED-state semantics
  * (a suppressed candidate still consumes the state's only shot — mirrors
- * the BE gate in signal-detection.ts).
+ * the BE filter in signal-detection.ts).
  */
 import {
   detectZoneUptickDots,
@@ -15,11 +15,16 @@ import {
   type UptickDotPoint,
 } from './st-trend-rider-dots.indicator';
 import type { PriceBar } from '../flex-chart.types';
+import { detectZoneUptickCandidates } from '@st/signal-detect';
+import { partitionByIbs } from '@st/signal-filter';
+import { calculateStZone } from './st-zone.indicator';
+import { computeStTrendBands, type OHLCV } from '@st/trend-bands';
+import { computeStZone } from '@st/zone';
 
 const LONG = '#4caf50';
 const SHORT = '#f44336';
 
-/** Pinned wall-clock for every gate-active call — after all fixture dates
+/** Pinned wall-clock for every filter-active call — after all fixture dates
  *  and past the noon-ET activation, so every fixture bar's IBS is
  *  computable regardless of when the suite runs. */
 const NOW = new Date('2026-12-01T18:00:00Z');
@@ -47,7 +52,7 @@ function barsWithSignalClose(signalClose: number, low = 90, high = 110): PriceBa
   return DATES.map((d, i) => (i === DATES.length - 1 ? bar(d, signalClose, low, high) : bar(d, 100, low, high)));
 }
 
-describe('detectZoneUptickDots — IBS gate (#1679)', () => {
+describe('detectZoneUptickDots — IBS filter (#1679)', () => {
   describe('partition', () => {
     it('long candidate with IBS ≥ T lands in emitted', () => {
       // close 106 on [90,110] → ibs = 0.8
@@ -90,7 +95,7 @@ describe('detectZoneUptickDots — IBS gate (#1679)', () => {
       expect(edge.emitted).toHaveLength(1);
     });
 
-    it('non-finite OHLC can\'t gate — emits like the BE guard (NaN → pass-through)', () => {
+    it('non-finite OHLC can\'t filter — emits like the BE guard (NaN → pass-through)', () => {
       const bars = barsWithSignalClose(94);
       bars[bars.length - 1] = { ...bars[bars.length - 1], close: NaN };
       const r = detectZoneUptickDots(LONG_ZONES, LONG_HTF, bars, LONG, SHORT, { now: NOW });
@@ -167,4 +172,76 @@ describe('dots indicator params (#1679)', () => {
       expect(t.max).toBe(1);
     });
   }
+});
+
+/**
+ * #1727 — cross-surface parity: the sandbox emitter and the BE emit path
+ * compose the SAME shared engine (detectZoneUptickCandidates +
+ * partitionByIbs), so the emitted/suppressed index sets must be identical
+ * on the same inputs. The BE wrapper adds only record shaping
+ * (direction → StSignalDirection, indicators.ibs) after this identical
+ * partition — composing the same two calls here is the honest parity check.
+ * Zone-math parity is pinned too: the FE calculator delegates to the same
+ * shared engine, so its emitted values must equal computeStZone's.
+ */
+
+describe('cross-surface parity (#1727)', () => {
+  it('sandbox and BE emit paths produce identical emitted/suppressed index sets', () => {
+    // Zone series with two long candidates (2, 4 — a down-delta re-arms
+    // the latch between them) + one short (7 — the −1 bar positions
+    // prevZone ≤ −1 for the −2 downtick). Window positive covers longs,
+    // negative covers the short.
+    const zoneNums = [2, 2, 3, 2, 4, 2, -1, -2, -3];
+    const winNums = [1, 1, 1, 1, 1, 1, -1, -1, -1];
+    const dates = [
+      '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14',
+      '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20',
+    ];
+    const zonePts = zoneNums.map((y, i) => ({ x: new Date(`${dates[i]}T00:00:00Z`), y }));
+    const winPts = winNums.map((y, i) => ({ x: new Date(`${dates[i]}T00:00:00Z`), y }));
+    // Signal-bar closes: index 2 ibs=0.9 (long emits), 4 ibs=0.1 (long
+    // suppresses), 7 ibs=0.9 (short suppresses — needs ≤0.5).
+    const closes = [100, 100, 108, 100, 92, 100, 100, 108, 100];
+    const bars = closes.map((c, i) => bar(dates[i], c));
+
+    const ctx = { now: NOW, threshold: 0.5 };
+
+    // BE emit path — exactly what signal-detection.ts composes.
+    const cands = detectZoneUptickCandidates(zoneNums, winNums, 'V1', 'D');
+    const be = partitionByIbs(cands, bars, 'D', ctx);
+
+    // FE emitter path.
+    const fe = detectZoneUptickDots(zonePts, winPts, bars, LONG, SHORT, ctx, 'V1');
+
+    const feEmittedIdx = fe.emitted.map((d) => dates.indexOf(d.x.toISOString().slice(0, 10)));
+    const feSuppIdx = fe.suppressed.map((d) => dates.indexOf(d.x.toISOString().slice(0, 10)));
+
+    expect(feEmittedIdx.sort()).toEqual(be.emitted.map((c) => c.index).sort());
+    expect(feSuppIdx.sort()).toEqual(be.suppressed.map((c) => c.index).sort());
+    // And the sets are the ones we designed: 2 emitted, 4 + 7 suppressed.
+    expect(be.emitted.map((c) => c.index).sort()).toEqual([2]);
+    expect(be.suppressed.map((c) => c.index).sort()).toEqual([4, 7]);
+  });
+
+  it('zone math parity: FE calculateStZone values equal shared computeStZone', () => {
+    // 60 bars of deterministic movement — enough for bands to engage.
+    const prices = Array.from({ length: 60 }, (_, i) => 100 + Math.sin(i / 4) * 8 + i * 0.3);
+    const bars = prices.map((c, i) => {
+      const date = `2026-01-${String((i % 28) + 1).padStart(2, '0')}`;
+      return {
+        date,
+        x: new Date(Date.UTC(2026, Math.floor(i / 28), (i % 28) + 1)),
+        open: c - 0.4, high: c + 1.2, low: c - 1.2, close: c,
+      };
+    });
+    const fe = calculateStZone(bars, {});
+    const ohlcv: OHLCV[] = bars.map((b) => ({ open: b.open, high: b.high, low: b.low, close: b.close }));
+    const shared = computeStZone(ohlcv, computeStTrendBands(ohlcv)).zone;
+
+    expect(fe.length).toBeGreaterThan(0);
+    for (const p of fe) {
+      const i = bars.findIndex((b) => b.x.getTime() === p.x.getTime());
+      expect(p.y).toBe(shared[i]);
+    }
+  });
 });

@@ -532,7 +532,7 @@ describe('Trigger Bands sandbox wiring (#880/#932)', () => {
       expect(bands).toBeTruthy();
       expect(bands?.triggerBandData).toHaveLength(2);
 
-      // Dots are gated behind the "TB dots" dev toggle — off by default.
+      // Dots are filtered behind the "TB dots" dev toggle — off by default.
       expect(chart.config?.indicators.find((i) => i.id === 'st-trigger-bands-dots-default')).toBeUndefined();
 
       fixture.nativeElement.querySelector('[data-testid="tb-dots-toggle"]').click();
@@ -847,7 +847,7 @@ describe('ZigZag bespoke params (#935)', () => {
 // Trend Rider dots params strip + suppressed ghosts — Topic #261 / Task #1679
 //
 // Same strip pattern as ZigZag: one params strip per enabled dots option,
-// committing through the shared paramOverrides map. The IBS gate +
+// committing through the shared paramOverrides map. The IBS filter +
 // suppressed ghost series only run on the TWO_DAY path — the mocked
 // detectZoneUptickDots pins that seam without zone fixtures.
 // =============================================================================

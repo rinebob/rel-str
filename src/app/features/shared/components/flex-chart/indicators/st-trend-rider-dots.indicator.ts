@@ -12,14 +12,25 @@
  * Short (Zone V2 < 0): zone was rising/flat while already ≤ -1, then downticks once → signal.
  *   No repeat until zone rises or goes flat again, then downticks.
  *
- * IBS GATE (#1679)
- * ----------------
- * With `ibs` passed, each candidate is partitioned by its signal bar's IBS:
- * long needs ibs ≥ threshold, short ibs ≤ 1−threshold (inclusive, same
- * Number.EPSILON guard as the BE gate in signal-detection.ts). Suppressed
- * candidates still consume the state's only shot — suppression is
- * emission-only, identical to the backend. Omit `ibs` for the unfiltered
- * candidate set (every candidate emits).
+ * SHARED ENGINE (#1727)
+ * ---------------------
+ * Detection is the canonical shared state machine (@st/signal-detect) —
+ * the same body the BE strategy and marker paths run; this module is an
+ * emitter, not a reimplementation. With `ibs` passed, candidates partition
+ * through the shared filter (@st/signal-filter): long needs ibs ≥ T, short
+ * ibs ≤ 1−T (inclusive, Number.EPSILON guard). Suppression is emission-only
+ * — the detector consumed READY→FIRED before the partition ran. Omit `ibs`
+ * for the unfiltered candidate set.
+ *
+ * Convergence note: the legacy local SM skipped zone points whose HTF
+ * window or bar lookup missed (no state update); the shared engine treats
+ * a NaN window as a state reset — BE truth. The HTF lookup below preserves
+ * the most-recent-HTF≤t semantics when building the index-aligned window.
+ * Same for a bar-miss: a candidate on a zone point with no matching bar
+ * consumes READY→FIRED inside the detector, then `toDot` drops it — the
+ * latch is spent with nothing rendered (unreachable while zone points and
+ * bars derive from the same series; documented so a desync reads as
+ * intentional latch-spend, not a lost dot).
  *
  * DATA FLOW
  * ---------
@@ -32,13 +43,14 @@
 
 import type { IndicatorOption, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
-import { computeIbs, type IbsAvailabilityContext } from '@st/ibs';
+import { detectZoneUptickCandidates, type ZoneSignalCandidate } from '@st/signal-detect';
+import { partitionByIbs, type IbsBarLike, type IbsFilterContext } from '@st/signal-filter';
 
 // =============================================================================
 // 1. CHART CONFIGURATION
 // =============================================================================
 
-/** IBS gate params shared by both uptick-dots indicators (#1679).
+/** IBS filter params shared by both uptick-dots indicators (#1679).
  *  `showSuppressedSignals` renders IBS-rejected candidates as ghost dots;
  *  `ibsThreshold` is display-eval only — the BE truth lives in
  *  StrategyConfig.ibsThreshold. */
@@ -88,15 +100,13 @@ export interface UptickDotResult {
   suppressed: UptickDotPoint[];
 }
 
-/** Display-side IBS gate config (#1679) — mirrors the BE `IbsGateConfig`
- *  shape: `threshold` matches StrategyConfig.ibsThreshold semantics (long
- *  needs ≥ T, short ≤ 1−T, inclusive) and the inherited availability
- *  fields let a caller pin `now`/activation for specs and replay — wall
- *  clock + default activation when omitted, same as the BE gate. Omit the
- *  whole `ibs` argument for the unfiltered candidate set. */
-export interface UptickDotsIbsConfig extends IbsAvailabilityContext {
-  threshold?: number;
-}
+/** Display-side IBS filter config (#1679/#1727) — the shared
+ *  `IbsFilterContext`: `threshold` matches StrategyConfig.ibsThreshold
+ *  semantics (long needs ≥ T, short ≤ 1−T, inclusive) and the inherited
+ *  availability fields let a caller pin `now`/activation for specs and
+ *  replay — wall clock + default activation when omitted, same as the BE
+ *  filter. Omit the whole `ibs` argument for the unfiltered candidate set. */
+export type UptickDotsIbsFilter = IbsFilterContext;
 
 /**
  * Compute a simple ATR(14) for offset sizing.
@@ -144,16 +154,19 @@ function buildDotPlacementContext(bars: PriceBar[]): DotPlacementContext {
   return { barMap, atr };
 }
 
-
 /**
  * Detect ST Trend Rider signals and return scatter dot points for the main chart.
+ *
+ * Emitter over the shared engine: zone/HTF series → candidates
+ * (@st/signal-detect) → IBS partition (@st/signal-filter) → dot placement.
  *
  * @param ltfZoneData  - LTF zone indicator output (V1 or V2)
  * @param htfZoneData  - Zone V2 data for the same timeframe window check
  * @param ltfBars      - LTF price bars
  * @param longColor    - Dot color for long signals
  * @param shortColor   - Dot color for short signals
- * @param ibs          - Optional IBS gate config; omit for the unfiltered set
+ * @param ibs          - Optional IBS filter config; omit for the unfiltered set
+ * @param version      - 'V1' | 'V2' — carried into candidate signalTypes
  * @returns            - `{ emitted, suppressed }` — identical placement math,
  *                       suppressed = IBS-rejected candidates for ghost rendering
  */
@@ -163,37 +176,23 @@ export function detectZoneUptickDots(
   ltfBars: PriceBar[],
   longColor: string,
   shortColor: string,
-  ibs?: UptickDotsIbsConfig,
+  ibs?: UptickDotsIbsFilter,
+  version: 'V1' | 'V2' = 'V1',
 ): UptickDotResult {
   if (ltfZoneData.length === 0 || htfZoneData.length === 0 || ltfBars.length === 0) {
     return { emitted: [], suppressed: [] };
   }
-  const ibsThreshold = ibs?.threshold ?? 0.5;
-  /** Signal-bar IBS for the gate — undefined (uncomputable or unavailable
-   *  under the activation clock) passes the candidate through, matching
-   *  the BE gate in signal-detection.ts. 'D' availability semantics
-   *  apply to any bar granularity the caller feeds. The finite guard
-   *  mirrors the BE one — malformed OHLC can't gate (NaN would otherwise
-   *  fail both comparisons and suppress where BE emits). */
-  const barIbs = (bar: PriceBar): number | undefined => {
-    if (ibs === undefined) return undefined;
-    const { high, low, close } = bar;
-    if (!Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) {
-      return undefined;
-    }
-    return computeIbs(
-      { high, low, close, date: bar.date },
-      'D',
-      { now: ibs.now, activateAtEtMin: ibs.activateAtEtMin, activateAtWeekday: ibs.activateAtWeekday },
-    );
-  };
 
   // Build bar lookup + ATR offset context
   const { barMap, atr } = buildDotPlacementContext(ltfBars);
 
-  // Map HTF zone per LTF zone data point (by date, not index)
+  // Shared-engine inputs: index-aligned zone + window arrays. The HTF
+  // lookup keeps the legacy most-recent-HTF≤t semantics (binary search on
+  // the sorted series) — for the sandbox's same-timeframe use (zone, zone)
+  // it reduces to each point's own value.
+  const zoneNums = ltfZoneData.map((p) => p.y);
   const sortedHtf = [...htfZoneData].sort((a, b) => a.x.getTime() - b.x.getTime());
-  function getHtfZone(t: number): number | null {
+  const getHtfZone = (t: number): number | null => {
     let lo = 0, hi = sortedHtf.length - 1;
     let val: number | null = null;
     while (lo <= hi) {
@@ -206,87 +205,33 @@ export function detectZoneUptickDots(
       }
     }
     return val;
-  }
+  };
+  const windowNums = ltfZoneData.map((p) => getHtfZone(p.x.getTime()) ?? NaN);
 
-  const emitted: UptickDotPoint[] = [];
-  const suppressed: UptickDotPoint[] = [];
+  // candidate.index addresses the ZONE array — the partition needs the
+  // signal bar at that same index, so feed it the zone-aligned bar view.
+  const zoneBars: IbsBarLike[] = ltfZoneData.map(
+    (p) => barMap.get(p.x.getTime())?.bar ?? {},
+  );
 
-  // State machine
-  // For longs: READY means zone was falling/flat, FIRED means uptick already signalled
-  // For shorts: READY means zone was rising/flat, FIRED means downtick already signalled
-  let longState: 'READY' | 'FIRED' = 'READY';
-  let shortState: 'READY' | 'FIRED' = 'READY';
+  // 'D' is deliberate for any bar granularity fed here (incl. sandbox
+  // TWO_DAY bars): daily availability semantics apply — the filter answers
+  // "is this bar's IBS meaningful yet", not "what timeframe produced it".
+  const candidates = detectZoneUptickCandidates(zoneNums, windowNums, version, 'D');
+  const { emitted, suppressed } = partitionByIbs(candidates, zoneBars, 'D', ibs);
 
-  for (let i = 1; i < ltfZoneData.length; i++) {
-    const prevZone = ltfZoneData[i - 1].y;
-    const currZone = ltfZoneData[i].y;
-    const delta = currZone - prevZone;
+  const toDot = (c: ZoneSignalCandidate): UptickDotPoint | null => {
+    const entry = barMap.get(ltfZoneData[c.index].x.getTime());
+    if (!entry) return null;
+    const offset = atr[entry.idx] * ATR_OFFSET_MULT;
+    return {
+      x: entry.bar.x,
+      y: c.direction === 'long' ? entry.bar.low - offset : entry.bar.high + offset,
+      color: c.direction === 'long' ? longColor : shortColor,
+    };
+  };
+  const toDots = (cs: ZoneSignalCandidate[]): UptickDotPoint[] =>
+    cs.map(toDot).filter((p): p is UptickDotPoint => p !== null);
 
-    const zoneTime = ltfZoneData[i].x.getTime();
-    const htfZone = getHtfZone(zoneTime);
-
-    if (htfZone === null) continue;
-
-    // Find corresponding price bar by date
-    const entry = barMap.get(zoneTime);
-    if (!entry) continue;
-    const { bar, idx } = entry;
-
-    const offset = atr[idx] * ATR_OFFSET_MULT;
-
-    // --- Long side (HTF > 0) ---
-    if (htfZone > 0) {
-      if (delta > 0) {
-        // Zone upticked — only valid if the prior value was already above zero (≥ +1)
-        if (longState === 'READY' && prevZone >= 1) {
-          // First valid uptick → candidate; IBS gate partitions the dot.
-          // Suppression is emission-only — FIRED is consumed either way,
-          // so a suppressed uptick can't double-fire on the next delta.
-          const v = barIbs(bar);
-          (v === undefined || v >= ibsThreshold ? emitted : suppressed).push({
-            x: bar.x,
-            y: bar.low - offset,
-            color: longColor,
-          });
-          longState = 'FIRED';
-        }
-        // If FIRED or prior zone was on the wrong side, do nothing (continuation / invalid)
-      } else if (delta < 0) {
-        // Zone downticked → reset to READY
-        longState = 'READY';
-      }
-      // delta === 0 (flat): no state change
-    } else {
-      // HTF not positive, reset long state
-      longState = 'READY';
-    }
-
-    // --- Short side (HTF < 0) ---
-    if (htfZone < 0) {
-      if (delta < 0) {
-        // Zone downticked — only valid if the prior value was already below zero (≤ -1)
-        if (shortState === 'READY' && prevZone <= -1) {
-          // First valid downtick → candidate; short bound mirrors the BE
-          // gate (≤ 1−T, EPSILON ulp guard for the float complement).
-          const v = barIbs(bar);
-          (v === undefined || v <= 1 - ibsThreshold + Number.EPSILON ? emitted : suppressed).push({
-            x: bar.x,
-            y: bar.high + offset,
-            color: shortColor,
-          });
-          shortState = 'FIRED';
-        }
-        // If FIRED or prior zone was on the wrong side, do nothing (continuation / invalid)
-      } else if (delta > 0) {
-        // Zone upticked → reset to READY
-        shortState = 'READY';
-      }
-      // delta === 0 (flat): no state change
-    } else {
-      // HTF not negative, reset short state
-      shortState = 'READY';
-    }
-  }
-
-  return { emitted, suppressed };
+  return { emitted: toDots(emitted), suppressed: toDots(suppressed) };
 }

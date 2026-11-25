@@ -192,7 +192,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
   }));
 
   // ── Trend Rider dots params (#1679) ──────────────────────────────────────
-  // IBS gate params on the two dots options — they only affect the TWO_DAY
+  // IBS filter params on the two dots options — they only affect the TWO_DAY
   // path (client-side detection); D/W dots are backend markers (#1680
   // covers their partition). One strip per enabled dots option.
   readonly dotsParams = ST_ZONE_V1_UPTICK_DOTS_INDICATOR.params;
@@ -241,7 +241,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
   /** Trend Rider dots computed on the 2D bars — zones come from the
    *  client-side engines and the zone series doubles as its own window
    *  context, mirroring the backend detection call (windowV2 = zone).
-   *  #1679: the IBS gate partitions emitted vs suppressed; the threshold
+   *  #1679: the IBS filter partitions emitted vs suppressed; the threshold
    *  + ghost toggle come from the indicator's paramOverrides. */
   private readonly twoDayUptickDotsV1 = computed(() => this.twoDayUptickDots(true));
   private readonly twoDayUptickDotsV2 = computed(() => this.twoDayUptickDots(false));
@@ -257,6 +257,7 @@ export class FlexChartSandboxComponent implements OnDestroy {
       v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long,
       v1 ? UptickDotColors.v1Short : UptickDotColors.v2Short,
       { threshold: typeof ov?.['ibsThreshold'] === 'number' ? ov['ibsThreshold'] : undefined },
+      v1 ? 'V1' : 'V2',
     );
   }
 

@@ -49,6 +49,8 @@
 
 import type { IndicatorOption, IndicatorCalculator, PriceBar } from '../flex-chart.types';
 import { StIndicator } from '../flex-chart.types';
+import { computeStTrendBands, type OHLCV } from '@st/trend-bands';
+import { computeStZoneV2 } from '@st/zone-v2';
 import {
   ST_ZONE_COLORS,
   ST_ZONE_FALLBACK_COLOR,
@@ -81,176 +83,32 @@ export const ST_ZONE_V2_INDICATOR: IndicatorOption = {
 };
 
 // =============================================================================
-// 2. CALCULATION
-// =============================================================================
-
-const HTF_MULTIPLIER = 3;
-
-function emaSeries(prices: number[], period: number): number[] {
-  const len = prices.length;
-  const result = new Array<number>(len).fill(NaN);
-  if (len < period || period < 1) return result;
-  const k = 2 / (period + 1);
-
-  // Find first non-NaN index
-  let start = 0;
-  while (start < len && isNaN(prices[start])) start++;
-  if (start + period > len) return result;
-
-  // SMA seed from first `period` valid values
-  let sum = 0;
-  for (let i = start; i < start + period; i++) sum += prices[i];
-  let val = sum / period;
-  result[start + period - 1] = val;
-  for (let i = start + period; i < len; i++) {
-    val = (isNaN(prices[i]) ? val : prices[i]) * k + val * (1 - k);
-    result[i] = val;
-  }
-  return result;
-}
-
-interface BandResult {
-  m: number[];   // midpoints
-  up: boolean[]; // bullish state per bar
-}
-
-function computeBandMid(bars: PriceBar[], smoothLen: number, mult: number): BandResult {
-  const len = bars.length;
-  const beforeLength = smoothLen * mult;
-  const afterLength = smoothLen * mult;
-  const lookback = mult;
-
-  const rawO = bars.map(b => b.open);
-  const rawH = bars.map(b => b.high);
-  const rawL = bars.map(b => b.low);
-  const rawC = bars.map(b => b.close);
-
-  const sO = emaSeries(rawO, beforeLength);
-  const sH = emaSeries(rawH, beforeLength);
-  const sL = emaSeries(rawL, beforeLength);
-  const sC = emaSeries(rawC, beforeLength);
-
-  const haClose = new Array<number>(len).fill(NaN);
-  const haOpen = new Array<number>(len).fill(NaN);
-
-  for (let i = 0; i < len; i++) {
-    if (isNaN(sO[i]) || isNaN(sH[i]) || isNaN(sL[i]) || isNaN(sC[i])) continue;
-    haClose[i] = (sO[i] + sH[i] + sL[i] + sC[i]) / 4;
-    if (i < lookback || isNaN(haOpen[i - lookback])) {
-      haOpen[i] = (sO[i] + sC[i]) / 2;
-    } else {
-      haOpen[i] = (haOpen[i - lookback] + haClose[i - lookback]) / 2;
-    }
-  }
-
-  const postO = emaSeries(haOpen, afterLength);
-  const postC = emaSeries(haClose, afterLength);
-
-  const m = new Array<number>(len).fill(NaN);
-  const up = new Array<boolean>(len).fill(false);
-
-  for (let i = 0; i < len; i++) {
-    if (isNaN(postO[i]) || isNaN(postC[i])) continue;
-    const h = Math.max(postO[i], postC[i]);
-    const l = Math.min(postO[i], postC[i]);
-    m[i] = l + Math.abs(h - l) / 2;
-    up[i] = postC[i] > postO[i];
-  }
-
-  // Jagged stepping for HTF
-  if (mult > 1) {
-    for (let i = 0; i < len; i++) {
-      if ((i % mult) !== (mult - 1) && i > 0) {
-        m[i] = m[i - 1];
-        up[i] = up[i - 1];
-      }
-    }
-  }
-
-  return { m, up };
-}
-
-// =============================================================================
-// 3. ZONE CLASSIFICATION
+// 2. CALCULATION — delegates to the shared engine (#1727)
 // =============================================================================
 
 /**
- * Classify zone value for a single bar given 4 band states and midpoints.
- *
- * Logic:
- * - baseZone = sum of (+1/-1) per band → -4, -2, 0, +2, +4
- * - Refine with bar midpoint comparison to get odd values
+ * One body of zone math (shared/st-zone-v2.ts — the same engine the BE
+ * computes on; it was originally ported FROM this file's logic, so the
+ * algorithm is unchanged): this calculator adapts PriceBar → OHLCV and
+ * maps the shared zone + band flags to chart points. Bars whose bands
+ * haven't computed yet (warmup) emit no point — preserving the legacy
+ * series shape.
  */
-function classifyZone(
-  barMid: number,
-  bands: { m: number; up: boolean }[]
-): number {
-  // Sum band states: +1 for bullish, -1 for bearish
-  const baseZone = bands.reduce((sum, b) => sum + (b.up ? 1 : -1), 0);
-
-  switch (baseZone) {
-    case 4:  return 4;   // All bullish
-    case -4: return -4;  // All bearish
-
-    case 2: {
-      // 3 bullish, 1 bearish — find the bearish band's midpoint
-      const bearishBands = bands.filter(b => !b.up);
-      const bearishMid = bearishBands[0]?.m ?? 0;
-      // If price is above the one bearish band → strong (+3), else moderate (+2)
-      return barMid > bearishMid ? 3 : 2;
-    }
-
-    case -2: {
-      // 3 bearish, 1 bullish — find the bullish band's midpoint
-      const bullishBands = bands.filter(b => b.up);
-      const bullishMid = bullishBands[0]?.m ?? 0;
-      // If price is below the one bullish band → strong (-3), else moderate (-2)
-      return barMid < bullishMid ? -3 : -2;
-    }
-
-    case 0: {
-      // 2 bullish, 2 bearish — use average of all midpoints as reference
-      const avgMid = bands.reduce((sum, b) => sum + b.m, 0) / bands.length;
-      return barMid > avgMid ? 1 : -1;
-    }
-
-    default: return 0;
-  }
-}
-
-// =============================================================================
-// 4. MAIN CALCULATOR
-// =============================================================================
-
 export const calculateStZoneV2: IndicatorCalculator = (bars, params) => {
   if (bars.length < 30) return [];
 
-  // Compute all 4 bands
-  const b1 = computeBandMid(bars, 5, 1);                // CTF fast
-  const b2 = computeBandMid(bars, 10, 1);               // CTF slow
-  const b3 = computeBandMid(bars, 5, HTF_MULTIPLIER);   // HTF fast
-  const b4 = computeBandMid(bars, 10, HTF_MULTIPLIER);  // HTF slow (NEW in V2)
+  const ohlcv: OHLCV[] = bars.map((b) => ({
+    open: b.open, high: b.high, low: b.low, close: b.close,
+  }));
+  const bands = computeStTrendBands(ohlcv);
+  const zone = computeStZoneV2(ohlcv, bands).zone;
 
-  const result = bars.map((bar, i) => {
-    const b1m = b1.m[i];
-    const b2m = b2.m[i];
-    const b3m = b3.m[i];
-    const b4m = b4.m[i];
-
-    // All 4 bands must be valid
-    if (isNaN(b1m) || isNaN(b2m) || isNaN(b3m) || isNaN(b4m)) return null;
-
-    const barMid = (bar.high + bar.low) / 2;
-
-    const zone = classifyZone(barMid, [
-      { m: b1m, up: b1.up[i] },
-      { m: b2m, up: b2.up[i] },
-      { m: b3m, up: b3.up[i] },
-      { m: b4m, up: b4.up[i] },
-    ]);
-
-    return { x: bar.x, y: zone, color: ST_ZONE_COLORS[zone] || ST_ZONE_FALLBACK_COLOR };
+  return bars.map((bar, i) => {
+    if (
+      isNaN(bands.band1.m[i]) || isNaN(bands.band2.m[i]) ||
+      isNaN(bands.band3.m[i]) || isNaN(bands.band4.m[i])
+    ) return null;
+    const z = zone[i];
+    return { x: bar.x, y: z, color: ST_ZONE_COLORS[z] || ST_ZONE_FALLBACK_COLOR };
   }).filter((p): p is { x: Date; y: number; color: string } => p !== null);
-
-  return result;
 };
