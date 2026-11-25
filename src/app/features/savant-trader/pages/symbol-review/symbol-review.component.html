@@ -50,12 +50,13 @@
           @if (bundle.occurrences.length === 0) {
             <div class="pane-placeholder">No un-groomed signals for {{ bundle.symbol }}.</div>
           } @else {
-            <!-- Phase 2: occurrence list + checkboxes + mint/delete actions.
-                 Phase 3: chart with plotted signals. -->
-            <div class="pane-placeholder">
-              {{ bundle.symbol }} — {{ bundle.occurrences.length }} signal(s) queued
-              (occurrence pane lands in the next phase)
-            </div>
+            <!-- Phase 3 lands the chart stack beside this list. -->
+            <app-occurrence-list
+              [occurrences]="bundle.occurrences"
+              [dividerIndex]="store.dividerIndex()"
+              [togglePending]="store.togglePending()"
+              [rowErrors]="store.rowErrors()"
+              (toggle)="onToggle($event)" />
           }
         } @else {
           <!-- Kept bundle is keyed to another symbol — a failed select left

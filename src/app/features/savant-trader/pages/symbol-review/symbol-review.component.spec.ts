@@ -10,14 +10,32 @@ import { By } from '@angular/platform-browser';
 
 import { SymbolReviewComponent } from './symbol-review.component';
 import { SignalReviewStore } from '../../stores/signal-review.store';
-import type { SignalReviewQueueRow } from '@paper-trading/contracts';
+import { TradeSide } from '@common';
+import type {
+  SignalReviewOccurrence,
+  SignalReviewQueueRow,
+} from '@paper-trading/contracts';
 
 interface BundleStub {
   symbol: string;
   previousOpenedAt: string | null;
   openedAt: string;
-  occurrences: unknown[];
+  occurrences: SignalReviewOccurrence[];
 }
+
+const occ = (over: Partial<SignalReviewOccurrence> = {}): SignalReviewOccurrence => ({
+  occurrenceId: 'AAPL_2026-11-14_D_ST_TREND_RIDER_V2_LONG',
+  symbol: 'AAPL',
+  signalType: 'D_ST_TREND_RIDER_V2_LONG',
+  signalBarDate: '2026-11-14',
+  signalTimeframe: 'D',
+  direction: TradeSide.LONG,
+  signalStatus: 'CONFIRMED',
+  signalIndicators: {},
+  sourceRunId: 'run-1',
+  checked: false,
+  ...over,
+});
 
 const row = (over: Partial<SignalReviewQueueRow> & { hasNewSignal?: boolean } = {}) => {
   const { hasNewSignal = false, ...rest } = over;
@@ -33,7 +51,8 @@ const bundleOf = (symbol: string, count = 1): BundleStub => ({
   symbol,
   previousOpenedAt: null,
   openedAt: '2026-11-17T15:00:00.000Z',
-  occurrences: Array.from({ length: count }, (_, i) => ({ id: `o-${i}` })),
+  occurrences: Array.from({ length: count }, (_, i) =>
+    occ({ occurrenceId: `o-${i}`, symbol })),
 });
 
 describe('SymbolReviewComponent', () => {
@@ -46,6 +65,9 @@ describe('SymbolReviewComponent', () => {
   let bundleError: ReturnType<typeof signal<string | null>>;
   let queueLoading: ReturnType<typeof signal<boolean>>;
   let queueError: ReturnType<typeof signal<string | null>>;
+  let dividerIndex: ReturnType<typeof signal<number>>;
+  let togglePending: ReturnType<typeof signal<Record<string, true>>>;
+  let rowErrors: ReturnType<typeof signal<Record<string, string>>>;
   let store: Record<string, unknown>;
 
   async function setup(): Promise<void> {
@@ -58,8 +80,12 @@ describe('SymbolReviewComponent', () => {
       bundleError,
       queueLoading,
       queueError,
+      dividerIndex,
+      togglePending,
+      rowErrors,
       loadQueue: jest.fn(),
       selectSymbol: jest.fn(),
+      toggle: jest.fn(),
     };
     await TestBed.configureTestingModule({
       imports: [SymbolReviewComponent],
@@ -77,6 +103,9 @@ describe('SymbolReviewComponent', () => {
     bundleError = signal<string | null>(null);
     queueLoading = signal(false);
     queueError = signal<string | null>(null);
+    dividerIndex = signal(0);
+    togglePending = signal<Record<string, true>>({});
+    rowErrors = signal<Record<string, string>>({});
   });
 
   it('loads the queue on init', async () => {
@@ -158,6 +187,24 @@ describe('SymbolReviewComponent', () => {
     fixture.detectChanges();
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('Could not load MSFT');
-    expect(text).not.toContain('AAPL — 1 signal(s) queued');
+    expect(fixture.debugElement.queryAll(By.css('.occ-row'))).toHaveLength(0);
+  });
+
+  it('renders the occurrence list for the loaded bundle and forwards toggles to the store', async () => {
+    queueRows.set([{ symbol: 'AAPL' }]);
+    pickerRows.set([row()]);
+    selectedSymbol.set('AAPL');
+    bundle.set(bundleOf('AAPL', 2));
+    dividerIndex.set(1);
+    await setup();
+    fixture.detectChanges();
+
+    const rows = fixture.debugElement.queryAll(By.css('.occ-row'));
+    expect(rows).toHaveLength(2);
+    expect(fixture.debugElement.queryAll(By.css('.visit-divider'))).toHaveLength(1);
+
+    const box = rows[0].query(By.css('input[type=checkbox]')).nativeElement as HTMLInputElement;
+    box.click();
+    expect(store.toggle).toHaveBeenCalledWith('o-0');
   });
 });

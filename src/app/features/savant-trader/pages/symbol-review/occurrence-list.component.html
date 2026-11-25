@@ -1,0 +1,27 @@
+<ul class="occ-list">
+  @for (occ of occurrences(); track occ.occurrenceId; let i = $index) {
+    @if (dividerIndex() > 0 && i === dividerIndex()) {
+      <li class="visit-divider"><span>new since last visit</span></li>
+    }
+    <li class="occ-row" [class.checked]="occ.checked">
+      <label class="occ-check" [class.pending]="isPending(occ)">
+        <input
+          type="checkbox"
+          [checked]="occ.checked"
+          [disabled]="isPending(occ)"
+          [attr.aria-label]="(occ.checked ? 'Remove' : 'Mint') + ' paper trade for ' + occ.signalBarDate + ' ' + occ.signalType"
+          (change)="onBoxChange(occ, $event)" />
+        @if (isPending(occ)) {
+          <span class="occ-spinner dse-spinner" aria-hidden="true"></span>
+        }
+      </label>
+      <span class="occ-date">{{ occ.signalBarDate }}</span>
+      <span class="occ-type" [title]="occ.signalType">{{ occ.signalType }}</span>
+      <span class="occ-dir" [class.long]="occ.direction === 'long'" [class.short]="occ.direction === 'short'">{{ occ.direction }}</span>
+      <span class="occ-chip" [class.interim]="occ.signalStatus === 'INTERIM'" [class.confirmed]="occ.signalStatus === 'CONFIRMED'">{{ occ.signalStatus }}</span>
+      @if (rowError(occ); as err) {
+        <div class="occ-error" role="alert">{{ err }}</div>
+      }
+    </li>
+  }
+</ul>

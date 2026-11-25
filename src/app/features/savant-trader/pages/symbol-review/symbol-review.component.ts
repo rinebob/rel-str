@@ -1,6 +1,6 @@
 /**
- * Symbol Review page — the signal-selection pane's Phase-1 shell
- * (#553/#1117, task #1653).
+ * Symbol Review page — the signal-selection pane's shell (#553/#1117,
+ * task #1653 shell + picker; #1654 occurrence list + toggles).
  *
  * Chart-view-style two-pane layout: a left symbol picker bound to the
  * review queue (one row per symbol with an un-groomed signal; a dot marks
@@ -17,11 +17,13 @@ import {
 } from '@angular/core';
 
 import { SignalReviewStore } from '../../stores/signal-review.store';
+import { OccurrenceListComponent } from './occurrence-list.component';
+import type { SignalReviewOccurrence } from '@paper-trading/contracts';
 
 @Component({
   selector: 'app-symbol-review',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [OccurrenceListComponent],
   templateUrl: './symbol-review.component.html',
   styleUrl: './symbol-review.component.scss',
 })
@@ -39,5 +41,9 @@ export class SymbolReviewComponent implements OnInit {
 
   onSymbolSelected(symbol: string): void {
     void this.store.selectSymbol(symbol);
+  }
+
+  onToggle(occ: SignalReviewOccurrence): void {
+    void this.store.toggle(occ.occurrenceId);
   }
 }
