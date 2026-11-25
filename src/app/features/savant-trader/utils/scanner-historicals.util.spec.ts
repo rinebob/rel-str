@@ -7,6 +7,7 @@
 import {
   historicalsToBars,
   smaOverlays,
+  volumeColumns,
 } from './scanner-historicals.util';
 import { toDatePt } from './utils';
 import type { EquityHistoricalBar } from '@robinhood-mcp/contracts';
@@ -98,5 +99,45 @@ describe('smaOverlays', () => {
     expect(out.map((o) => o.period)).toEqual([10, 20, 50]);
     expect(out[2].points[49].y).not.toBeNull();
     expect(out[2].points[48].y).toBeNull();
+  });
+});
+
+describe('volumeColumns', () => {
+  it('emits one column per bar — y in millions, x aligned to the bar', () => {
+    const bars = [
+      { ...bar('2026-01-05', 101), volume: 2_500_000 },
+      { ...bar('2026-01-06', 102), volume: 4_000_000 },
+    ];
+    const out = volumeColumns(bars);
+    expect(out.map((p) => p.y)).toEqual([2.5, 4]);
+    expect(out.map((p) => p.x)).toEqual(bars.map((b) => b.x));
+  });
+
+  it('colors up when close ≥ open, down when close < open — light-vocab candle literals', () => {
+    const up = { ...bar('2026-01-05', 100), volume: 1 }; // open = close → up
+    const down = {
+      ...bar('2026-01-06', 90),
+      open: 100,
+      volume: 1,
+    };
+    const [u, d] = volumeColumns([up, down]);
+    expect(u.color).toBe('#26a69a');
+    expect(d.color).toBe('#ef5350');
+  });
+
+  it('skips absent, non-finite, and negative volumes', () => {
+    const good = { ...bar('2026-01-05', 100), volume: 1000 };
+    const out = volumeColumns([
+      good,
+      { ...bar('2026-01-06', 100) }, // undefined
+      { ...bar('2026-01-07', 100), volume: NaN },
+      { ...bar('2026-01-08', 100), volume: -5 },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].x).toEqual(good.x);
+  });
+
+  it('empty input → []', () => {
+    expect(volumeColumns([])).toEqual([]);
   });
 });

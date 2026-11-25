@@ -135,6 +135,25 @@ describe('scanner recipe catalog (#1137)', () => {
     }
   });
 
+  it('every non-quality recipe carries the 30d avg-volume liquidity floor', () => {
+    // Quality recipes gate on mcap + fundamentals instead; everything
+    // else needs the volume floor to keep dead/thin names out of the
+    // scan results (ALLZ-class ETFs trade ~10–30K shares/day).
+    const qualityIds = new Set(['quality-mega', 'quality-large', 'quality-mid']);
+    for (const r of SCANNER_RECIPES) {
+      const exprs = r.filters
+        .filter(isExpressionFilter)
+        .map((f) => f.expression)
+        .join(' ');
+      if (qualityIds.has(r.id)) {
+        expect(exprs.includes('volumeAvg')).toBe(false);
+      } else {
+        expect(exprs).toContain('volumeAvg(candleCount=30');
+        expect(exprs).toContain('>= 250000');
+      }
+    }
+  });
+
   it('supportsPrune recipes carry a noDataPred; non-prune recipes do not', () => {
     for (const r of SCANNER_RECIPES) {
       if (r.supportsPrune) {

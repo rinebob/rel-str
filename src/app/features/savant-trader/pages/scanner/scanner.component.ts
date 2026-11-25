@@ -17,6 +17,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
   type OnDestroy,
@@ -131,8 +132,9 @@ export class ScannerComponent implements OnInit, OnDestroy {
 
   /** Page-wide All/New/Tracked filter (#1305) — view state, not store
    *  state: no persistence, applies to rail counts/tickers and the
-   *  detail table alike. */
-  protected readonly symbolFilter = signal<ScannerSymbolFilter>('all');
+   *  detail table alike. Defaults to 'new' — the view exists to surface
+   *  untracked hits. */
+  protected readonly symbolFilter = signal<ScannerSymbolFilter>('new');
   protected readonly symbolFilterOptions: ReadonlyArray<{
     value: ScannerSymbolFilter;
     label: string;
@@ -227,6 +229,21 @@ export class ScannerComponent implements OnInit, OnDestroy {
    *  re-arming; an already-fired stagger wave still completes in the
    *  root-scoped store after the page is gone. */
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    // 'new' is now the default filter — but a non-'all' filter can't be
+    // computed without the tracked universe. If its load fails, snap back
+    // to 'all' rather than sit on a disabled pill with the rail masked
+    // '…' forever (loading stays masked per the existing readiness gate).
+    effect(() => {
+      if (
+        this.symbolLists.trackedStatus() === 'error' &&
+        this.symbolFilter() !== 'all'
+      ) {
+        this.symbolFilter.set('all');
+      }
+    });
+  }
 
   ngOnInit(): void {
     void this.symbolLists.loadTrackedSymbols();

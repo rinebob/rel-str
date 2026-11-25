@@ -37,7 +37,10 @@ import {
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ScannerChartStore } from '../../stores/scanner-chart.store';
 import { normScanSymbol } from '../../utils/scanner-rows.util';
-import { smaOverlays } from '../../utils/scanner-historicals.util';
+import {
+  smaOverlays,
+  volumeColumns,
+} from '../../utils/scanner-historicals.util';
 
 /** Fetch-state shells the infra passes via the `state` input. */
 export type ScannerChartPopupState = 'loading' | 'error' | 'auth';
@@ -260,36 +263,58 @@ export class ScannerChartPopupComponent {
     bars: this.chartStore.bars()[this.sym()] ?? [],
   }));
 
-  /** Candle + three SMA lines over the price pane — no toolbar, dots,
-   *  scrollbar, or crosshair; the palette resolves candle fills. */
-  readonly popupConfig = computed<FlexChartConfig>(() => ({
-    indicators: smaOverlays(
-      this.chartStore.bars()[this.sym()] ?? [],
-      POPUP_SMA_PERIODS,
-    ).map(
-      (o, i): IndicatorConfig => ({
-        id: `sma-${o.period}`,
-        type: 'custom',
-        pane: 'overlay',
-        seriesType: 'line',
-        params: { period: o.period },
-        options: {
-          name: `SMA ${o.period}`,
-          color: POPUP_SMA_COLORS[i],
-          lineWidth: 1.5,
-          axisScale: 'price',
-        },
-        data: o.points.flatMap((p) =>
-          p.y === null ? [] : [{ x: p.x, y: p.y }],
+  /** Candle + three SMA lines over the price pane, volume columns in a
+   *  lower pane — no toolbar, dots, scrollbar, or crosshair; the palette
+   *  resolves candle fills. The volume indicator is omitted entirely when
+   *  no bar carries volume so the lower pane collapses back to 0%. */
+  readonly popupConfig = computed<FlexChartConfig>(() => {
+    const bars = this.chartStore.bars()[this.sym()] ?? [];
+    const vol = volumeColumns(bars);
+    return {
+      indicators: [
+        ...smaOverlays(bars, POPUP_SMA_PERIODS).map(
+          (o, i): IndicatorConfig => ({
+            id: `sma-${o.period}`,
+            type: 'custom',
+            pane: 'overlay',
+            seriesType: 'line',
+            params: { period: o.period },
+            options: {
+              name: `SMA ${o.period}`,
+              color: POPUP_SMA_COLORS[i],
+              lineWidth: 1.5,
+              axisScale: 'price',
+            },
+            data: o.points.flatMap((p) =>
+              p.y === null ? [] : [{ x: p.x, y: p.y }],
+            ),
+          }),
         ),
-      }),
-    ),
-    interval: ChartIntervalKey.DAILY,
-    visibleBars: POPUP_VISIBLE_BARS,
-    showCrosshair: false,
-    showZoomToolbar: false,
-    enableScrollbar: false,
-  }));
+        ...(vol.length > 0
+          ? [
+              // 'volume' has no registered calculator — precomputed
+              // config.data renders via the generic column block
+              // (per-point color → up/down to match the candles).
+              {
+                id: 'volume',
+                type: 'volume',
+                pane: 'lower-1',
+                seriesType: 'column',
+                params: {},
+                options: { name: 'Vol M' },
+                data: vol,
+              } satisfies IndicatorConfig,
+            ]
+          : []),
+      ],
+      interval: ChartIntervalKey.DAILY,
+      visibleBars: POPUP_VISIBLE_BARS,
+      mainPanePercent: 75,
+      showCrosshair: false,
+      showZoomToolbar: false,
+      enableScrollbar: false,
+    };
+  });
 
   /** Re-authorize click — emit for the page flow AND clear+retry this
    *  symbol so the settled auth slot can't strand the view. A retry

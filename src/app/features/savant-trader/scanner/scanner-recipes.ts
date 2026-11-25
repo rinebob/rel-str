@@ -137,6 +137,19 @@ const RANGE_COLUMNS: readonly ScanColumn[] = [
 /* ------------------------------------------------------------------ */
 
 const MCAP_2B_FILTER = expr('fundamental.marketCap >= 2e9', 'mcap ≥ $2B');
+
+/** Liquidity floor shared by every recipe without a market-cap gate —
+ *  weeds dead ETFs/SPAC stubs and thinly-traded names out of the scan
+ *  results entirely (250K shares/day on the 30-day average; ALLZ-class
+ *  dead names trade ~10–30K). Applied to the 52-week family, gainers,
+ *  losers, vol-spike, AND the IV-rank pair — a ≥$2B ETF can still be
+ *  untradable-thin. Quality recipes rely on their mcap + fundamental
+ *  screens instead. */
+const MIN_LIQUIDITY_FILTER = expr(
+  'volumeAvg(candleCount=30, candlePeriod="1d") >= 250000',
+  '30d avg vol ≥ 250K',
+);
+
 const IVR_COLUMNS: readonly ScanColumn[] = [
   col('IV rank', 'ivRank'),
   col('IV 52w high', 'iv52weeksHigh'),
@@ -193,8 +206,11 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'high-52w',
     title: 'At 52-Week High',
-    blurb: 'Trading at or above the 1y daily high',
-    filters: [expr(`tradeAllDay.price >= ${HIGH_EXPR}`, 'At 52w high')],
+    blurb: 'Trading at or above the 1y daily high · 30d vol ≥ 250K',
+    filters: [
+      expr(`tradeAllDay.price >= ${HIGH_EXPR}`, 'At 52w high'),
+      MIN_LIQUIDITY_FILTER,
+    ],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'desc' },
     percentColumns: ['Range pos'],
@@ -202,8 +218,8 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'near-52w-high',
     title: 'Near 52-Week High',
-    blurb: 'Top 5% of the 52-week range',
-    filters: [expr(`${RANGE_POS_EXPR} >= 0.95`, 'Range pos ≥ 95%')],
+    blurb: 'Top 5% of the 52-week range · 30d vol ≥ 250K',
+    filters: [expr(`${RANGE_POS_EXPR} >= 0.95`, 'Range pos ≥ 95%'), MIN_LIQUIDITY_FILTER],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'desc' },
     percentColumns: ['Range pos'],
@@ -211,8 +227,11 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'low-52w',
     title: 'At 52-Week Low',
-    blurb: 'Trading at or below the 1y daily low',
-    filters: [expr(`tradeAllDay.price <= ${LOW_EXPR}`, 'At 52w low')],
+    blurb: 'Trading at or below the 1y daily low · 30d vol ≥ 250K',
+    filters: [
+      expr(`tradeAllDay.price <= ${LOW_EXPR}`, 'At 52w low'),
+      MIN_LIQUIDITY_FILTER,
+    ],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'asc' },
     percentColumns: ['Range pos'],
@@ -220,8 +239,8 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'near-52w-low',
     title: 'Near 52-Week Low',
-    blurb: 'Bottom 5% of the 52-week range',
-    filters: [expr(`${RANGE_POS_EXPR} <= 0.05`, 'Range pos ≤ 5%')],
+    blurb: 'Bottom 5% of the 52-week range · 30d vol ≥ 250K',
+    filters: [expr(`${RANGE_POS_EXPR} <= 0.05`, 'Range pos ≤ 5%'), MIN_LIQUIDITY_FILTER],
     columns: [...RANGE_COLUMNS],
     sort: { column: 'Range pos', direction: 'asc' },
     percentColumns: ['Range pos'],
@@ -230,8 +249,12 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'ivr-high',
     title: 'High IV Rank',
-    blurb: 'IV rank ≥ 80% of its 52-wk range, mcap ≥ $2B (optionable size)',
-    filters: [expr('ivRank >= 0.8', 'IVR ≥ 0.8'), MCAP_2B_FILTER],
+    blurb: 'IV rank ≥ 80% of its 52-wk range, mcap ≥ $2B · 30d vol ≥ 250K',
+    filters: [
+      expr('ivRank >= 0.8', 'IVR ≥ 0.8'),
+      MCAP_2B_FILTER,
+      MIN_LIQUIDITY_FILTER,
+    ],
     columns: [...IVR_COLUMNS],
     sort: { column: 'IV rank', direction: 'desc' },
     percentColumns: ['IV rank'],
@@ -239,8 +262,12 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'ivr-low',
     title: 'Low IV Rank',
-    blurb: 'IV rank ≤ 20% of its 52-wk range, mcap ≥ $2B (optionable size)',
-    filters: [expr('ivRank <= 0.2', 'IVR ≤ 0.2'), MCAP_2B_FILTER],
+    blurb: 'IV rank ≤ 20% of its 52-wk range, mcap ≥ $2B · 30d vol ≥ 250K',
+    filters: [
+      expr('ivRank <= 0.2', 'IVR ≤ 0.2'),
+      MCAP_2B_FILTER,
+      MIN_LIQUIDITY_FILTER,
+    ],
     columns: [...IVR_COLUMNS],
     sort: { column: 'IV rank', direction: 'asc' },
     percentColumns: ['IV rank'],
@@ -249,8 +276,11 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'vol-spike',
     title: 'Volume Spike',
-    blurb: "Today's volume ≥ 2× the 30-day average",
-    filters: [expr(`${VOL_RATIO_EXPR} >= 2`, 'Vol ≥ 2× avg')],
+    blurb: "Today's volume ≥ 2× the 30-day average · 30d vol ≥ 250K",
+    filters: [
+      expr(`${VOL_RATIO_EXPR} >= 2`, 'Vol ≥ 2× avg'),
+      MIN_LIQUIDITY_FILTER,
+    ],
     columns: [col('Vol × 30d avg', VOL_RATIO_EXPR)],
     sort: { column: 'Vol × 30d avg', direction: 'desc' },
   },
@@ -258,8 +288,8 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'gainers',
     title: 'Daily Gainers',
-    blurb: 'Positive % change from prior close, best first within the 200-row page',
-    filters: [pctChangeFilter('>')],
+    blurb: 'Positive % change from prior close, best first within the 200-row page · 30d vol ≥ 250K',
+    filters: [pctChangeFilter('>'), MIN_LIQUIDITY_FILTER],
     columns: [col('% Change'), col('Net change')],
     sort: { column: '% Change', direction: 'desc' },
     percentColumns: ['% Change'],
@@ -267,8 +297,8 @@ export const SCANNER_RECIPES: readonly ScannerRecipe[] = [
   {
     id: 'losers',
     title: 'Daily Losers',
-    blurb: 'Negative % change from prior close, worst first within the 200-row page',
-    filters: [pctChangeFilter('<')],
+    blurb: 'Negative % change from prior close, worst first within the 200-row page · 30d vol ≥ 250K',
+    filters: [pctChangeFilter('<'), MIN_LIQUIDITY_FILTER],
     columns: [col('% Change'), col('Net change')],
     sort: { column: '% Change', direction: 'asc' },
     percentColumns: ['% Change'],

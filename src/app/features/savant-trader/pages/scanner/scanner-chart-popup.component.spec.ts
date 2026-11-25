@@ -240,6 +240,36 @@ describe('ScannerChartPopupComponent', () => {
       expect(cfg.visibleBars).toBe(60);
     });
 
+    it('volume-bearing bars add a lower-pane column series + 75/25 pane split', () => {
+      chartStore.bars.set({
+        AAPL: Array.from({ length: 80 }, (_, i) => ({
+          ...pb(`2026-01-${String((i % 28) + 1).padStart(2, '0')}`, 100 + i),
+          volume: 1_000_000 + i,
+        })),
+      });
+      mount({});
+      fixture.detectChanges();
+      const cfg = stub()!.config()!;
+      const vol = cfg.indicators.find((i) => i.id === 'volume')!;
+      expect(vol.type).toBe('volume');
+      expect(vol.pane).toBe('lower-1');
+      expect(vol.seriesType).toBe('column');
+      expect(vol.data).toHaveLength(80);
+      expect(cfg.mainPanePercent).toBe(75);
+    });
+
+    it('bars without volume emit no volume indicator — the lower pane collapses', () => {
+      chartStore.bars.set({
+        AAPL: Array.from({ length: 80 }, (_, i) =>
+          pb(`2026-01-${String((i % 28) + 1).padStart(2, '0')}`, 100 + i),
+        ),
+      });
+      mount({});
+      fixture.detectChanges();
+      const cfg = stub()!.config()!;
+      expect(cfg.indicators.some((i) => i.pane === 'lower-1')).toBe(false);
+    });
+
     it('store error renders the message in the untracked fork', () => {
       chartStore.error.set({
         AAPL: { message: 'historicals unavailable', auth: false },

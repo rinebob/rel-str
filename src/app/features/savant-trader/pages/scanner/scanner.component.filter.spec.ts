@@ -140,7 +140,7 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
     fixture = TestBed.createComponent(ScannerComponent);
   });
 
-  it('header renders a tri-state All/New/Tracked control; all is the active default', () => {
+  it('header renders a tri-state All/New/Tracked control; new is the active default', () => {
     fixture.detectChanges();
     const pills = filterPills();
     expect(pills.map((p) => p.textContent!.trim())).toEqual([
@@ -148,12 +148,12 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
       'New',
       'Tracked',
     ]);
-    expect(pills[0].getAttribute('aria-pressed')).toBe('true');
-    expect(pills[1].getAttribute('aria-pressed')).toBe('false');
+    expect(pills[0].getAttribute('aria-pressed')).toBe('false');
+    expect(pills[1].getAttribute('aria-pressed')).toBe('true');
     expect(pills[2].getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('new filters rail counts + tickers to untracked rows; tracked inverts; all restores', () => {
+  it('new default filters rail counts + tickers to untracked rows; tracked inverts; all restores', () => {
     symbolListsMock.trackedSymbols.set(['AAA', 'BBB']);
     const runs = idleRuns();
     runs[SCANNER_RECIPES[0].id] = successRun(
@@ -162,10 +162,7 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
     );
     storeMock.runs.set(runs);
     fixture.detectChanges();
-    expect(railCount(0)).toBe('3 / 9');
-
-    filterPills()[1].click();
-    fixture.detectChanges();
+    // 'new' is the default — no click needed; untracked rows only.
     expect(railCount(0)).toBe('1 / 9');
     expect(railTickers(0)).toBe('NEWX');
     expect(filterPills()[1].getAttribute('aria-pressed')).toBe('true');
@@ -282,5 +279,24 @@ describe('ScannerComponent page filter (#1305 All/New/Tracked)', () => {
     // And an all-mode scoreboard still renders — the filter refusing is
     // not the page failing.
     expect(el('[data-testid="run-all"]')).not.toBeNull();
+  });
+
+  it('a tracked-universe error snaps the new-default filter back to all', () => {
+    symbolListsMock.trackedSymbols.set(['AAA']);
+    const runs = idleRuns();
+    runs[SCANNER_RECIPES[0].id] = successRun(
+      [wireResultRow('AAA'), wireResultRow('NEWX')],
+      9,
+    );
+    storeMock.runs.set(runs);
+    fixture.detectChanges();
+    expect(railCount(0)).toBe('1 / 9'); // new-default filtered
+
+    symbolListsMock.trackedStatus.set('error');
+    fixture.detectChanges();
+    // The filter can't be computed without the universe — the page falls
+    // back to all-mode rather than mask the rail '…' forever.
+    expect(railCount(0)).toBe('2 / 9');
+    expect(filterPills()[0].getAttribute('aria-pressed')).toBe('true');
   });
 });

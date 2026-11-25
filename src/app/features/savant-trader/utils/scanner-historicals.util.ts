@@ -13,6 +13,8 @@
  * - `smaOverlays` computes aligned SMA series per period — one point per
  *   bar with a `null` warmup head, so the rendered line starts at the
  *   first full window instead of ramping from partial means.
+ * - `volumeColumns` builds the lower-pane volume histogram — one column
+ *   per bar, up/down coloured to match the candle.
  */
 import type { EquityHistoricalBar } from '@robinhood-mcp/contracts';
 import type { PriceBar } from '../../shared/components/flex-chart/flex-chart.types';
@@ -75,4 +77,34 @@ export function smaOverlays(
     });
     return { period, points };
   });
+}
+
+/** Volume columns are emitted in millions — the popup's small lower axis
+ *  can't label raw share counts (`{value}` has no per-pane format hook). */
+const VOL_MILLIONS = 1e6;
+/** Light-vocab candle literals — the chart palette lifts per-point
+ *  `color` through colorRemap (#1216 exception, same as the SMA hexes). */
+const VOL_UP_COLOR = '#26a69a';
+const VOL_DOWN_COLOR = '#ef5350';
+
+/**
+ * One volume column per bar for the popup's lower pane — `y` in
+ * millions, `color` tracking the candle direction (close ≥ open → up).
+ * Absent/non-finite/negative volumes emit no point: a gap is honest,
+ * a zero column isn't.
+ */
+export function volumeColumns(
+  bars: readonly PriceBar[],
+): { x: Date; y: number; color: string }[] {
+  const out: { x: Date; y: number; color: string }[] = [];
+  for (const b of bars) {
+    const v = b.volume;
+    if (v === undefined || !Number.isFinite(v) || v < 0) continue;
+    out.push({
+      x: b.x,
+      y: v / VOL_MILLIONS,
+      color: b.close >= b.open ? VOL_UP_COLOR : VOL_DOWN_COLOR,
+    });
+  }
+  return out;
 }
