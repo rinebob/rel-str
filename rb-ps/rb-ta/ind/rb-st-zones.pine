@@ -8,18 +8,19 @@ indicator("Savant Trader Zones + Signals", "ST Zones", overlay=false, timeframe=
 // Trend Rider signal dots render on the main price pane via force_overlay.
 // Trend Bands and Trend Strength are separate companion indicators.
 //
-// IBS GATE (#1676, Thread #1665) — Pine parity with shared/st-ibs.ts and the
-// BE/FE gates: each Trend Rider candidate is filtered by its signal bar's
-// Internal Bar Strength (close−low)/(high−low); long needs IBS ≥ threshold,
-// short needs IBS ≤ 1−threshold (inclusive). Suppression is emission-only —
-// the state machine consumes a suppressed candidate exactly like the TS gates.
+// IBS FILTER (#1676/#1724, Thread #1665) — Pine parity with shared/st-ibs.ts
+// and the BE/FE filters: each Trend Rider and zero-cross candidate is
+// filtered by its signal bar's Internal Bar Strength (close−low)/(high−low);
+// long needs IBS ≥ threshold, short needs IBS ≤ 1−threshold (inclusive).
+// Suppression is emission-only — the state machine consumes a suppressed
+// candidate exactly like the TS filter.
 // Availability is an APPROXIMATION of the TS `now`-injected semantics: the
 // developing bar is barstate.isrealtime and activation is judged on wall-clock
 // ET (timenow) — hour ≥ stIbsActivateHourEt on daily charts, ET weekday ≥
 // Wednesday (TS weekday 3 = Pine dayofweek 4; Sunday maps to week-tail 7 like
 // the TS normalization) on weekly charts. Completed bars always have a defined
-// IBS. The gate is only meaningful on D/W hosts — on intraday timeframes it
-// gates on the intraday bar's IBS with shifted activation semantics. Known
+// IBS. The filter is only meaningful on D/W hosts — on intraday timeframes it
+// filters on the intraday bar's IBS with shifted activation semantics. Known
 // approximation gaps: bar replay reports isrealtime on replayed bars while
 // timenow stays real wall clock, and a stale realtime bar (e.g. Friday's bar
 // pre-open Monday) counts as developing where TS compares bar date to ET date.
@@ -33,8 +34,8 @@ const float ZONE_DOT_ATR_MULTIPLIER = 2.5
 const string ST_ET_TZ = "America/New_York"
 
 groupIbs = "IBS Signal Filter"
-stIbsThreshold = input.float(0.5, "IBS Threshold", minval=0.0, maxval=1.0, step=0.05, group=groupIbs, tooltip="Internal Bar Strength gate on Trend Rider markers — long needs signal-bar IBS ≥ this, short ≤ 1 − this (inclusive). 0 disables suppression.")
-stIbsActivateHourEt = input.int(12, "Daily IBS Available From (ET hour)", minval=0, maxval=23, group=groupIbs, tooltip="On the developing daily bar the gate only engages once wall-clock ET reaches this hour (mirrors the TS activateAtEtMin = hour × 60 semantics).")
+stIbsThreshold = input.float(0.5, "IBS Threshold", minval=0.0, maxval=1.0, step=0.05, group=groupIbs, tooltip="Internal Bar Strength filter on Trend Rider and zero-cross markers — long needs signal-bar IBS ≥ this, short ≤ 1 − this (inclusive). 0 disables suppression.")
+stIbsActivateHourEt = input.int(12, "Daily IBS Available From (ET hour)", minval=0, maxval=23, group=groupIbs, tooltip="On the developing daily bar the filter only engages once wall-clock ET reaches this hour (mirrors the TS activateAtEtMin = hour × 60 semantics).")
 stShowSuppressed = input.bool(false, "Show Suppressed Signals", group=groupIbs, tooltip="Render IBS-rejected candidates as dimmed ghost markers at the same placement.")
 
 f_ema(series float source, simple int length) =>
@@ -198,9 +199,9 @@ if stZoneV2 < 0
 else
     stV2ShortState := 0
 
-// IBS gate — per-bar strength + availability approximation (see header).
-// na OHLC can't gate (mirrors the TS non-finite guard → pass-through);
-// zero/inverted range → 0.5. On the developing bar the gate only engages
+// IBS filter — per-bar strength + availability approximation (see header).
+// na OHLC can't be filtered (mirrors the TS non-finite guard → pass-through);
+// zero/inverted range → 0.5. On the developing bar the filter only engages
 // after the ET activation point; completed bars always apply.
 float stIbs = na(high) or na(low) or na(close) ? na : (high - low) <= 0 ? 0.5 : (close - low) / (high - low)
 // ET weekday, Sunday mapped to week-tail 7 — same normalization as st-ibs.ts
@@ -208,8 +209,9 @@ float stIbs = na(high) or na(low) or na(close) ? na : (high - low) <= 0 ? 0.5 : 
 int stIbsEtDow = dayofweek(timenow, ST_ET_TZ) == dayofweek.sunday ? 7 : dayofweek(timenow, ST_ET_TZ)
 bool stIbsAvailable = not barstate.isrealtime or (timeframe.isweekly ? stIbsEtDow >= dayofweek.wednesday : hour(timenow, ST_ET_TZ) >= stIbsActivateHourEt)
 bool stIbsLongPass = not stIbsAvailable or na(stIbs) or stIbs >= stIbsThreshold
-// + 1e-15 mirrors the TS Number.EPSILON guard — 1−T can round a ulp low at
-// step-0.05 thresholds (T=0.15 → 0.8499999999999999).
+// + 1e-15 is a permissive ulp margin in the TS guard's direction (wider than
+// Number.EPSILON ~2.2e-16) — 1−T can round low at step-0.05 thresholds
+// (T=0.15 → 0.8499999999999999).
 bool stIbsShortPass = not stIbsAvailable or na(stIbs) or stIbs <= 1.0 - stIbsThreshold + 1e-15
 
 // Candidate → emitted/suppressed partition at emission — the state vars
@@ -231,6 +233,19 @@ bool stV1ZeroCrossShort = stZoneV1[1] > 0 and stZoneV1 < 0
 bool stV2ZeroCrossLong  = stZoneV2[1] < 0 and stZoneV2 > 0
 bool stV2ZeroCrossShort = stZoneV2[1] > 0 and stZoneV2 < 0
 
+// Zero-cross partition — same filter vars, no duplicated filter logic
+// (#1724: IBS applies to all ST Zones signals on all surfaces). A suppressed
+// cross simply doesn't emit — each cross is a single-bar event, so
+// suppression can't defer emission to a later bar (no state machine).
+bool stV1ZeroCrossLongEmit = stV1ZeroCrossLong and stIbsLongPass
+bool stV1ZeroCrossLongSupp = stV1ZeroCrossLong and not stIbsLongPass
+bool stV1ZeroCrossShortEmit = stV1ZeroCrossShort and stIbsShortPass
+bool stV1ZeroCrossShortSupp = stV1ZeroCrossShort and not stIbsShortPass
+bool stV2ZeroCrossLongEmit = stV2ZeroCrossLong and stIbsLongPass
+bool stV2ZeroCrossLongSupp = stV2ZeroCrossLong and not stIbsLongPass
+bool stV2ZeroCrossShortEmit = stV2ZeroCrossShort and stIbsShortPass
+bool stV2ZeroCrossShortSupp = stV2ZeroCrossShort and not stIbsShortPass
+
 plot(stV1LongEmit ? low - stDotOffset : na, "V1 Long", style=plot.style_circles, linewidth=3, color=color.green, force_overlay=true)
 plot(stV1ShortEmit ? high + stDotOffset : na, "V1 Short", style=plot.style_circles, linewidth=3, color=color.red, force_overlay=true)
 plot(stV2LongEmit ? low - stDotOffset : na, "V2 Long", style=plot.style_cross, linewidth=3, color=color.lime, force_overlay=true)
@@ -250,7 +265,17 @@ plot(stShowSuppressed and stV2ShortSupp ? high + stDotOffset : na, "V2 Short (su
 // Note: V2 short zero-cross uses the same color/style as V2 short Trend Rider — this
 // matches the TS implementation which also uses #ff9800 for both. Visual distinction
 // for zero-cross vs confirmation is primarily via the long color (teal vs green/lime).
-plot(stV1ZeroCrossLong ? low - stDotOffset : na, "V1 Zero Cross Long", style=plot.style_circles, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
-plot(stV1ZeroCrossShort ? high + stDotOffset : na, "V1 Zero Cross Short", style=plot.style_circles, linewidth=3, color=color.orange, force_overlay=true)
-plot(stV2ZeroCrossLong ? low - stDotOffset : na, "V2 Zero Cross Long", style=plot.style_cross, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
-plot(stV2ZeroCrossShort ? high + stDotOffset : na, "V2 Zero Cross Short", style=plot.style_cross, linewidth=3, color=color.orange, force_overlay=true)
+plot(stV1ZeroCrossLongEmit ? low - stDotOffset : na, "V1 Zero Cross Long", style=plot.style_circles, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
+plot(stV1ZeroCrossShortEmit ? high + stDotOffset : na, "V1 Zero Cross Short", style=plot.style_circles, linewidth=3, color=color.orange, force_overlay=true)
+plot(stV2ZeroCrossLongEmit ? low - stDotOffset : na, "V2 Zero Cross Long", style=plot.style_cross, linewidth=3, color=color.rgb(0, 150, 136), force_overlay=true)
+plot(stV2ZeroCrossShortEmit ? high + stDotOffset : na, "V2 Zero Cross Short", style=plot.style_cross, linewidth=3, color=color.orange, force_overlay=true)
+
+// Suppressed zero-cross ghosts — same style family, ~35% opacity.
+// Note: V2-short's orange cross ghost is pixel-identical to the V2-short
+// Trend Rider ghost — if both are suppressed on the same bar they render
+// as one overlapping marker (cosmetic only; the title is the only
+// distinction).
+plot(stShowSuppressed and stV1ZeroCrossLongSupp ? low - stDotOffset : na, "V1 Zero Cross Long (suppressed)", style=plot.style_circles, linewidth=2, color=color.new(color.rgb(0, 150, 136), 65), force_overlay=true)
+plot(stShowSuppressed and stV1ZeroCrossShortSupp ? high + stDotOffset : na, "V1 Zero Cross Short (suppressed)", style=plot.style_circles, linewidth=2, color=color.new(color.orange, 65), force_overlay=true)
+plot(stShowSuppressed and stV2ZeroCrossLongSupp ? low - stDotOffset : na, "V2 Zero Cross Long (suppressed)", style=plot.style_cross, linewidth=2, color=color.new(color.rgb(0, 150, 136), 65), force_overlay=true)
+plot(stShowSuppressed and stV2ZeroCrossShortSupp ? high + stDotOffset : na, "V2 Zero Cross Short (suppressed)", style=plot.style_cross, linewidth=2, color=color.new(color.orange, 65), force_overlay=true)
