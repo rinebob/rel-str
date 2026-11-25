@@ -16,8 +16,8 @@
  * beyond the shared primitives.
  */
 
-import { emaSeries, smaSeries } from './primitives';
-import type { OHLCV } from './st-trend-bands';
+import { emaSeries, smaSeries } from '@st/primitives';
+import type { OHLCV } from '@st/trend-bands';
 
 // =============================================================================
 // INTERFACES

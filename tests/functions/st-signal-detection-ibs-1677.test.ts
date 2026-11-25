@@ -1,8 +1,8 @@
 /**
- * Unit tests for the IBS gate in detectAllStTrendRiderSignals / detectLastBarSignals
- * and the StrategyConfig → IbsGateConfig plumbing (task #1677, Thread #1665).
+ * Unit tests for the IBS filter in detectAllStTrendRiderSignals / detectLastBarSignals
+ * and the StrategyConfig → IbsFilterContext plumbing (task #1677, Thread #1665).
  *
- * Gate semantics (IMPL doc):
+ * Filter semantics (IMPL doc):
  * - LONG candidate emits when bar IBS >= T (default 0.5); SHORT when IBS <= 1 - T.
  * - IBS === undefined (bar too young — pre-activation) → filter not applicable → emit.
  * - Suppression skips emission only — the state machine still transitions to FIRED.
@@ -17,7 +17,7 @@ import {
   detectAllStTrendRiderSignals,
   detectLastBarSignals,
 } from '../../functions/src/st-cloud-function/strategies/signal-detection';
-import { ibsGateFromConfig, execute } from '../../functions/src/st-cloud-function/strategies/st-trend-rider/st-trend-rider.strategy';
+import { ibsFilterFromConfig, execute } from '../../functions/src/st-cloud-function/strategies/st-trend-rider/st-trend-rider.strategy';
 import type { OHLCV, StrategyInput } from '../../functions/src/st-cloud-function/strategies/base-strategy';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -53,9 +53,9 @@ const LONG_ZONE = [1, 1, 2];
 /** Short at index 2: zone flat -1 then downticks to -2 under a negative window. */
 const SHORT_ZONE = [-1, -1, -2];
 
-// ─── Long gate ──────────────────────────────────────────────────────────────
+// ─── Long filter ──────────────────────────────────────────────────────────────
 
-describe('IBS gate — long signals', () => {
+describe('IBS filter — long signals', () => {
   it('emits a long when the signal bar IBS is above the threshold (0.8)', () => {
     const signals = detectAllStTrendRiderSignals(
       LONG_ZONE, LONG_ZONE, signalBarIbs(0.8), 'V1', 'D', {},
@@ -93,9 +93,9 @@ describe('IBS gate — long signals', () => {
   });
 });
 
-// ─── Short gate ─────────────────────────────────────────────────────────────
+// ─── Short filter ─────────────────────────────────────────────────────────────
 
-describe('IBS gate — short signals', () => {
+describe('IBS filter — short signals', () => {
   it('emits a short when the signal bar IBS is below 1 - T (0.2)', () => {
     const signals = detectAllStTrendRiderSignals(
       SHORT_ZONE, SHORT_ZONE, signalBarIbs(0.2), 'V1', 'D', {},
@@ -119,7 +119,7 @@ describe('IBS gate — short signals', () => {
     assert.equal(signals.length, 1);
   });
 
-  it('V1 weekly: a short on a completed-week bar is gated the same way', () => {
+  it('V1 weekly: a short on a completed-week bar is filtered the same way', () => {
     const bars = signalBarIbs(0.6);
     assert.equal(
       detectAllStTrendRiderSignals(SHORT_ZONE, SHORT_ZONE, bars, 'V1', 'W', {}).length,
@@ -142,7 +142,7 @@ describe('IBS gate — short signals', () => {
 
 // ─── Threshold override ─────────────────────────────────────────────────────
 
-describe('IBS gate — threshold override', () => {
+describe('IBS filter — threshold override', () => {
   it('threshold 0.6: long suppressed at 0.55, emitted at 0.65', () => {
     assert.equal(
       detectAllStTrendRiderSignals(LONG_ZONE, LONG_ZONE, signalBarIbs(0.55), 'V1', 'D', { threshold: 0.6 }).length,
@@ -168,7 +168,7 @@ describe('IBS gate — threshold override', () => {
 
 // ─── Availability pass-through ──────────────────────────────────────────────
 
-describe('IBS gate — developing-period availability', () => {
+describe('IBS filter — developing-period availability', () => {
   // ET instants under EST (UTC−5).
   const TUE_0900_ET = new Date('2026-11-24T14:00:00Z');  // Tue 2026-11-24 09:00 ET
   const TUE_1300_ET = new Date('2026-11-24T18:00:00Z');  // Tue 2026-11-24 13:00 ET
@@ -185,7 +185,7 @@ describe('IBS gate — developing-period availability', () => {
     assert.equal(signals[0].indicators.ibs, null); // undefined → recorded null
   });
 
-  it('daily bar dated today + post-activation now → gate applies (0.4 suppressed)', () => {
+  it('daily bar dated today + post-activation now → filter applies (0.4 suppressed)', () => {
     const bars = signalBarIbs(0.4);
     bars[2].date = '2026-11-24';
     const signals = detectAllStTrendRiderSignals(
@@ -203,7 +203,7 @@ describe('IBS gate — developing-period availability', () => {
     assert.equal(signals.length, 1);
   });
 
-  it('weekly bar in the current week + Wednesday now → gate applies (0.4 suppressed)', () => {
+  it('weekly bar in the current week + Wednesday now → filter applies (0.4 suppressed)', () => {
     const bars = signalBarIbs(0.4);
     bars[2].date = '2026-11-25';
     const signals = detectAllStTrendRiderSignals(
@@ -226,7 +226,7 @@ describe('IBS gate — developing-period availability', () => {
 
 // ─── State-machine integrity ────────────────────────────────────────────────
 
-describe('IBS gate — state machine integrity', () => {
+describe('IBS filter — state machine integrity', () => {
   it('a suppressed uptick still consumes FIRED — a continued uptick does not re-fire', () => {
     // i=2 uptick suppressed (IBS 0.4) → FIRED; i=3 uptick while FIRED → nothing.
     const signals = detectAllStTrendRiderSignals(
@@ -235,7 +235,7 @@ describe('IBS gate — state machine integrity', () => {
     assert.equal(signals.length, 0);
   });
 
-  it('re-arm then a new uptick emits a new signal gated on its own bar', () => {
+  it('re-arm then a new uptick emits a new signal filtered on its own bar', () => {
     // i=2 suppressed; i=3 delta<0 re-arms; i=4 uptick passes IBS 0.9 → emits.
     const signals = detectAllStTrendRiderSignals(
       [1, 1, 2, 1, 2], [1, 1, 2, 1, 2], barsFromIbs([0.5, 0.5, 0.4, 0.5, 0.9]), 'V1', 'D', {},
@@ -265,7 +265,7 @@ describe('IBS gate — state machine integrity', () => {
 
 // ─── Edge cases ─────────────────────────────────────────────────────────────
 
-describe('IBS gate — edge cases', () => {
+describe('IBS filter — edge cases', () => {
   it('zero-range signal bar (H==L → IBS 0.5) emits at the default threshold', () => {
     const bars: OHLCV[] = signalBarIbs(0.5);
     bars[2] = { open: 5, high: 5, low: 5, close: 5, date: '2026-01-14' };
@@ -282,12 +282,12 @@ describe('IBS gate — edge cases', () => {
     assert.equal(signals[0].indicators.ibs, null);
   });
 
-  it('detectLastBarSignals applies the gate — suppressed last bar returns null', () => {
+  it('detectLastBarSignals applies the filter — suppressed last bar returns null', () => {
     const bars = signalBarIbs(0.4);
-    const unfiltered = detectLastBarSignals(LONG_ZONE, bars, LONG_ZONE, 'V1', 'D');
+    const unfiltered = detectLastBarSignals(LONG_ZONE, LONG_ZONE, bars, 'V1', 'D');
     assert.ok(unfiltered);
-    const gated = detectLastBarSignals(LONG_ZONE, bars, LONG_ZONE, 'V1', 'D', {});
-    assert.equal(gated, null);
+    const filtered = detectLastBarSignals(LONG_ZONE, LONG_ZONE, bars, 'V1', 'D', {});
+    assert.equal(filtered, null);
   });
 });
 
@@ -322,7 +322,7 @@ function strategyInput(lastClosePct: number): StrategyInput {
   return { symbol: 'TEST', marketDate: '2026-02-18', bars };
 }
 
-describe('execute() — IBS gate end to end', () => {
+describe('execute() — IBS filter end to end', () => {
   it('suppresses the V1 daily long when the last bar closes in the lower half (IBS ≈ 0.43)', () => {
     const out = execute(strategyInput(1.01), { ibsThreshold: 0.5 });
     assert.equal(out.filter(s => s.signalType === 'D_ST_TREND_RIDER_V1_LONG').length, 0);
@@ -345,28 +345,28 @@ describe('execute() — IBS gate end to end', () => {
 
 // ─── StrategyConfig plumbing ────────────────────────────────────────────────
 
-describe('ibsGateFromConfig — StrategyConfig → IbsGateConfig', () => {
+describe('ibsFilterFromConfig — StrategyConfig → IbsFilterContext', () => {
   it('maps the documented keys', () => {
-    const gate = ibsGateFromConfig({
+    const filter = ibsFilterFromConfig({
       ibsThreshold: 0.6,
       ibsActivateAtEtMin: 600,
       ibsActivateAtWeekday: 4,
     });
-    assert.equal(gate.threshold, 0.6);
-    assert.equal(gate.activateAtEtMin, 600);
-    assert.equal(gate.activateAtWeekday, 4);
-    assert.equal(gate.now, undefined); // wall clock is the run's truth — never set here
+    assert.equal(filter.threshold, 0.6);
+    assert.equal(filter.activateAtEtMin, 600);
+    assert.equal(filter.activateAtWeekday, 4);
+    assert.equal(filter.now, undefined); // wall clock is the run's truth — never set here
   });
 
-  it('empty config → defaults left to the gate', () => {
-    const gate = ibsGateFromConfig({});
-    assert.equal(gate.threshold, undefined);
-    assert.equal(gate.activateAtEtMin, undefined);
-    assert.equal(gate.activateAtWeekday, undefined);
+  it('empty config → defaults left to the filter', () => {
+    const filter = ibsFilterFromConfig({});
+    assert.equal(filter.threshold, undefined);
+    assert.equal(filter.activateAtEtMin, undefined);
+    assert.equal(filter.activateAtWeekday, undefined);
   });
 
   it('non-numeric values are ignored', () => {
-    const gate = ibsGateFromConfig({ ibsThreshold: 'high' });
-    assert.equal(gate.threshold, undefined);
+    const filter = ibsFilterFromConfig({ ibsThreshold: 'high' });
+    assert.equal(filter.threshold, undefined);
   });
 });

@@ -1,14 +1,24 @@
 /**
- * Signal Detection Utilities
+ * Signal Detection — BE emitter layer.
  *
- * Shared state machines used by ST strategies to detect actionable signals on the
- * last bar. These functions are strategy-agnostic and can be reused by future
- * strategies that operate on zone/indicator transitions.
+ * The canonical detection + filter engines live in shared/ (#1727 —
+ * one body, consumed identically by BE records, BE dotMarkers, and the
+ * FE sandbox). This module only shapes shared `ZoneSignalCandidate`s into
+ * the `ZoneSignal` records the strategy and marker paths persist:
+ * direction → StSignalDirection, candidate.indicators → indicators, and
+ * the partition-attached `ibs` into `indicators.ibs`.
+ *
+ * Detection state machines: @st/signal-detect (filter-agnostic).
+ * Emitted/suppressed partition: @st/signal-filter (the only emit path).
  */
-import { computeIbs } from '@st/ibs';
-import type { IbsAvailabilityContext } from '@st/ibs';
+import { detectZoneUptickCandidates, detectZoneZeroCrossCandidates } from '@st/signal-detect';
+import type { ZoneSignalCandidate } from '@st/signal-detect';
+import { partitionByIbs } from '@st/signal-filter';
+import type { IbsFilterContext, Partitioned } from '@st/signal-filter';
 import { StSignalDirection } from '../signals';
 import type { OHLCV } from './base-strategy';
+
+export type { IbsFilterContext };
 
 export interface ZoneSignal {
   action: StSignalDirection;
@@ -18,29 +28,42 @@ export interface ZoneSignal {
   indicators: Record<string, number | string | null>;
 }
 
+function toZoneSignal(c: Partitioned<ZoneSignalCandidate>): ZoneSignal {
+  return {
+    action: c.direction === 'long' ? StSignalDirection.LONG : StSignalDirection.SHORT,
+    signalType: c.signalType,
+    reason: c.reason,
+    index: c.index,
+    indicators: { ...c.indicators, ibs: c.ibs },
+  };
+}
+
 /**
  * Run the ST Trend Rider state machine on a zone array.
  * Only fires if the LAST bar is the signal bar.
  *
- * Delegates to detectAllStTrendRiderSignals so the worker and the callable use
- * the exact same state machine. The windowV2 argument is the same-timeframe
- * zone context for ST Trend Rider, but the parameter is kept so future strategies
- * can supply a true higher-timeframe window if needed.
+ * Delegates to the shared detect + partition (@st/signal-detect,
+ * @st/signal-filter) so the worker, the callable, the marker path, and
+ * the FE sandbox all run the exact same engine. The windowV2 argument is
+ * the same-timeframe zone context for ST Trend Rider, but the parameter
+ * is kept so future strategies can supply a true higher-timeframe window
+ * if needed.
  *
  * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4)
- * @param ltfBars   - LTF OHLCV bars (for date alignment)
  * @param windowV2  - Zone V2 window context per LTF bar
+ * @param ltfBars   - LTF OHLCV bars — index-aligned with ltfZone; the
+ *                    partition reads the signal bar's IBS from them
  * @param version   - 'V1' or 'V2' for signal type naming
  * @param timeframe - 'D' or 'W' for signal type prefix
- * @param ibs       - optional IBS gate — see detectAllStTrendRiderSignals
+ * @param ibs       - optional IBS filter — see detectAllStTrendRiderSignals
  */
 export function detectLastBarSignals(
   ltfZone: number[],
-  ltfBars: OHLCV[],
   windowV2: number[],
+  ltfBars: OHLCV[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
-  ibs?: IbsGateConfig,
+  ibs?: IbsFilterContext,
 ): ZoneSignal | null {
   if (ltfZone.length < 2 || windowV2.length === 0) return null;
 
@@ -54,53 +77,25 @@ export function detectLastBarSignals(
 }
 
 /**
- * Optional IBS gate config for the ST Trend Rider confirmation machine.
- * Passing `{}` gates at defaults; omitting the param leaves detection
- * unfiltered (the single gate — callers must not also filter upstream).
- */
-export interface IbsGateConfig extends IbsAvailabilityContext {
-  /** Long bound = T, short bound = 1 − T (both inclusive). Default 0.5. */
-  threshold?: number;
-}
-
-/** IBS of `bar`, or `undefined` when IBS can't gate (young bar or missing/non-finite OHLC). */
-function barIbs(bar: OHLCV | undefined, timeframe: 'D' | 'W', cfg?: IbsGateConfig): number | undefined {
-  if (!bar) return undefined;
-  const high = bar.high ?? bar.h;
-  const low = bar.low ?? bar.l;
-  const close = bar.close ?? bar.c;
-  if (
-    typeof high !== 'number' || typeof low !== 'number' || typeof close !== 'number' ||
-    !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)
-  ) {
-    return undefined;
-  }
-  const date = bar.date ?? bar.d ?? bar.t;
-  return computeIbs(
-    { high, low, close, date: typeof date === 'string' ? date : undefined },
-    timeframe,
-    { now: cfg?.now, activateAtEtMin: cfg?.activateAtEtMin, activateAtWeekday: cfg?.activateAtWeekday },
-  );
-}
-
-/**
- * Detect all ST Trend Rider signals across a full zone array.
+ * Detect all ST Trend Rider signals across a full zone array, filtered by
+ * the shared IBS partition.
  *
  * Window condition: same-timeframe zone > 0 for longs, < 0 for shorts.
- * Long signal: zone was falling/flat while already >= +1, then upticks (>= 1) while zone > 0.
- * Short signal: zone was rising/flat while already <= -1, then downticks (>= 1) while zone < 0.
+ * Long signal: zone was falling/flat while already >= +1, then upticks (>= 1)
+ * while zone > 0. Short mirrors.
  *
  * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4)
  * @param windowV2  - Same-timeframe zone values per bar
- * @param ltfBars   - LTF OHLCV bars (for date alignment)
+ * @param ltfBars   - LTF OHLCV bars — index-aligned with ltfZone
  * @param version   - 'V1' or 'V2' for signal type naming
  * @param timeframe - 'D' or 'W' for signal type prefix
- * @param ibs       - optional IBS gate: suppresses emission on bars whose close
- *                    sits in the wrong half of the range (long needs IBS ≥ T,
- *                    short needs IBS ≤ 1−T). Suppression is emission-only — the
- *                    READY→FIRED transition still happens so a suppressed uptick
- *                    can't double-fire on the same swing. `undefined` IBS
- *                    (young bar / missing OHLC) lets the signal through.
+ * @param ibs       - optional IBS filter: suppresses emission on bars whose
+ *                    close sits in the wrong half of the range (long needs
+ *                    IBS ≥ T, short ≤ 1−T). Suppression is emission-only —
+ *                    the READY→FIRED transition already happened inside the
+ *                    detector so a suppressed uptick can't double-fire.
+ *                    `undefined` IBS (young bar / missing OHLC) lets the
+ *                    signal through; omit `ibs` for the unfiltered set.
  */
 export function detectAllStTrendRiderSignals(
   ltfZone: number[],
@@ -108,147 +103,44 @@ export function detectAllStTrendRiderSignals(
   ltfBars: OHLCV[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
-  ibs?: IbsGateConfig,
+  ibs?: IbsFilterContext,
 ): ZoneSignal[] {
-  if (ltfZone.length < 2 || windowV2.length === 0) return [];
-
-  const ibsThreshold = ibs?.threshold ?? 0.5;
-
-  const signals: ZoneSignal[] = [];
-  let longState: 'READY' | 'FIRED' = 'READY';
-  let shortState: 'READY' | 'FIRED' = 'READY';
-
-  // Skip leading zeros (indicator warm-up)
-  let start = 0;
-  while (start < ltfZone.length && ltfZone[start] === 0) start++;
-  if (start >= ltfZone.length - 1) return [];
-
-  for (let i = start + 1; i < ltfZone.length; i++) {
-    const prevZone = ltfZone[i - 1];
-    const currZone = ltfZone[i];
-    const delta = currZone - prevZone;
-    const currentWindowV2 = windowV2[i];
-
-    // --- Long side (Zone V2 > 0) ---
-    if (currentWindowV2 > 0) {
-      if (delta > 0) {
-        // Only valid if the prior zone was already above zero (>= +1)
-        if (longState === 'READY' && prevZone >= 1) {
-          longState = 'FIRED';
-          const ibsValue = barIbs(ltfBars[i], timeframe, ibs);
-          if (ibs === undefined || ibsValue === undefined || ibsValue >= ibsThreshold) {
-            signals.push({
-              action: StSignalDirection.LONG,
-              signalType: `${timeframe}_ST_TREND_RIDER_${version}_LONG`,
-              reason: `ST Trend Rider: ${version} zone upticked ${prevZone}→${currZone} with window zone V2 at +${currentWindowV2}`,
-              index: i,
-              indicators: {
-                [`zone${version}`]: currZone,
-                [`zone${version}Prev`]: prevZone,
-                windowV2: currentWindowV2,
-                delta,
-                ibs: ibsValue ?? null,
-              },
-            });
-          }
-        }
-      } else if (delta < 0) {
-        longState = 'READY';
-      }
-    } else {
-      longState = 'READY';
-    }
-
-    // --- Short side (Zone V2 < 0) ---
-    if (currentWindowV2 < 0) {
-      if (delta < 0) {
-        // Only valid if the prior zone was already below zero (<= -1)
-        if (shortState === 'READY' && prevZone <= -1) {
-          shortState = 'FIRED';
-          const ibsValue = barIbs(ltfBars[i], timeframe, ibs);
-          // +EPSILON keeps the inclusive bound honest for T where 1−T rounds a
-          // ulp below the mathematical bound (e.g. T=0.15 → 0.8499999999999999).
-          if (ibs === undefined || ibsValue === undefined || ibsValue <= 1 - ibsThreshold + Number.EPSILON) {
-            signals.push({
-              action: StSignalDirection.SHORT,
-              signalType: `${timeframe}_ST_TREND_RIDER_${version}_SHORT`,
-              reason: `ST Trend Rider: ${version} zone downticked ${prevZone}→${currZone} with window zone V2 at ${currentWindowV2}`,
-              index: i,
-              indicators: {
-                [`zone${version}`]: currZone,
-                [`zone${version}Prev`]: prevZone,
-                windowV2: currentWindowV2,
-                delta,
-                ibs: ibsValue ?? null,
-              },
-            });
-          }
-        }
-      } else if (delta > 0) {
-        shortState = 'READY';
-      }
-    } else {
-      shortState = 'READY';
-    }
-  }
-
-  return signals;
+  return emitZoneSignals(detectZoneUptickCandidates(ltfZone, windowV2, version, timeframe), ltfBars, timeframe, ibs);
 }
 
 /**
  * Detect all zone zero-cross signals across a full zone array.
  *
- * Fires on every sign flip between consecutive bars — no state machine gate,
+ * Fires on every sign flip between consecutive bars — no state machine,
  * no confirmation delay. Zero is neutral (transitions to/from zero do not
  * fire). NaN breaks the sequence (no cross fabricated across a gap).
  *
  * @param ltfZone   - Zone values per LTF bar (V1: -3/+3, V2: -4/+4), NaN for null
- * @param ltfBars   - LTF OHLCV bars (for date alignment)
+ * @param ltfBars   - LTF OHLCV bars — index-aligned with ltfZone
  * @param version   - 'V1' or 'V2' for signal type naming
  * @param timeframe - 'D' or 'W' for signal type prefix
+ * @param ibs       - optional IBS filter (same semantics as the uptick path)
  */
 export function detectAllZoneZeroCrossSignals(
   ltfZone: number[],
   ltfBars: OHLCV[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
+  ibs?: IbsFilterContext,
 ): ZoneSignal[] {
-  if (ltfZone.length < 2) return [];
+  return emitZoneSignals(detectZoneZeroCrossCandidates(ltfZone, version, timeframe), ltfBars, timeframe, ibs);
+}
 
-  const signals: ZoneSignal[] = [];
-
-  for (let i = 1; i < ltfZone.length; i++) {
-    const prevZone = ltfZone[i - 1];
-    const currZone = ltfZone[i];
-
-    // NaN breaks the sequence (null zones from BE become NaN)
-    if (Number.isNaN(prevZone) || Number.isNaN(currZone)) continue;
-
-    // Zero is neutral — transitions to/from zero do not fire
-    if (prevZone < 0 && currZone > 0) {
-      signals.push({
-        action: StSignalDirection.LONG,
-        signalType: `${timeframe}_ST_TREND_RIDER_${version}_LONG`,
-        reason: `ST Trend Rider: ${version} zone crossed zero ${prevZone}→${currZone}`,
-        index: i,
-        indicators: {
-          [`zone${version}`]: currZone,
-          [`zone${version}Prev`]: prevZone,
-        },
-      });
-    } else if (prevZone > 0 && currZone < 0) {
-      signals.push({
-        action: StSignalDirection.SHORT,
-        signalType: `${timeframe}_ST_TREND_RIDER_${version}_SHORT`,
-        reason: `ST Trend Rider: ${version} zone crossed zero ${prevZone}→${currZone}`,
-        index: i,
-        indicators: {
-          [`zone${version}`]: currZone,
-          [`zone${version}Prev`]: prevZone,
-        },
-      });
-    }
-  }
-
-  return signals;
+/**
+ * The one emit composition every detector's output flows through:
+ * partition by IBS, shape emitted candidates into ZoneSignal records.
+ * New algos add a detector in shared/ + one line here.
+ */
+function emitZoneSignals(
+  candidates: ZoneSignalCandidate[],
+  ltfBars: OHLCV[],
+  timeframe: 'D' | 'W',
+  ibs?: IbsFilterContext,
+): ZoneSignal[] {
+  return partitionByIbs(candidates, ltfBars, timeframe, ibs).emitted.map(toZoneSignal);
 }

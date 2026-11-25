@@ -15,7 +15,7 @@
  * All computation is pure math on OHLCV arrays. No external dependencies.
  */
 
-import type { OHLCV } from './st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 
 export const ST_TRIGGER_BANDS_LENGTH = 3;
 

@@ -8,8 +8,8 @@
  * Ported from rb-DI-plus-minus-lib.pine.
  */
 
-import { crossoverValue, crossunderValue, nz } from './primitives';
-import type { OHLCV } from './st-trend-bands';
+import { crossoverValue, crossunderValue, nz } from '@st/primitives';
+import type { OHLCV } from '@st/trend-bands';
 
 // =============================================================================
 // INTERFACES

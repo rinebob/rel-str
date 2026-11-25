@@ -42,7 +42,7 @@ import {
   type TradeAnalysisRow,
 } from '@paper-trading/analysis';
 import { computeStTrendStrength } from '../../indicators/st-trend-strength';
-import type { OHLCV } from '../../indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 import type { OhlcBar } from '../../common/market-data-types';
 import { getCachedBarsFromSymbolData } from '../../st-cloud-function/data-loader';
 import { listTrades } from '../repository';

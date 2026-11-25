@@ -12,7 +12,7 @@ import { describe, it } from 'node:test';
 import {
   computeStdDevLines,
 } from '../../functions/src/indicators/std-dev-lines';
-import type { OHLCV } from '../../functions/src/indicators/st-trend-bands';
+import type { OHLCV } from '../../shared/st-trend-bands';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

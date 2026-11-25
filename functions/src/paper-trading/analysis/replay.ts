@@ -44,9 +44,9 @@ import {
   type AnalysisRunParams,
   type TradeAnalysisRow,
 } from '@paper-trading/analysis';
-import { computeStTrendBands, type OHLCV } from '../../indicators/st-trend-bands';
-import { computeStZone } from '../../indicators/st-zone';
-import { computeStZoneV2 } from '../../indicators/st-zone-v2';
+import { computeStTrendBands, type OHLCV } from '@st/trend-bands';
+import { computeStZone } from '@st/zone';
+import { computeStZoneV2 } from '@st/zone-v2';
 import { computeStTrendStrength } from '../../indicators/st-trend-strength';
 import {
   detectAllStTrendRiderSignals,

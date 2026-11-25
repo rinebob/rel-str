@@ -5,14 +5,14 @@
  * Used by the callable, the worker, and local backfill scripts so that
  * scripts do not trigger Firebase Admin SDK initialization at import time.
  */
-import { computeStTrendBands } from '../indicators/st-trend-bands';
-import { computeStZone } from '../indicators/st-zone';
-import { computeStZoneV2 } from '../indicators/st-zone-v2';
+import { computeStTrendBands } from '@st/trend-bands';
+import { computeStZone } from '@st/zone';
+import { computeStZoneV2 } from '@st/zone-v2';
 import { computeStTrendStrength } from '../indicators/st-trend-strength';
 import { computeStTriggerBands } from '../indicators/st-trigger-bands';
 import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './strategies/signal-detection';
 import { StSignalDirection } from './signals';
-import type { OHLCV } from '../indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 import type { OhlcBar } from '../common/market-data-types';
 import {
   ST_HTF_WINDOW,
