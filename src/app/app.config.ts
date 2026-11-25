@@ -11,7 +11,6 @@ import { connectFirestoreEmulator, getFirestore, provideFirestore } from '@angul
 import { connectFunctionsEmulator, getFunctions, provideFunctions } from '@angular/fire/functions';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { connectStorageEmulator, getStorage, provideStorage } from '@angular/fire/storage';
-import { setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 import { environment } from '../environments/environment';
 
@@ -37,16 +36,9 @@ export const appConfig: ApplicationConfig = {
                 connectAuthEmulator(auth, 'http://127.0.0.1:9100', { disableWarnings: true });
                 (window as any).__EMULATORS__ = { ...(window as any).__EMULATORS__, auth: true };
             }
-            // Persist user across reloads. Guarded: dev-server HMR can
-            // re-bootstrap the app without a page reload, and calling
-            // setPersistence on an already-signed-in Auth can wipe the
-            // stored firebase:authUser session — one call per page load.
-            if (!(window as any).__AUTH_PERSISTENCE_SET__) {
-                (window as any).__AUTH_PERSISTENCE_SET__ = true;
-                setPersistence(auth, browserLocalPersistence).catch((e) => {
-                    console.warn('[Auth] setPersistence failed; falling back to default session persistence', e);
-                });
-            }
+            // Persistence defaults to indexedDB-local — no explicit
+            // setPersistence: calling it on a restored/ signing-in Auth
+            // can wipe the stored firebase:authUser session on reload.
             return auth;
         }),
         provideFirestore(() => {
