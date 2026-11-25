@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-11-25]
+
+### Added
+- [Trading Indicator Library] 261-1724_SHARED-IMPL-INDICATOR-LIB: IBS filter on zero-cross markers in rb-st-zones.pine (Thread #1665) — 8 stV*ZeroCross*{Emit,Supp} partition bools off the same stIbsLongPass/stIbsShortPass vars as Trend Rider (no duplicated filter logic — every ST Zones signal family now filters identically); 4 emit plots re-keyed to *Emit; 4 suppressed ghosts behind stShowSuppressed (~35% opacity color.new(…, 65), linewidth 2, V1 circles/V2 cross, force_overlay, "(suppressed)" titles); emission-only single-bar suppression (a suppressed cross simply doesn't emit); gate→filter sweep; honest ulp-margin wording; V2-short ghost overlap documented
+- [Trading Indicator Library] 261-1724_SHARED-CHORE-INDICATOR-LIB: Pine parity audit zero-cross block — indicator-lib-1676-pine-parity.{ts,md} to 43 checks: unfiltered-ZC pin inverted into partition+detection+plot pins; partition regexes end-of-line anchored (prefixed names/trailing `and` can't satisfy); detection pin (raw bools = exact sign flips, no `Ibs` token); force_overlay asserts length===8; ghost-opacity pin generalized per suppressed-line (rgb() commas); "(suppressed)" title flagged load-bearing
+- [Trading Indicator Library] 261-1724_DOCS-INDICATOR-LIB: CODE-REVIEW (PASS — 3 axes; 1 major + 6 minors remediated in-gate: anchored partition pins, restored detection pin, counted force_overlay, honest ulp wording, ghost-overlap note; deferred MEDIUM → #1728 BE marker-path divergence) + UAT (Complete, #1736 — S1–S3 user-confirmed TradingView SPY 1D + T=0 baseline + ghosts; S4 implicit; S5 skipped — #1676 F1 anomaly stays open, now mechanically testable; QQQ forensic addendum: emitted 54.1% vs suppressed 49.6% 20-bar winRate, descriptive) + changelog
+
 ## [2026-11-24]
 
 ### Added
