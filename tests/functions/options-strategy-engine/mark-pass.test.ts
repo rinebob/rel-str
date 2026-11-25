@@ -191,12 +191,18 @@ describe('runMarkPass', () => {
   // ── Marking + signed net P&L ───────────────────────────────────────────
 
   it('marks a single-leg SHORT position — legacy parity (mark +0.40, pnl +10)', async () => {
-    const { deps, writes } = makeDeps();
+    const trade = makeTrade();
+    const { deps, writes } = makeDeps({
+      listOpenOptionTrades: async () => [trade],
+    });
 
     const result = await runMarkPass(deps);
     assert.equal(result.positions.length, 1);
     const pos = result.positions[0];
     assert.equal(pos.positionId, 'trade-1');
+    // Result carries the trade itself — the shadow-eval tick (#1713)
+    // consumes legs/order/instance stamp without re-querying
+    assert.equal(pos.trade, trade);
     assert.deepEqual(pos.contractIDs, ['SPY250817P00100000']);
     // signed liquidation value: −0.40 × 100
     assert.equal(pos.netMark, -40);

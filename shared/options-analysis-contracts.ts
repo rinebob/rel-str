@@ -83,6 +83,14 @@ interface AnalysisTradeBase {
    *  exclude error records from excursion stats. */
   mae: ExcursionPoint;
   mfe: ExcursionPoint;
+
+  /** Intraday first-fire evidence written by the per-tick shadow-eval
+   *  (#1713): ISO timestamp of the mark tick that first crossed this rule
+   *  + the order-exit-price mark at that tick. Sticky once set — ticks and
+   *  the EOD scan carry it forward; absent on series-only records (the
+   *  scan's day-grain exitDate is its own fire evidence). */
+  firstFiredAt?: string;
+  firstFiredMark?: number;
 }
 
 /** The rule fired during the hold window. */

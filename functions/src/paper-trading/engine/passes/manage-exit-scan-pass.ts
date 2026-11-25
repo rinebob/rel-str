@@ -101,6 +101,10 @@ export interface ManageExitScanDeps {
   }) => Promise<PartnerHistoricalOptionsContractV2Response>;
   /** Underlying daily closes for the expiry fields — default cached bars. */
   loadUnderlyingClose?: (symbol: string) => Promise<ReadonlyMap<string, number>>;
+  /** Result-doc reader — default `st-options-analysis-results/{id}` get;
+   *  the EOD scan rebuilds records from the daily series but must carry
+   *  the tick-eval's intraday first-fire fields forward (#1713). */
+  readResultDoc?: (docId: string) => Promise<AnalysisResultDoc | null>;
   /** Result-doc writer — default `st-options-analysis-results/{id}` set. */
   writeResultDoc?: (docId: string, doc: AnalysisResultDoc) => Promise<void>;
   /** Observability — default stamps `manageExitScanResult` on
@@ -311,6 +315,11 @@ async function defaultListOpenPositions(instanceId: string): Promise<ManageOpenP
   );
 }
 
+async function defaultReadResultDoc(docId: string): Promise<AnalysisResultDoc | null> {
+  const snap = await db.collection(ST_OPTIONS_ANALYSIS_RESULTS_ROOT).doc(docId).get();
+  return snap.exists ? (snap.data() as AnalysisResultDoc) : null;
+}
+
 async function defaultWriteResultDoc(docId: string, doc: AnalysisResultDoc): Promise<void> {
   await db.collection(ST_OPTIONS_ANALYSIS_RESULTS_ROOT).doc(docId).set(doc);
 }
@@ -422,7 +431,7 @@ async function scanInstance(
   deps: Required<
     Pick<
       ManageExitScanDeps,
-      'listOpenPositions' | 'loadUnderlyingClose' | 'writeResultDoc' | 'writeResult' | 'now'
+      'listOpenPositions' | 'loadUnderlyingClose' | 'readResultDoc' | 'writeResultDoc' | 'writeResult' | 'now'
     >
   > &
     Pick<ManageExitScanDeps, 'fetchSeries'>,
@@ -476,6 +485,31 @@ async function scanInstance(
   for (const rule of rules) {
     const docId = stOptionsAnalysisResultDocId(instance.id, rule.exitId);
     const records = recordsByExit.get(rule.exitId) ?? [];
+    // The per-tick shadow-eval stamps intraday first-fire evidence on
+    // these records — the scan rebuilds them from the daily series, so
+    // the sticky fields must be carried forward or they'd be erased
+    // every afternoon (#1713).
+    try {
+      const prior = await deps.readResultDoc(docId);
+      if (prior) {
+        const firstFire = new Map(
+          prior.trades.map((t) => [t.contractId, t] as const),
+        );
+        for (const rec of records) {
+          const old = firstFire.get(rec.contractId);
+          if (old?.firstFiredAt !== undefined && rec.firstFiredAt === undefined) {
+            rec.firstFiredAt = old.firstFiredAt;
+            if (old.firstFiredMark !== undefined) {
+              rec.firstFiredMark = old.firstFiredMark;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn(
+        `exit-scan ${instance.id}: prior doc ${docId} unreadable — first-fire fields may drop: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     await deps.writeResultDoc(docId, {
       contractListDocId: instance.id,
       runId: instance.id,
@@ -521,6 +555,7 @@ export async function runManageExitScan(
         const { dailyBars } = await getCachedBarsFromSymbolData(symbol, getMarketDatePT());
         return new Map<string, number>(dailyBars.map((b) => [b.d, b.c]));
       }),
+    readResultDoc: deps.readResultDoc ?? defaultReadResultDoc,
     writeResultDoc: deps.writeResultDoc ?? defaultWriteResultDoc,
     writeResult: deps.writeResult ?? defaultWriteResult,
     now: deps.now ?? (() => new Date()),

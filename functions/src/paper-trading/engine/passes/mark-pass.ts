@@ -61,6 +61,9 @@ export interface BatchQuoteProvider {
 
 export interface MarkPassPositionResult {
   positionId: string;
+  /** The marked trade — the shadow-eval tick (#1713) consumes the legs/
+   *  order/instance stamp directly rather than re-querying. */
+  trade: PaperTrade;
   contractIDs: string[];
   /** Signed liquidation value in dollars — the Position view's currentValue. */
   netMark: number;
@@ -219,6 +222,7 @@ export async function runMarkPass(
 
       positions.push({
         positionId: trade.id,
+        trade,
         contractIDs: optionLegs.map((l) => l.contractID),
         netMark,
         mark,

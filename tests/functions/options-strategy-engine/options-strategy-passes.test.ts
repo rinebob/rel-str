@@ -217,9 +217,13 @@ describe('runUnifiedMarkPass', () => {
     const fakeProvider = { getQuotes: async () => [] };
     const markedPos: MarkPassPositionResult = {
       positionId: 'p',
+      trade: {
+        id: 'p',
+        strategyInstanceId: 'inst-1',
+      } as MarkPassPositionResult['trade'],
       contractIDs: ['C'],
       netMark: 0,
-      mark: 0,
+      mark: 0.4,
       unrealizedPnl: 0,
       interpolatedClose: false,
       asOf: '2025-08-15T18:00:00Z',
@@ -234,12 +238,54 @@ describe('runUnifiedMarkPass', () => {
         errors: [{ positionId: 'err-pos', error: 'quote missing' }],
       };
     };
+    const evalInputs: { trade: unknown; mark: number }[] = [];
+    const fakeShadowEval = async (positions: { trade: unknown; mark: number }[]) => {
+      evalInputs.push(...positions);
+      return {
+        positions: 2,
+        evaluated: 12,
+        fires: 1,
+        skippedNoInstance: 0,
+        skippedNonOption: 0,
+        docsWritten: 6,
+        errors: [],
+      };
+    };
 
-    const summary = await runUnifiedMarkPass(fakeProvider, fakeMarkPass);
+    const summary = await runUnifiedMarkPass(fakeProvider, fakeMarkPass, fakeShadowEval);
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].quoteProvider, fakeProvider);
-    assert.deepEqual(summary, { positions: 2, errors: 1 });
+    // Shadow-eval receives {trade, mark} per marked position — not errors
+    assert.equal(evalInputs.length, 2);
+    assert.deepEqual(evalInputs[0], { trade: markedPos.trade, mark: 0.4 });
+    assert.deepEqual(summary, {
+      positions: 2,
+      errors: 1,
+      evaluated: 2,
+      fires: 1,
+      evalErrors: 0,
+    });
+  });
+
+  it('a shadow-eval failure surfaces as evalError without failing the mark summary', async () => {
+    const fakeProvider = { getQuotes: async () => [] };
+    const fakeMarkPass = async (): Promise<MarkPassResult> => ({
+      markedAt: new Date().toISOString(),
+      positions: [],
+      errors: [],
+    });
+    const summary = await runUnifiedMarkPass(fakeProvider, fakeMarkPass, async () => {
+      throw new Error('analysis-results read denied');
+    });
+    assert.deepEqual(summary, {
+      positions: 0,
+      errors: 0,
+      evaluated: 0,
+      fires: 0,
+      evalErrors: 0,
+      evalError: 'analysis-results read denied',
+    });
   });
 
   it('returns { error } when the pass itself throws', async () => {

@@ -17,7 +17,7 @@ import { PositionStatus } from '../../../functions/src/options-strategy-engine/t
 import type { PositionLeg } from '../../../functions/src/options-strategy-engine/types';
 import type { ManageVariant } from '../../../shared/manage-variant-contracts';
 import type { ExitStrategyDef } from '../../../shared/options-analysis-registry';
-import { EXIT_STRATEGIES } from '../../../shared/options-analysis-registry';
+import { EXIT_STRATEGIES, EXIT_REGISTRY_VERSION } from '../../../shared/options-analysis-registry';
 import type { AnalysisResultDoc } from '../../../shared/options-analysis-contracts';
 import type { PartnerHistoricalOptionsContractV2Response } from '../../../shared/options-contract-contracts';
 
@@ -344,6 +344,7 @@ describe('runManageExitScan', () => {
       listOpenPositions: async () => [makePosition()],
       fetchSeries: fn,
       loadUnderlyingClose: async () => new Map([[EXPIRY, 500]]),
+      readResultDoc: async (id) => docs.get(id) ?? null,
       writeResultDoc: async (id, doc) => {
         docs.set(id, doc);
       },
@@ -431,6 +432,59 @@ describe('runManageExitScan', () => {
     // First instance's doc writes threw — the second still completed.
     assert.equal(docs.size, EXIT_STRATEGIES.length);
     for (const id of docs.keys()) assert.ok(id.startsWith('GOOD-'));
+  });
+
+  it('carries tick-eval first-fire fields forward when rebuilding records (#1713)', async () => {
+    const { docs, deps } = makeDeps();
+    const docId = 'QQQ-PCS-28-30-15-ALL_target-90';
+    const positionId = makePosition().id;
+    // Prior doc from the tick-eval — firstFiredAt intraday evidence the
+    // scan's rebuilt record must preserve, not erase.
+    docs.set(docId, {
+      contractListDocId: 'QQQ-PCS-28-30-15-ALL',
+      runId: 'QQQ-PCS-28-30-15-ALL',
+      symbol: 'QQQ',
+      templateId: 'pcs',
+      exitId: 'target-90',
+      registryVersion: EXIT_REGISTRY_VERSION,
+      status: 'success',
+      generatedAt: '2026-02-05T18:20:00Z',
+      trades: [
+        {
+          runId: 'QQQ-PCS-28-30-15-ALL',
+          symbol: 'QQQ',
+          templateId: 'pcs',
+          contractListDocId: 'QQQ-PCS-28-30-15-ALL',
+          exitId: 'target-90',
+          pickDate: '2026-01-30',
+          contractId: positionId,
+          entryMark: 1.5,
+          outcome: 'exit',
+          exitDate: '2026-02-05',
+          exitPrice: 0.14,
+          terminalMark: 0.14,
+          daysHeld: 6,
+          mae: { value: 1.5, date: '2026-01-30' },
+          mfe: { value: 0.14, date: '2026-02-05' },
+          firstFiredAt: '2026-02-05T18:20:00Z',
+          firstFiredMark: 0.14,
+        },
+      ],
+      aggregate: {
+        exitId: 'target-90',
+        contractCount: 1,
+        exitedCount: 1,
+        expiredCount: 0,
+        openCount: 0,
+        errorCount: 0,
+      },
+    });
+
+    await runManageExitScan(MARKET_DATE, deps);
+    const rec = docs.get(docId)?.trades.find((t) => t.contractId === positionId);
+    assert.equal(rec?.outcome, 'exit'); // series fired too — rebuilt record
+    assert.equal(rec?.firstFiredAt, '2026-02-05T18:20:00Z');
+    assert.equal(rec?.firstFiredMark, 0.14);
   });
 
   it('closed positions are excluded upstream by the OPEN filter', async () => {

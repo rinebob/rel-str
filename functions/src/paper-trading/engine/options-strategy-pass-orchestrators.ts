@@ -17,6 +17,11 @@ import {
   type BatchQuoteProvider,
   type MarkPassDependencies,
 } from './passes/mark-pass';
+import {
+  runShadowEvalTick,
+  type ShadowEvalPositionInput,
+  type ShadowEvalSummary,
+} from './passes/shadow-eval-pass';
 import { runSettlementPass } from './passes/settlement-pass';
 import { runHeldSharesMarkPass } from './passes/held-shares-pass';
 import { runExitEvalPass, type ExitEvalSummary } from '../exits/eval-pass';
@@ -200,28 +205,61 @@ async function runPassForManageableInstances<T>(
 type MarkPassSummary = {
   positions: number;
   errors: number;
+  /** Shadow-eval tick (#1713): positions evaluated / new first-fires /
+   *  doc+position errors; evalError set when the whole tick threw. */
+  evaluated: number;
+  fires: number;
+  evalErrors: number;
+  evalError?: string;
 };
 
 /**
  * Run the unified position-grain mark pass (#1712): one sweep over every
  * OPEN trade carrying option legs — no instance enumeration, so legacy and
- * manage positions mark together on the same cadence. Returns a flat
- * summary (positions marked, per-position errors isolated inside the pass)
- * or `{ error }` when the pass itself throws.
+ * manage positions mark together on the same cadence. Each successfully
+ * marked position then folds into the per-tick shadow exit-eval (#1713):
+ * all 6 registry rules evaluated on the fresh mark, first-fire +
+ * latest-eval merge-written into st-options-analysis-results. Returns a
+ * flat summary or `{ error }` when the mark pass itself throws.
  */
 export async function runUnifiedMarkPass(
   provider: BatchQuoteProvider,
   markPass: (deps: MarkPassDependencies) => ReturnType<typeof runMarkPass> =
     runMarkPass,
+  shadowEval: (
+    positions: ShadowEvalPositionInput[],
+  ) => Promise<ShadowEvalSummary> = runShadowEvalTick,
 ): Promise<MarkPassSummary | { error: string }> {
   try {
     const result = await markPass({ quoteProvider: provider });
     log.info(
       `Mark pass complete: marked=${result.positions.length} errors=${result.errors.length}`,
     );
+    let evaluated = 0;
+    let fires = 0;
+    let evalErrors = 0;
+    let evalError: string | undefined;
+    try {
+      const evalSummary = await shadowEval(
+        result.positions.map((p) => ({ trade: p.trade, mark: p.mark })),
+      );
+      evaluated = evalSummary.positions;
+      fires = evalSummary.fires;
+      evalErrors = evalSummary.errors.length;
+      log.info(
+        `Shadow eval complete: evaluated=${evaluated} fires=${fires} errors=${evalErrors}`,
+      );
+    } catch (err) {
+      evalError = err instanceof Error ? err.message : String(err);
+      log.error(`Shadow eval failed: ${evalError}`);
+    }
     return {
       positions: result.positions.length,
       errors: result.errors.length,
+      evaluated,
+      fires,
+      evalErrors,
+      ...(evalError !== undefined ? { evalError } : {}),
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
