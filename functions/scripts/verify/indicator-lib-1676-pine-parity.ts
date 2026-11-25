@@ -1,5 +1,5 @@
 /**
- * indicator-lib-1676-pine-parity.ts — static parity audit for the IBS gate
+ * indicator-lib-1676-pine-parity.ts — static parity audit for the IBS filter
  * in rb-ps/rb-ta/ind/rb-st-zones.pine (task #1676, Thread #1665).
  *
  * Pine can't be compiled locally (TradingView-only runtime — the manual

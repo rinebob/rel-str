@@ -31,7 +31,7 @@ import { getCachedBarsFromSymbolData } from '../../src/st-cloud-function/data-lo
 import type { OhlcBar } from '../../src/common/market-data-types';
 import { tradeToRow, type StrengthSlice } from '../../src/paper-trading/analysis/live-snapshot';
 import { computeStTrendStrength } from '../../src/indicators/st-trend-strength';
-import type { OHLCV } from '../../src/indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 
 const results: string[] = [];
 const ok = (m: string) => { results.push(`  \u2714 ${m}`); console.log(`  \u2714 ${m}`); };

@@ -15,7 +15,7 @@
 
 import { loadAllDailyBars } from '../../src/st-cloud-function/backtest/backtest-data-loader';
 import { computeStTriggerBands } from '../../src/indicators/st-trigger-bands';
-import type { OHLCV } from '../../src/indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 
 let checks = 0;
 let passed = 0;

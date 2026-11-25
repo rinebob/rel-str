@@ -1,7 +1,7 @@
 /**
  * #1678 — BE Task: IBS filter verify script (Thread #1665, Topic #261).
  *
- * Empirical check on the IBS gate (#1677) against a real symbol's stored
+ * Empirical check on the IBS filter (#1677) against a real symbol's stored
  * bars — the same `symbol-data` docs the production run loads. For each
  * version × timeframe the script computes zones with the production path
  * (computeStTrendBands → computeStZone / computeStZoneV2) and runs
@@ -14,10 +14,10 @@
  *     is not the last (developing) bar; ibs may only be null when the
  *     bar is too young for availability (computeIbs → undefined)
  *   - every suppressed candidate carried a finite ibs that violated its
- *     bound (gate never removes a passing/null-ibs candidate)
+ *     bound (filter never removes a passing/null-ibs candidate)
  *   - recorded indicators.ibs equals an independent computeIbs recompute
  *     on the signal's own bar (no record-vs-decide drift)
- *   - emitted ⊆ candidates (the gate only removes; never invents)
+ *   - emitted ⊆ candidates (the filter only removes; never invents)
  *   - `indicators.ibs` recorded (number|null) on every emitted signal
  *
  * The PRD's rough estimate was ~10–25% of signals suppressed — the table
@@ -34,16 +34,16 @@
  */
 
 import { getCachedBarsFromSymbolData } from '../../src/st-cloud-function/data-loader';
-import { computeStTrendBands } from '../../src/indicators/st-trend-bands';
-import { computeStZone } from '../../src/indicators/st-zone';
-import { computeStZoneV2 } from '../../src/indicators/st-zone-v2';
+import { computeStTrendBands } from '@st/trend-bands';
+import { computeStZone } from '@st/zone';
+import { computeStZoneV2 } from '@st/zone-v2';
 import { computeIbs } from '@st/ibs';
 import {
   detectAllStTrendRiderSignals,
-  type IbsGateConfig,
+  type IbsFilterContext,
   type ZoneSignal,
 } from '../../src/st-cloud-function/strategies/signal-detection';
-import type { OHLCV } from '../../src/indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 import type { OhlcBar } from '../../src/common/market-data-types';
 import { StSignalDirection } from '../../src/st-cloud-function/signals';
 
@@ -81,7 +81,7 @@ if (THRESHOLD !== undefined && (!Number.isFinite(THRESHOLD) || THRESHOLD < 0 || 
 }
 const NOW = args.now !== undefined ? new Date(String(args.now)) : undefined;
 if (args.now !== undefined && Number.isNaN(NOW!.getTime())) usage(`--now must be a parseable date (got '${args.now}')`);
-const gate: IbsGateConfig = {
+const filter: IbsFilterContext = {
   ...(THRESHOLD !== undefined ? { threshold: THRESHOLD } : {}),
   ...(NOW !== undefined ? { now: NOW } : {}),
 };
@@ -132,7 +132,7 @@ async function main() {
     for (const version of ['V1', 'V2'] as const) {
       const zone = (version === 'V1' ? computeStZone(ohlcv, bands) : computeStZoneV2(ohlcv, bands)).zone;
       const candidates = detectAllStTrendRiderSignals(zone, zone, ohlcv, version, tf);
-      const emitted = detectAllStTrendRiderSignals(zone, zone, ohlcv, version, tf, gate);
+      const emitted = detectAllStTrendRiderSignals(zone, zone, ohlcv, version, tf, filter);
       const emittedKeys = new Set(emitted.map(e => `${e.index}|${e.signalType}`));
       const suppressedList = candidates.filter(c => !emittedKeys.has(`${c.index}|${c.signalType}`));
       const suppressed = suppressedList.length;
@@ -168,7 +168,7 @@ async function main() {
         `${tf}-${version}: recorded ibs matches independent computeIbs on the signal's bar`,
         emitted.every(e => {
           const bar = ohlcv[e.index as number];
-          return bar !== undefined && ibsOf(e) === (computeIbs(bar, tf, gate) ?? null);
+          return bar !== undefined && ibsOf(e) === (computeIbs(bar, tf, filter) ?? null);
         }),
       );
       check(
@@ -176,14 +176,14 @@ async function main() {
         emitted.every(s => 'ibs' in s.indicators && (s.indicators.ibs === null || typeof s.indicators.ibs === 'number')),
       );
       check(
-        `${tf}-${version}: emitted ⊆ candidates (gate only removes)`,
+        `${tf}-${version}: emitted ⊆ candidates (filter only removes)`,
         emitted.every(e => candidates.some(c => c.index === e.index && c.signalType === e.signalType)),
       );
     }
   }
 
   check('at least one emitted signal across cells', anyEmitted);
-  if (totalSuppressed === 0) warn('gate suppressed nothing across cells — suppression % is 0; confirm the gate engaged');
+  if (totalSuppressed === 0) warn('filter suppressed nothing across cells — suppression % is 0; confirm the filter engaged');
   console.log(`\n=== ${passed} passed, ${failed} failed${warnings ? `, ${warnings} warnings` : ''} ===`);
   process.exitCode = failed > 0 ? 1 : 0;
 }

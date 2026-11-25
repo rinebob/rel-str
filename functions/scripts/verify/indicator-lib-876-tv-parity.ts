@@ -20,7 +20,7 @@
 
 import { readFileSync } from 'node:fs';
 import { computeStTriggerBands } from '../../src/indicators/st-trigger-bands';
-import type { OHLCV } from '../../src/indicators/st-trend-bands';
+import type { OHLCV } from '@st/trend-bands';
 
 const TOL = 0.005;
 

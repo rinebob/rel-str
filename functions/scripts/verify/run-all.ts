@@ -86,6 +86,7 @@ const scripts = [
   'indicator-lib-ibs-1675.ts',
   'ibs-trend-rider-filter-1678.ts',
   'indicator-lib-1676-pine-parity.ts',
+  'indicator-lib-shared-engine-1727.ts',
   'gh-lifecycle-issue-map-1695.ts',
 ];
 
