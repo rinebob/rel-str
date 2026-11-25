@@ -7,7 +7,7 @@
  * All computation is pure math on OHLCV arrays. No external dependencies.
  */
 
-import { emaSeries, crossover, crossunder, HTF_MULTIPLIER } from './primitives';
+import { emaSeries, crossover, crossunder, HTF_MULTIPLIER } from './st-primitives';
 
 // =============================================================================
 // INTERFACES

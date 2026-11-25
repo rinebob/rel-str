@@ -107,7 +107,7 @@ export function computeIbs(
     const et = etParts(now);
     // Sunday is the trading week's tail — no session follows the Friday
     // close until Monday, so the current week's bar is complete and IBS
-    // is defined. Mapping 0 → 7 keeps the weekday gate monotonic
+    // is defined. Mapping 0 → 7 keeps the weekday availability rule monotonic
     // (Sat defined, Sun defined, then Mon re-arms for the new week).
     const etWeekday = et.weekday === 0 ? 7 : et.weekday;
     if (weekKey(bar.date) === weekKey(et.date) && etWeekday < activateAtWeekday) return undefined;
