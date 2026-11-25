@@ -494,6 +494,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-open-callable-1545.ts',
     needsAccount: false,
   },
+  {
+    name: 'unified position mark pass',
+    file: 'strat-manage-mark-pass-1712.ts',
+    needsAccount: false,
+  },
 ];
 
 function ghCliHasAuth(): boolean {
