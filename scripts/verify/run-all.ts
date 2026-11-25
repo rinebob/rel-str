@@ -499,6 +499,11 @@ const scripts: VerifyScript[] = [
     file: 'strat-manage-mark-pass-1712.ts',
     needsAccount: false,
   },
+  {
+    name: 'per-tick shadow exit-eval',
+    file: 'strat-manage-shadow-eval-1713.ts',
+    needsAccount: false,
+  },
 ];
 
 function ghCliHasAuth(): boolean {

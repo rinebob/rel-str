@@ -339,13 +339,15 @@ async function main(): Promise<void> {
     return {
       markedAt: new Date().toISOString(),
       positions: [
-        { positionId: 'a', contractIDs: ['X'], netMark: -40, mark: 0.4, unrealizedPnl: 10, interpolatedClose: false, asOf: 't' },
-        { positionId: 'b', contractIDs: ['Y'], netMark: 40, mark: -0.4, unrealizedPnl: 15, interpolatedClose: false, asOf: 't' },
+        { positionId: 'a', trade: trade({ id: 'a', strategyInstanceId: undefined }), contractIDs: ['X'], netMark: -40, mark: 0.4, unrealizedPnl: 10, interpolatedClose: false, asOf: 't' },
+        { positionId: 'b', trade: trade({ id: 'b', strategyInstanceId: undefined }), contractIDs: ['Y'], netMark: 40, mark: -0.4, unrealizedPnl: 15, interpolatedClose: false, asOf: 't' },
       ],
       errors: [{ positionId: 'c', contractID: 'Z', error: 'e' }],
     };
   });
-  check('orchestrator summary', summary, { positions: 2, errors: 1 });
+  // No strategyInstanceId on the fake trades → shadow-eval skips both
+  // (evaluated 0, no fires, no eval errors) — marks still succeed.
+  check('orchestrator summary', summary, { positions: 2, errors: 1, evaluated: 0, fires: 0, evalErrors: 0 });
   const failed = await runUnifiedMarkPass(echoProvider([]), async () => {
     throw new Error('firestore down');
   });
