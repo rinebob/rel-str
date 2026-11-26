@@ -6,8 +6,8 @@
  *
  * Consumers: 'settlement' | 'selection' | 'st-nightly' | 'st-intraday'
  * (see sds-consumer-dispatch.ts). 'settlement' →
- * runSettlementForAllInstances — EOD stamp → eval → signal settlement →
- * per-instance settlement/held-shares → stats. Idempotent by design.
+ * runNightlySettlementChain — EOD stamp → eval → signal settlement →
+ * position-grain settlement/held-shares sweep → stats. Idempotent by design.
  *
  * Usage (from functions/):
  *   npx tsx scripts/verify/sds-consumer-dispatch.ts \

@@ -90,6 +90,7 @@ const scripts = [
   'indicator-marker-path-ibs-1728.ts',
   'gh-lifecycle-issue-map-1695.ts',
   'strat-manage-settlement-1714.ts',
+  'strat-manage-settlement-1714.ts',
 ];
 
 let passed = 0;

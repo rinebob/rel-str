@@ -28,16 +28,9 @@ import { db } from '../../src/firebase-admin-init';
 import {
   OptionQuoteSource,
   OptionType,
-  PositionSpreadType,
-  StrategyFrequency,
   buildOccContractId,
 } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
-import {
-  ExitPolicy,
-  LifecycleState,
-} from '../../../shared/options-strategy-engine-contracts';
-import type { StrategyInstanceConfig } from '../../../shared/options-strategy-engine-contracts';
 import {
   PaperTradingKind,
   PaperTradeSource,
@@ -49,6 +42,7 @@ import { paperDocRef, paperItemsRef } from '../../src/paper-trading/collections'
 import { getMarketDatePT } from '../../src/common/pt-date-utils';
 import { getUnderlyingCloseForDate } from '../../src/paper-trading/engine/options-strategy-market-data';
 import { runSettlementPass } from '../../src/paper-trading/engine/passes/settlement-pass';
+import { strategyInstanceRef } from '../../src/paper-trading/engine/strategy-instance-repository';
 import { SHARES_PER_CONTRACT } from '../../src/paper-trading/engine/types';
 
 const USER_ID = 'verify-724-user';
@@ -73,29 +67,6 @@ function check(name: string, cond: boolean, detail?: unknown): void {
     console.log(`FAIL ${name}`, detail ?? '');
   }
 }
-
-const CONFIG: StrategyInstanceConfig = {
-  id: INSTANCE_ID,
-  symbol: 'QQQM',
-  optionType: OptionType.PUT,
-  side: TradeSide.SHORT,
-  dte: 45,
-  targetDelta: -0.3,
-  phases: [
-    {
-      spreadType: PositionSpreadType.CASH_SECURED_PUT,
-      targetDelta: -0.3,
-      dte: 45,
-    },
-  ],
-  frequency: StrategyFrequency.DAILY,
-  openTimePT: '12:00',
-  exitPolicies: [{ policy: ExitPolicy.HOLD_TO_EXPIRATION }],
-  lifecycleState: LifecycleState.ACTIVE,
-  userId: USER_ID,
-  createdAt: '2026-09-01T00:00:00Z',
-  updatedAt: '2026-09-01T00:00:00Z',
-};
 
 function scratchTrade(id: string, expiration: string, strike: number): PaperTrade {
   return {
@@ -162,7 +133,7 @@ async function getTrade(id: string): Promise<PaperTrade | null> {
 async function cleanup(): Promise<void> {
   await paperDocRef(db, PaperTradingKind.TRADE, ID_MISSED).delete();
   await paperDocRef(db, PaperTradingKind.TRADE, ID_WEEKEND).delete();
-  await paperDocRef(db, PaperTradingKind.INSTANCE, INSTANCE_ID).delete();
+  await strategyInstanceRef(INSTANCE_ID).delete();
   await paperDocRef(db, PaperTradingKind.ACCOUNT, ACCT_ID).delete();
 }
 
@@ -192,7 +163,7 @@ async function main(): Promise<void> {
 
   await cleanup(); // clear leftovers from a prior run
   const now = new Date().toISOString();
-  await paperDocRef(db, PaperTradingKind.INSTANCE, INSTANCE_ID).set({
+  await strategyInstanceRef(INSTANCE_ID).set({
     kind: PaperTradingKind.INSTANCE,
     symbol: 'QQQM',
     lifecycleState: 'ACTIVE',
@@ -225,7 +196,16 @@ async function main(): Promise<void> {
   check('scratch instance + trades seeded',
     (await getTrade(ID_MISSED)) !== null && (await getTrade(ID_WEEKEND)) !== null);
 
-  const result = await runSettlementPass(INSTANCE_ID, marketDate, CONFIG, {
+  // #1714 made the pass position-grain — no instanceId/config arg; it
+  // sweeps every OPEN option trade except signal-source. Scope the sweep
+  // to the scratch docs via the injected lister so the verify can't touch
+  // real prod positions (the rest of the pipeline is fully real: SDS
+  // close reads + markPositionSettled txn + account bookkeeping).
+  const result = await runSettlementPass(marketDate, {
+    listOpenOptionTrades: async () => [
+      scratchTrade(ID_MISSED, EXPIRY_TRADING, strike),
+      scratchTrade(ID_WEEKEND, EXPIRY_SATURDAY, strike),
+    ],
     getUnderlyingClose: getUnderlyingCloseForDate,
   });
   console.log(
@@ -301,7 +281,7 @@ async function main(): Promise<void> {
   const survivors = [
     (await getTrade(ID_MISSED)) !== null,
     (await getTrade(ID_WEEKEND)) !== null,
-    (await paperDocRef(db, PaperTradingKind.INSTANCE, INSTANCE_ID).get()).exists,
+    (await strategyInstanceRef(INSTANCE_ID).get()).exists,
     (await paperDocRef(db, PaperTradingKind.ACCOUNT, ACCT_ID).get()).exists,
   ];
   check('cleanup removed all scratch docs', survivors.every((s) => !s));
