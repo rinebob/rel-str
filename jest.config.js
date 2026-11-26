@@ -39,6 +39,7 @@ module.exports = {
     '^@paper-trading/analysis$': '<rootDir>/shared/analysis-dataset-contracts.ts',
     '^@paper-trading/analysis-csv$': '<rootDir>/shared/analysis-csv.ts',
     '^@spread/contracts$': '<rootDir>/shared/spread-contracts.ts',
+    '^@iv-metrics/contracts$': '<rootDir>/shared/iv-metrics-contracts.ts',
     '^@portfolio-allocation/contracts$': '<rootDir>/shared/portfolio-allocation-contracts.ts',
     '^@portfolio-allocation/ids$': '<rootDir>/shared/portfolio-allocation-ids.ts',
     '^@portfolio-allocation/utils$': '<rootDir>/shared/portfolio-allocation-utils.ts',
