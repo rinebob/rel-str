@@ -87,7 +87,9 @@ const scripts = [
   'ibs-trend-rider-filter-1678.ts',
   'indicator-lib-1676-pine-parity.ts',
   'indicator-lib-shared-engine-1727.ts',
+  'indicator-marker-path-ibs-1728.ts',
   'gh-lifecycle-issue-map-1695.ts',
+  'strat-manage-settlement-1714.ts',
 ];
 
 let passed = 0;
