@@ -71,10 +71,15 @@ function summarize(symbol, result) {
     console.log(`\n  [${interval}]`);
     console.log(`    indicators: ${indicators.join(', ') || '(none)'}`);
     console.log(`    signals:    ${signals.join(', ') || '(none)'}`);
-    console.log(`    dotMarkers: ${dotKeys.map(k => `${k}(${iv.dotMarkers[k]?.length ?? 0})`).join(', ') || '(none)'}`);
+    // Zone keys are { emitted, suppressed } post-#1728; TS/TB stay flat arrays.
+    const dmCount = (k) => {
+      const v = iv.dotMarkers[k];
+      return Array.isArray(v) ? v.length : (v?.emitted?.length ?? 0);
+    };
+    console.log(`    dotMarkers: ${dotKeys.map(k => `${k}(${dmCount(k)})`).join(', ') || '(none)'}`);
 
-    // Sample: last 3 zone v1 dots if present
-    const zv1 = iv?.dotMarkers?.zoneV1;
+    // Sample: last 3 zone v1 emitted dots if present
+    const zv1 = iv?.dotMarkers?.zoneV1?.emitted;
     if (zv1?.length) {
       console.log(`    zoneV1 last 3: ${zv1.slice(-3).map(d => d.date || d.d || JSON.stringify(d)).join(', ')}`);
     }

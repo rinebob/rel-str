@@ -55,6 +55,14 @@ export interface DotMarker {
   y: number;
   version: 'V1' | 'V2' | 'TS' | 'TB';
   signalType: string;
+  ibs?: number | null;          // signal bar's IBS (partition-attached; null when uncomputable)
+}
+
+/** Zone dot markers partitioned by the IBS filter — `emitted` is what charts
+ *  draw today; `suppressed` is the ghost set rendered under #1680. */
+export interface ZoneDotMarkers {
+  emitted: DotMarker[];
+  suppressed: DotMarker[];
 }
 
 export interface HtfWindowPoint {
@@ -77,8 +85,8 @@ export interface IntervalData {
     trendStrength?: SignalMarker[];
   };
   dotMarkers?: {
-    zoneV1?: DotMarker[];
-    zoneV2?: DotMarker[];
+    zoneV1?: ZoneDotMarkers;
+    zoneV2?: ZoneDotMarkers;
     trendStrength?: DotMarker[];
     triggerBands?: DotMarker[];
   };
@@ -156,4 +164,5 @@ export interface SignalMarker {
   direction: 'long' | 'short';
   signalType: string;
   reason: string;
+  ibs?: number | null;          // signal bar's IBS (partition-attached; null when uncomputable)
 }

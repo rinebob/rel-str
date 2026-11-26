@@ -135,9 +135,9 @@ export function assembleRenderModel(opts: AssembleRenderModelOptions): ChartRend
   ];
   const std = stdDevSeries(opts.bars, offset, len);
   main.push(...std.fills, ...std.lines);
-  const zoneV1Upticks = dotMarkerSeries(data?.dotMarkers?.zoneV1, offset, len,
+  const zoneV1Upticks = dotMarkerSeries(data?.dotMarkers?.zoneV1?.emitted, offset, len,
     { long: ST_UPTICK_DOT_COLORS.v1Long, short: ST_UPTICK_DOT_COLORS.v1Short }, OVERLAY_DOT_RADIUS);
-  const zoneV2Upticks = dotMarkerSeries(data?.dotMarkers?.zoneV2, offset, len,
+  const zoneV2Upticks = dotMarkerSeries(data?.dotMarkers?.zoneV2?.emitted, offset, len,
     { long: ST_UPTICK_DOT_COLORS.v2Long, short: ST_UPTICK_DOT_COLORS.v2Short }, OVERLAY_DOT_RADIUS);
   if (zoneV1Upticks) main.push(zoneV1Upticks);
   if (zoneV2Upticks) main.push(zoneV2Upticks);

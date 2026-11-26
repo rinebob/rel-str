@@ -358,8 +358,8 @@ describe('assembleRenderModel — sparse markers', () => {
       bars,
       intervalData: intervalData({
         dotMarkers: {
-          zoneV1: [marker({ index: offset + 2, d: bars[offset + 2].d, version: 'V1', direction: 'short', y: 130 })],
-          zoneV2: [marker({ index: offset + 4, d: bars[offset + 4].d, version: 'V2', direction: 'long', y: 70 })],
+          zoneV1: { emitted: [marker({ index: offset + 2, d: bars[offset + 2].d, version: 'V1', direction: 'short', y: 130 })], suppressed: [] },
+          zoneV2: { emitted: [marker({ index: offset + 4, d: bars[offset + 4].d, version: 'V2', direction: 'long', y: 70 })], suppressed: [] },
         },
       }),
     });

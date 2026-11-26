@@ -76,7 +76,11 @@ export function convertZoneDotMarkers(
   v1 = true,
 ): ChartScatterPoint[] {
   const key = v1 ? 'zoneV1' : 'zoneV2';
-  const markers = intervalData?.dotMarkers?.[key] ?? [];
+  // Shape-tolerant across the #1728 roll: pre-1728 dotMarkers are plain
+  // DotMarker[]; post-1728 carry {emitted,suppressed}. FE and functions
+  // deploy separately, so both shapes must read during the window.
+  const raw = intervalData?.dotMarkers?.[key];
+  const markers = Array.isArray(raw) ? raw : raw?.emitted ?? [];
   if (markers.length === 0) return [];
 
   const longColor = v1 ? UptickDotColors.v1Long : UptickDotColors.v2Long;

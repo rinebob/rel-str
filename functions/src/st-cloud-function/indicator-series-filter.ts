@@ -18,6 +18,14 @@ export const DEFAULT_INTERVALS: ChartInterval[] = [ChartInterval.DAILY, ChartInt
 export const DEFAULT_INDICATORS: IndicatorFamily[] = [IndicatorFamily.ZONE_V1, IndicatorFamily.ZONE_V2, IndicatorFamily.TREND_STRENGTH, IndicatorFamily.TREND_BANDS];
 export const DEFAULT_STRATEGIES: StrategyFamily[] = [StrategyFamily.ZONE_V1, StrategyFamily.ZONE_V2, StrategyFamily.TREND_STRENGTH];
 
+/** Strategy family → the dotMarkers payload key it owns (zone keys are
+ *  {emitted,suppressed} since #1728; trendStrength stays a flat array). */
+const DOT_MARKER_KEY: Partial<Record<StrategyFamily, 'zoneV1' | 'zoneV2' | 'trendStrength'>> = {
+  [StrategyFamily.ZONE_V1]: 'zoneV1',
+  [StrategyFamily.ZONE_V2]: 'zoneV2',
+  [StrategyFamily.TREND_STRENGTH]: 'trendStrength',
+};
+
 export function filterResponse(
   response: SymbolIndicatorSeriesResponse,
   intervals: ChartInterval[],
@@ -50,9 +58,12 @@ export function filterResponse(
     if (source.dotMarkers) {
       intervalData.dotMarkers = {};
       for (const family of strategies) {
-        const key = family === StrategyFamily.ZONE_V1 ? 'zoneV1' : family === StrategyFamily.ZONE_V2 ? 'zoneV2' : family === StrategyFamily.TREND_STRENGTH ? 'trendStrength' : null;
+        const key = DOT_MARKER_KEY[family];
         if (key && source.dotMarkers[key]) {
-          intervalData.dotMarkers[key] = source.dotMarkers[key];
+          // Same write-side escape hatch as indicators above — the per-key
+          // slot types differ (zone keys are {emitted,suppressed} since
+          // #1728, trendStrength stays a flat array).
+          (intervalData.dotMarkers as Record<string, unknown>)[key] = source.dotMarkers[key];
         }
       }
       // Trigger Bands is an indicator (no strategy family): its dots follow the indicator request.

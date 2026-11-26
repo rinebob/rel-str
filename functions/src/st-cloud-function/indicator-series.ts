@@ -81,11 +81,11 @@ export const stGetSymbolIndicatorSeriesV2 = onCall<GetIndicatorSeriesRequest, Pr
       result.marketDate = resolvedMarketDate;
 
       const dotCounts = {
-        dailyV1: result.intervals.daily?.dotMarkers?.zoneV1?.length ?? 0,
-        dailyV2: result.intervals.daily?.dotMarkers?.zoneV2?.length ?? 0,
+        dailyV1: result.intervals.daily?.dotMarkers?.zoneV1?.emitted?.length ?? 0,
+        dailyV2: result.intervals.daily?.dotMarkers?.zoneV2?.emitted?.length ?? 0,
         dailyTs: result.intervals.daily?.dotMarkers?.trendStrength?.length ?? 0,
-        weeklyV1: result.intervals.weekly?.dotMarkers?.zoneV1?.length ?? 0,
-        weeklyV2: result.intervals.weekly?.dotMarkers?.zoneV2?.length ?? 0,
+        weeklyV1: result.intervals.weekly?.dotMarkers?.zoneV1?.emitted?.length ?? 0,
+        weeklyV2: result.intervals.weekly?.dotMarkers?.zoneV2?.emitted?.length ?? 0,
         weeklyTs: result.intervals.weekly?.dotMarkers?.trendStrength?.length ?? 0,
       };
       const htfCounts = {

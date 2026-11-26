@@ -291,8 +291,8 @@ describe('FlexChartSandboxComponent', () => {
           signals: {},
           dotMarkers: {
             trendStrength: [dot('2026-01-03', 2)],
-            zoneV1: [dot('2026-01-04', 3)],
-            zoneV2: [dot('2026-01-05', 4)],
+            zoneV1: { emitted: [dot('2026-01-04', 3)], suppressed: [] },
+            zoneV2: { emitted: [dot('2026-01-05', 4)], suppressed: [] },
           },
         },
       },

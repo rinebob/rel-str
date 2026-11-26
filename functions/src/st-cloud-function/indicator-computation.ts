@@ -10,8 +10,10 @@ import { computeStZone } from '@st/zone';
 import { computeStZoneV2 } from '@st/zone-v2';
 import { computeStTrendStrength } from '../indicators/st-trend-strength';
 import { computeStTriggerBands } from '../indicators/st-trigger-bands';
-import { detectAllStTrendRiderSignals, detectAllZoneZeroCrossSignals } from './strategies/signal-detection';
-import { StSignalDirection } from './signals';
+import { detectZoneUptickCandidates, detectZoneZeroCrossCandidates } from '@st/signal-detect';
+import type { ZoneSignalCandidate } from '@st/signal-detect';
+import { partitionByIbs } from '@st/signal-filter';
+import type { IbsFilterContext, Partitioned } from '@st/signal-filter';
 import type { OHLCV } from '@st/trend-bands';
 import type { OhlcBar } from '../common/market-data-types';
 import {
@@ -32,6 +34,7 @@ export interface IndicatorSignalMarker {
   direction: 'long' | 'short';
   signalType: string;
   reason: string;
+  ibs?: number | null;          // signal bar's IBS (partition-attached; null when uncomputable)
 }
 
 export interface DotMarker {
@@ -41,6 +44,14 @@ export interface DotMarker {
   y: number;                    // chart y-coordinate (price with ATR offset, or DI hist with offset)
   version: 'V1' | 'V2' | 'TS' | 'TB';
   signalType: string;
+  ibs?: number | null;          // signal bar's IBS (partition-attached; null when uncomputable)
+}
+
+/** Zone dot markers partitioned by the IBS filter — `emitted` is what charts
+ *  draw today; `suppressed` is the ghost set FE renders under #1680. */
+export interface ZoneDotMarkers {
+  emitted: DotMarker[];
+  suppressed: DotMarker[];
 }
 
 export interface HtfWindowPoint {
@@ -117,8 +128,8 @@ export interface SignalIntervalData {
   zoneV2?: IndicatorSignalMarker[];
   trendStrength?: IndicatorSignalMarker[];
   dotMarkers?: {
-    zoneV1?: DotMarker[];
-    zoneV2?: DotMarker[];
+    zoneV1?: ZoneDotMarkers;
+    zoneV2?: ZoneDotMarkers;
     trendStrength?: DotMarker[];
     triggerBands?: DotMarker[];
   };
@@ -172,8 +183,8 @@ export interface IntervalData {
     trendStrength?: IndicatorSignalMarker[];
   };
   dotMarkers?: {
-    zoneV1?: DotMarker[];
-    zoneV2?: DotMarker[];
+    zoneV1?: ZoneDotMarkers;
+    zoneV2?: ZoneDotMarkers;
     trendStrength?: DotMarker[];
     triggerBands?: DotMarker[];
   };
@@ -328,12 +339,41 @@ function emptySignalInterval(): SignalIntervalData {
   return {};
 }
 
-function generateZoneSignals(
+export interface ZoneSignalSets {
+  emitted: IndicatorSignalMarker[];
+  suppressed: IndicatorSignalMarker[];
+}
+
+/**
+ * Detect zone signal candidates for chart markers and partition them by the
+ * signal bar's IBS. Uses the SAME shared detectors + partition as the
+ * strategy path (@st/signal-detect + @st/signal-filter) so emitted markers
+ * are exactly the signals the strategy emits on the same bars.
+ *
+ * `bars` is index-aligned with `data` (both derive from the same OhlcBar[]
+ * — point i describes bar i); the partition reads each candidate's IBS off
+ * `bars[candidate.index]`. Suppression is emission-only — the detectors'
+ * FIRED latches are consumed on suppressed candidates, so nothing re-fires.
+ *
+ * ALWAYS-FILTERED contract: `ibsCtx` overrides the filter context (specs
+ * inject `now`; prod omits it → `{}` = filter at default 0.5 / wall clock).
+ * There is deliberately no unfiltered mode on this path — `partitionByIbs`'s
+ * `ctx === undefined` pass-through is unreachable from here.
+ */
+export function generateZoneSignals(
   data: IndicatorDataPoint[],
+  bars: OhlcBar[],
   version: 'V1' | 'V2',
   timeframe: 'D' | 'W',
-): IndicatorSignalMarker[] {
-  if (data.length < 2) return [];
+  ibsCtx: IbsFilterContext = {},
+): ZoneSignalSets {
+  const empty: ZoneSignalSets = { emitted: [], suppressed: [] };
+  if (data.length < 2) return empty;
+  // Structural invariant — `data` derives 1:1 from `bars` upstream; a
+  // mismatch is a wiring bug, not a data condition, so fail loudly.
+  if (data.length !== bars.length) {
+    throw new Error(`generateZoneSignals: data/bars misaligned (${data.length} vs ${bars.length})`);
+  }
 
   const zone = data.map((p: IndicatorDataPoint) => (version === 'V1' ? p.zoneV1 : p.zoneV2));
   // ST Trend Rider uses the same-timeframe zone as its own context, not a cross-zone
@@ -342,23 +382,26 @@ function generateZoneSignals(
   const windowV2 = zone;
   const zoneNumbers = zone.map((z: number | null) => (z === null ? NaN : z));
   const windowV2Numbers = windowV2.map((z: number | null) => (z === null ? NaN : z));
-  const ohlcv = data.map((p: IndicatorDataPoint) => ({ open: 0, high: 0, low: 0, close: 0, date: p.d }));
 
-  const confirmationSignals = detectAllStTrendRiderSignals(zoneNumbers, windowV2Numbers, ohlcv, version, timeframe);
-  const zeroCrossSignals = detectAllZoneZeroCrossSignals(zoneNumbers, ohlcv, version, timeframe);
-  const signals = [...confirmationSignals, ...zeroCrossSignals].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-  if (signals.length === 0) return [];
+  const candidates = [
+    ...detectZoneUptickCandidates(zoneNumbers, windowV2Numbers, version, timeframe),
+    ...detectZoneZeroCrossCandidates(zoneNumbers, version, timeframe),
+  ].sort((a, b) => a.index - b.index);
+  if (candidates.length === 0) return empty;
 
-  return signals.map(signal => {
-    const idx = signal.index ?? 0;
-    return {
-      d: data[idx].d,
-      index: idx,
-      direction: signal.action === StSignalDirection.LONG ? 'long' : 'short',
-      signalType: signal.signalType,
-      reason: signal.reason,
-    };
+  const partitioned = partitionByIbs(candidates, bars, timeframe, ibsCtx);
+  const toMarker = (c: Partitioned<ZoneSignalCandidate>): IndicatorSignalMarker => ({
+    d: data[c.index].d,
+    index: c.index,
+    direction: c.direction,
+    signalType: c.signalType,
+    reason: c.reason,
+    ibs: c.ibs,
   });
+  return {
+    emitted: partitioned.emitted.map(toMarker),
+    suppressed: partitioned.suppressed.map(toMarker),
+  };
 }
 
 export function computeATR(bars: OhlcBar[], period = 14): number[] {
@@ -387,13 +430,12 @@ export function computeATR(bars: OhlcBar[], period = 14): number[] {
 
 const ATR_OFFSET_MULT = 2.5;
 
-function generateZoneDotMarkers(
+function zoneDotsFromSignals(
   signals: IndicatorSignalMarker[],
   bars: OhlcBar[],
+  atr: number[],
   version: 'V1' | 'V2',
 ): DotMarker[] {
-  if (signals.length === 0 || bars.length === 0) return [];
-  const atr = computeATR(bars);
   const markers: DotMarker[] = [];
   for (const signal of signals) {
     const idx = signal.index;
@@ -408,9 +450,26 @@ function generateZoneDotMarkers(
       y,
       version,
       signalType: signal.signalType,
+      ibs: signal.ibs,
     });
   }
   return markers;
+}
+
+/** Partitioned zone signals → the {emitted,suppressed} dotMarkers payload,
+ *  computing ATR once per (interval, version) instead of once per set. */
+function generateZoneDotMarkers(
+  sets: ZoneSignalSets,
+  bars: OhlcBar[],
+  version: 'V1' | 'V2',
+): ZoneDotMarkers {
+  const empty: ZoneDotMarkers = { emitted: [], suppressed: [] };
+  if (bars.length === 0) return empty;
+  const atr = computeATR(bars);
+  return {
+    emitted: zoneDotsFromSignals(sets.emitted, bars, atr, version),
+    suppressed: zoneDotsFromSignals(sets.suppressed, bars, atr, version),
+  };
 }
 
 function generateTrendStrengthDotMarkers(
@@ -519,6 +578,33 @@ function generateHtfWindowData(
   return result;
 }
 
+/** Detect + partition one interval's zone signals (V1+V2), write its signals
+ *  list (emitted only), its {emitted,suppressed} dotMarkers, and its HTF
+ *  window dots. `htfKey` names the higher timeframe feeding the windows. */
+function attachZoneSignals(
+  out: SignalIntervalData,
+  data: IndicatorIntervalData,
+  bars: OhlcBar[],
+  timeframe: 'D' | 'W',
+  htfData: IndicatorIntervalData,
+  htfKey: 'weekly' | 'monthly',
+  ibsCtx?: IbsFilterContext,
+): void {
+  const v1 = generateZoneSignals(data, bars, 'V1', timeframe, ibsCtx);
+  const v2 = generateZoneSignals(data, bars, 'V2', timeframe, ibsCtx);
+  out.zoneV1 = v1.emitted;
+  out.zoneV2 = v2.emitted;
+  out.dotMarkers = {
+    ...out.dotMarkers,
+    zoneV1: generateZoneDotMarkers(v1, bars, 'V1'),
+    zoneV2: generateZoneDotMarkers(v2, bars, 'V2'),
+  };
+  out.htfWindows = {
+    ...out.htfWindows,
+    [htfKey]: generateHtfWindowData(htfData, bars),
+  };
+}
+
 function generateSymbolSignals(
   daily: IndicatorIntervalData,
   weekly: IndicatorIntervalData,
@@ -526,6 +612,7 @@ function generateSymbolSignals(
   dailyBars: OhlcBar[],
   weeklyBars: OhlcBar[],
   monthlyBars: OhlcBar[],
+  ibsCtx?: IbsFilterContext,
 ): {
   daily: SignalIntervalData;
   weekly: SignalIntervalData;
@@ -549,30 +636,14 @@ function generateSymbolSignals(
     trendStrength: generateTrendStrengthDotMarkers(monthlySignals.trendStrength, monthly),
   };
 
-  // Emit all zone signals for the daily and weekly intervals (used for chart dots)
+  // Emit zone signals for the daily and weekly intervals (used for chart dots).
+  // IBS-partitioned: emitted markers mirror the strategy path's emitted set;
+  // suppressed candidates persist as the ghost set for the FE (#1680).
   if (dailyBars.length >= 45 && weeklyBars.length >= 30) {
-    dailySignals.zoneV1 = generateZoneSignals(daily, 'V1', 'D');
-    dailySignals.zoneV2 = generateZoneSignals(daily, 'V2', 'D');
-    dailySignals.dotMarkers = {
-      ...dailySignals.dotMarkers,
-      zoneV1: generateZoneDotMarkers(dailySignals.zoneV1, dailyBars, 'V1'),
-      zoneV2: generateZoneDotMarkers(dailySignals.zoneV2, dailyBars, 'V2'),
-    };
-    dailySignals.htfWindows = {
-      weekly: generateHtfWindowData(weekly, dailyBars),
-    };
+    attachZoneSignals(dailySignals, daily, dailyBars, 'D', weekly, 'weekly', ibsCtx);
   }
   if (weeklyBars.length >= 45 && monthlyBars.length >= 30) {
-    weeklySignals.zoneV1 = generateZoneSignals(weekly, 'V1', 'W');
-    weeklySignals.zoneV2 = generateZoneSignals(weekly, 'V2', 'W');
-    weeklySignals.dotMarkers = {
-      ...weeklySignals.dotMarkers,
-      zoneV1: generateZoneDotMarkers(weeklySignals.zoneV1, weeklyBars, 'V1'),
-      zoneV2: generateZoneDotMarkers(weeklySignals.zoneV2, weeklyBars, 'V2'),
-    };
-    weeklySignals.htfWindows = {
-      monthly: generateHtfWindowData(monthly, weeklyBars),
-    };
+    attachZoneSignals(weeklySignals, weekly, weeklyBars, 'W', monthly, 'monthly', ibsCtx);
   }
 
   return { daily: dailySignals, weekly: weeklySignals, monthly: monthlySignals };
@@ -611,9 +682,10 @@ export function computeSymbolIndicatorSeries(
   dailyBars: OhlcBar[],
   weeklyBars: OhlcBar[],
   monthlyBars: OhlcBar[],
+  ibsCtx?: IbsFilterContext,
 ): SymbolIndicatorSeriesResponse {
   const indicators = computeIndicatorSeries(dailyBars, weeklyBars, monthlyBars);
-  const signals = generateSymbolSignals(indicators.daily, indicators.weekly, indicators.monthly, dailyBars, weeklyBars, monthlyBars);
+  const signals = generateSymbolSignals(indicators.daily, indicators.weekly, indicators.monthly, dailyBars, weeklyBars, monthlyBars, ibsCtx);
 
   const interval = (
     data: IndicatorIntervalData,

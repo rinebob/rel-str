@@ -6,6 +6,12 @@
  * every signal to signal-history/{barDate}. This guarantees the left-side signal
  * list and the right-side chart dots are generated from the exact same source.
  *
+ * Corpus note (#1728): `intervalData.signals.zoneV*` is the IBS-partitioned
+ * EMITTED set since the marker path gained the shared filter — re-runs of this
+ * script write emitted-only history, while docs generated before #1728 contain
+ * the unfiltered candidate set. That divergence is deliberate: emitted == the
+ * strategy path's signals. A full re-backfill (--wipeout) unifies the corpus.
+ *
  * Source:  symbol-data/{symbol}/daily/{YYYY}, weekly/all, monthly/all
  * Target:  savant-trader/data/symbols/{symbol}/signal-history/{barDate}
  *
