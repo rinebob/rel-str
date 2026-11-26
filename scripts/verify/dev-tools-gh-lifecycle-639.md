@@ -24,8 +24,8 @@ root filter (#1527 — fake roots from the substring search never reach
 BFS) **and** the acceptance fakes still render inside the real tree
 (#697 under #619, #713/#1509 under #697); topic #619 has thread #621 under
 it; all roots carry number/title/state/url; `statusOf` decodes project
-statuses; inventory doc fetched; transforms emit flat `group`-stamped
-topics (contract v2, #1522).
+statuses; `fetchFileText` reads a repo file; `buildTree` emits flat
+topic nodes (contract v2, #1522).
 
 **Fail:** any `FAIL` line names the broken stage. `truncatedNodes > 0`
 means the pagination guard tripped — investigate the walk, do not ignore.

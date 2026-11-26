@@ -21,14 +21,13 @@ end-to-end against real GitHub via the production dep wiring.
 - **Fail:** any `FAIL` line or non-zero exit. A nonzero `truncatedNodes`
   inside the handler surfaces as a thrown `internal` error (crash output).
 - **Expected live result:** ~43 topic roots in ~2s (vs 30-60s for the
-  monolithic `getLifecycleTree`), `groupOrder` carrying the
-  TOPICS-INVENTORY sections, every topic `children: []`.
+  monolithic `getLifecycleTree`), every topic `children: []`.
 
 ## What it covers
 
 - Index fetch: roots found, `^Topic:` filter, metadata fields present
 - Index contract: `children: []` on every root (no subIssues expansion)
-- Grouping: `group`/`groupOrder`/`fetchedAt` parity with the monolith
+- Shape: `fetchedAt` stamped; flat `topics` parity with the monolith
 - Status decode: at least one topic carries a project Status
 - Validation: unsupported repo → `invalid-argument`, unauth → `unauthenticated`
 
