@@ -3,9 +3,8 @@
  *   1. SUPPORTED_REPOS resolves rel-str
  *   2. fetchLifecycleData walks the real topic tree end-to-end
  *      (search → batched nodes → subIssues pagination → status decode)
- *   3. fetchFileText reads the real TOPICS-INVENTORY.md
- *   4. Shared transforms (buildTree → parseInventoryGroups → assignGroups)
- *      stamp the fetched payload with inventory groups
+ *   3. fetchFileText reads a real repo file (README.md)
+ *   4. Shared transform buildTree assembles the fetched payload
  *
  * Token: GITHUB_READ_TOKEN env, else `gh auth token` fallback.
  * Read-only — no mutations, no Firestore.
@@ -15,16 +14,14 @@
 
 import { execSync } from 'node:child_process';
 import {
-  fetchLifecycleData,
   fetchFileText,
   githubGql,
 } from '../../functions/src/gh-lifecycle/github-client';
+import { fetchLifecycleData } from '../../functions/src/gh-lifecycle/lifecycle-fetch';
 import { SUPPORTED_REPOS } from '../../functions/src/gh-lifecycle/config';
 import {
-  assignGroups,
   buildTree,
   isTopicRoot,
-  parseInventoryGroups,
 } from '../../shared/lifecycle-tree';
 
 let failures = 0;
@@ -79,18 +76,15 @@ async function main(): Promise<void> {
   check('statusOf populated for rel-str', res.statusOf.size > 0, `${res.statusOf.size}`);
   console.log(`  roots: ${res.roots.length}, nodes with children: ${res.childrenOf.size}, statuses: ${res.statusOf.size}`);
 
-  console.log('\n--- fetchFileText (real TOPICS-INVENTORY.md) ---');
-  const md = await fetchFileText(tok, entry, 'docs/dev-notes/TOPICS-INVENTORY.md');
-  check('inventory doc fetched', !!md && md.includes('## Open Topics'));
+  console.log('\n--- fetchFileText (real README.md) ---');
+  const md = await fetchFileText(tok, entry, 'README.md');
+  check('repo file fetched', !!md && md.length > 0);
 
-  console.log('\n--- shared transforms over real payload ---');
-  const trees = buildTree(res.roots, res.childrenOf, res.statusOf);
-  const groups = md ? parseInventoryGroups(md) : null;
-  const { topics, groupOrder } = assignGroups(trees, groups);
-  check('buildTree emits topic nodes', trees.every(t => t.nodeType === 'topic'));
+  console.log('\n--- shared transform over real payload ---');
+  const topics = buildTree(res.roots, res.childrenOf, res.statusOf);
+  check('buildTree emits topic nodes', topics.every(t => t.nodeType === 'topic'));
   check('topics non-empty', topics.length > 0, `${topics.length} topics`);
   check('#619 emitted as a topic', topics.some(t => t.number === 619));
-  check('every topic carries a group', topics.every(t => !!t.group));
 
   console.log('\n=== ' + (failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`) + ' ===');
   process.exit(failures === 0 ? 0 : 1);

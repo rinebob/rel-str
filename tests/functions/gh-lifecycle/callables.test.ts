@@ -44,7 +44,6 @@ function deps(overrides: Partial<GhLifecycleDeps> = {}): GhLifecycleDeps {
     fetchTopicRef: async (_e, n) =>
       n === 619 ? { number: 619, id: 'I_619', title: 'Topic: GitHub read-only issue UI' } : null,
     fetchSubtreeData: async () => tree,
-    fetchInventoryDoc: async () => null,
     readIssueMap: async () => ({}),
     syncIssueMapFromTree: async () => {},
     upsertIssueMapEntries: async () => {},
@@ -87,33 +86,21 @@ describe('handleGetLifecycleTree — validation', () => {
 });
 
 describe('handleGetLifecycleTree — happy path', () => {
-  it('returns flat topics + groupOrder + fetchedAt', async () => {
+  it('returns flat topics + fetchedAt', async () => {
     const res = await handleGetLifecycleTree(
       USER_REQ({ owner: 'rinebob', repo: 'rel-str' }), deps());
     assert.equal(res.topics.length, 1);
     const topic = res.topics[0];
     assert.equal(topic.nodeType, 'topic');
     assert.equal(topic.number, 619);
-    assert.equal(topic.group, 'Ungrouped');
-    assert.deepEqual(res.groupOrder, []);
     assert.equal(topic.children[0].number, 621);
     assert.equal(topic.children[0].nodeType, 'thread');
     assert.equal(topic.status, 'IN PROGRESS');
     assert.match(res.fetchedAt, /^\d{4}-\d{2}-\d{2}T/);
-    assert.equal(res.groupingWarning, undefined);
-  });
-
-  it('stamps the inventory group + doc-order groupOrder when the doc parses', async () => {
-    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#619 - x](https://github.com/rinebob/rel-str/issues/619)** — note\n\n## Closed Topics\n`;
-    const res = await handleGetLifecycleTree(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => md }));
-    assert.equal(res.topics[0].group, 'A. Named Group');
-    assert.deepEqual(res.groupOrder, ['A. Named Group']);
   });
 });
 
-describe('handleGetLifecycleTree — truncation and grouping failures', () => {
+describe('handleGetLifecycleTree — truncation failures', () => {
   it('truncatedNodes > 0 → internal with the count', async () => {
     const err = await handleGetLifecycleTree(
       USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
@@ -125,41 +112,6 @@ describe('handleGetLifecycleTree — truncation and grouping failures', () => {
       })).catch(e => e);
     assert.equal(code(err), 'internal');
     assert.match(err.message, /3/);
-  });
-
-  it('inventory doc 404 (null) → all Ungrouped, no warning', async () => {
-    const res = await handleGetLifecycleTree(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => null }));
-    assert.equal(res.topics[0].group, 'Ungrouped');
-    assert.deepEqual(res.groupOrder, []);
-    assert.equal(res.groupingWarning, undefined);
-  });
-
-  it('inventory doc error → groupingWarning set, tree still returns', async () => {
-    const res = await handleGetLifecycleTree(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => { throw new GitHubApiError(500, false, 'GitHub 500: raw-body-blob'); } }));
-    assert.equal(res.topics[0].group, 'Ungrouped');
-    // Sanitized — the raw upstream body never reaches the client payload.
-    assert.match(res.groupingWarning!, /GitHub 500/);
-    assert.ok(!res.groupingWarning!.includes('raw-body-blob'));
-  });
-
-  it('inventory doc parsing to zero groups → groupingWarning', async () => {
-    const res = await handleGetLifecycleTree(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => '# nothing parseable' }));
-    assert.match(res.groupingWarning!, /zero|no groups|ungrouped/i);
-  });
-
-  it('doc parses but lists no fetched topics → stale-doc groupingWarning', async () => {
-    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#9999 - x](https://github.com/rinebob/rel-str/issues/9999)** — note\n\n## Closed Topics\n`;
-    const res = await handleGetLifecycleTree(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => md }));
-    assert.equal(res.topics[0].group, 'Ungrouped');
-    assert.match(res.groupingWarning!, /stale/);
   });
 });
 
@@ -255,25 +207,6 @@ describe('handleGetLifecycleTopicIndex — index semantics (#1635)', () => {
       USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
       deps({ fetchData: async () => { throw new Error('must not be called'); } }));
     assert.equal(res.topics.length, 1);
-  });
-
-  it('grouping parity: inventory doc stamps group + groupOrder', async () => {
-    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#619 - x](https://github.com/rinebob/rel-str/issues/619)** — note\n\n## Closed Topics\n`;
-    const res = await handleGetLifecycleTopicIndex(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => md }));
-    assert.equal(res.topics[0].group, 'A. Named Group');
-    assert.deepEqual(res.groupOrder, ['A. Named Group']);
-    assert.equal(res.groupingWarning, undefined);
-  });
-
-  it('grouping parity: inventory doc groups + stale-doc warning apply', async () => {
-    const md = `## Open Topics\n\n### A. Named Group\n\n- **[#9999 - x](https://github.com/rinebob/rel-str/issues/9999)** — note\n\n## Closed Topics\n`;
-    const res = await handleGetLifecycleTopicIndex(
-      USER_REQ({ owner: 'rinebob', repo: 'rel-str' }),
-      deps({ fetchInventoryDoc: async () => md }));
-    assert.equal(res.topics[0].group, 'Ungrouped');
-    assert.match(res.groupingWarning!, /stale/);
   });
 
   it('truncatedNodes > 0 → internal with the count', async () => {

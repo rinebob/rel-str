@@ -45,7 +45,6 @@ describe('TopicViewerService', () => {
   it('calls getLifecycleTree callable and unwraps .data', async () => {
     const payload: LifecycleTreeResponse = {
       topics: [],
-      groupOrder: [],
       fetchedAt: '2026-09-28T00:00:00Z',
     };
     callable.mockResolvedValue({ data: payload });
@@ -62,7 +61,8 @@ describe('TopicViewerService', () => {
 
   it('calls getLifecycleTopicIndex with the repo request and unwraps .data', async () => {
     const payload: LifecycleTreeResponse = {
-      topics: [], groupOrder: [], fetchedAt: '2026-11-20T00:00:00Z',
+      topics: [],
+      fetchedAt: '2026-11-20T00:00:00Z',
     };
     callable.mockResolvedValue({ data: payload });
     const res = await firstValueFrom(
@@ -74,7 +74,8 @@ describe('TopicViewerService', () => {
 
   it('calls getLifecycleTopicTree with topicNumber in the request', async () => {
     const payload: LifecycleTreeResponse = {
-      topics: [], groupOrder: [], fetchedAt: '2026-11-20T00:00:00Z',
+      topics: [],
+      fetchedAt: '2026-11-20T00:00:00Z',
     };
     callable.mockResolvedValue({ data: payload });
     const res = await firstValueFrom(service.getLifecycleTopicTree$({

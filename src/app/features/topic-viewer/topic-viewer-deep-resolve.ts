@@ -22,7 +22,6 @@ import type {
   LifecycleNode,
   LifecycleResolveIssueRequest,
   LifecycleResolveIssueResponse,
-  LifecycleTopic,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import type { TopicViewerRepo } from './topic-viewer.service';
@@ -72,7 +71,7 @@ export interface DeepResolveHost {
   resolveLifecycleIssue$(
     req: LifecycleResolveIssueRequest,
   ): Promise<LifecycleResolveIssueResponse>;
-  ensureTopic(n: number): Promise<LifecycleTopic | null>;
+  ensureTopic(n: number): Promise<LifecycleNode | null>;
   /** selectTopic's patch — seed the root expanded (additive under
    *  all-topics), clear query-scoped suppressions. */
   selectRoot(n: number): void;

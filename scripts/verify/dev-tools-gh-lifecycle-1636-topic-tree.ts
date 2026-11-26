@@ -10,7 +10,7 @@
  *   - single-root scoping: response carries exactly one topic
  *   - subtree fully walked: childrenOf populated (children nonempty
  *     for a topic known to have children)
- *   - metadata/grouping parity with the monolith pipeline
+ *   - metadata parity with the monolith pipeline
  *
  * Token: GITHUB_READ_TOKEN env, else `gh auth token` fallback (read-only).
  *
@@ -77,15 +77,11 @@ async function main(): Promise<void> {
   check('labels[] present', Array.isArray(topic.labels));
   check('nodeType is topic', topic.nodeType === 'topic');
   check('descendants carry nodeTypes', topic.children.every(c => !!c.nodeType));
-  check('group present', !!topic.group);
-  check('groupOrder array present', Array.isArray(res.groupOrder));
   check('fetchedAt stamped', /^\d{4}-\d{2}-\d{2}T/.test(res.fetchedAt));
   const count = (nodes: typeof topic.children): number =>
     nodes.reduce((acc, n) => acc + 1 + count(n.children), 0);
   console.log(`  #${topic.number} "${topic.title}" — ${count(topic.children)} descendants, ` +
-    `group "${topic.group}", status "${topic.status ?? '(unset)'}", ` +
-    `groupOrder: [${res.groupOrder.join(', ')}]` +
-    (res.groupingWarning ? `, warning: ${res.groupingWarning}` : ''));
+    `status "${topic.status ?? '(unset)'}"`);
 
   console.log('\n--- guard paths ---');
   // A direct Thread child of the topic — exists but is not a Topic: root.

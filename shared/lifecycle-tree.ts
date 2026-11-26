@@ -1,13 +1,12 @@
 /**
  * Lifecycle-tree transforms — pure functions that turn fetched issue rows
- * into a topic-rooted lifecycle tree and stamp topics with their
- * inventory group. No I/O; shared by the getLifecycleTree callable and
- * the topic-viewer page (Blueprint #633 / task #637, contract v2 #1522).
+ * into a topic-rooted lifecycle tree. No I/O; shared by the
+ * getLifecycleTree callable and the topic-viewer page
+ * (Blueprint #633 / task #637, contract v2 #1522).
  */
 
 import type {
   LifecycleNode,
-  LifecycleTopic,
 } from './lifecycle-contracts';
 
 /** Closed stage-label vocabulary — repo-local copy because shared/ must not
@@ -26,8 +25,6 @@ const STAGE_TITLE_PATTERN = /^(idea|plan|blueprint|implement|review|qa|ship):/i;
 const BLUEPRINT_TITLE_PATTERN = /^[a-z-]+ blueprint:/i;
 const THREAD_TITLE_PATTERN = /^thread:/i;
 
-export const UNGROUPED_SECTION = 'Ungrouped';
-
 /** Topic roots are issues whose title starts with `Topic:` (case-insensitive).
  *  One rule for both consumers: the BE root filter (#1527) and the retrofit
  *  script's anchor enumeration — `Thread:`/`INVENTORY:`/`Idea:` titles that
@@ -45,11 +42,6 @@ export interface LifecycleRawIssue {
   labels: string[];
   /** ISO-8601 UTC (GitHub's format) — compared lexically for max propagation. */
   updatedAt: string;
-}
-
-export interface LifecycleInventoryGroup {
-  name: string;
-  topicNumbers: number[];
 }
 
 /** Split a label list into the stage label (if any) and remaining tags. */
@@ -145,84 +137,4 @@ export function buildTree(
   return out;
 }
 
-const OPEN_SECTION = /^##\s+Open Topics\s*$/im;
-const HEADING = /^##\s+/m;
-const GROUP = /^###\s+(.+?)\s*$/;
-/** Top-level list row carrying a topic link: `- **[#N - title](url)**`. */
-const TOPIC_ROW = /^-\s+\*\*\[#(\d+)(?:\s*[-—–][^\]]*)?\]/;
 
-/**
- * Parse the TOPICS-INVENTORY.md "Open Topics" section into ordered groups.
- * Returns null when the section or its groups are absent. A topic listed
- * under two groups belongs to the first.
- */
-export function parseInventoryGroups(
-  markdown: string,
-): LifecycleInventoryGroup[] | null {
-  const open = OPEN_SECTION.exec(markdown);
-  if (!open) return null;
-  const rest = markdown.slice(open.index + open[0].length);
-  const nextHeading = HEADING.exec(rest);
-  const section = nextHeading ? rest.slice(0, nextHeading.index) : rest;
-
-  const groups: LifecycleInventoryGroup[] = [];
-  const seenTopics = new Set<number>();
-  let current: LifecycleInventoryGroup | null = null;
-  for (const line of section.split('\n')) {
-    const g = GROUP.exec(line);
-    if (g) {
-      current = { name: g[1], topicNumbers: [] };
-      groups.push(current);
-      continue;
-    }
-    const t = TOPIC_ROW.exec(line);
-    if (current && t) {
-      const n = Number(t[1]);
-      if (!seenTopics.has(n)) {
-        seenTopics.add(n);
-        current.topicNumbers.push(n);
-      }
-    }
-  }
-  return groups.length > 0 ? groups : null;
-}
-
-/**
- * Stamp each topic root with its TOPICS-INVENTORY group — the first
- * section listing its number, else UNGROUPED_SECTION — and emit
- * `groupOrder` (section names in doc order; UNGROUPED_SECTION appended
- * when ungrouped roots exist so every stamped group appears in the order;
- * empty when the doc is absent). Stale grouped refs with no matching
- * topic are ignored. Input order is preserved — ordering is a consumer
- * concern.
- */
-export function assignGroups(
-  topics: LifecycleNode[],
-  groups: LifecycleInventoryGroup[] | null,
-): { topics: LifecycleTopic[]; groupOrder: string[] } {
-  if (!groups || groups.length === 0) {
-    return {
-      topics: topics.map(t => ({ ...t, group: UNGROUPED_SECTION })),
-      groupOrder: [],
-    };
-  }
-
-  const groupOf = new Map<number, string>();
-  for (const g of groups) {
-    for (const n of g.topicNumbers) {
-      if (!groupOf.has(n)) groupOf.set(n, g.name);
-    }
-  }
-  const topics2 = topics.map(t => ({
-    ...t,
-    group: groupOf.get(t.number) ?? UNGROUPED_SECTION,
-  }));
-  // Deduped — the doc can repeat a section name (or name one 'Ungrouped')
-  // and duplicated names would collide on `@for track sec.name` downstream.
-  const groupOrder = [...new Set(groups.map(g => g.name))];
-  if (!groupOrder.includes(UNGROUPED_SECTION)
-      && topics2.some(t => t.group === UNGROUPED_SECTION)) {
-    groupOrder.push(UNGROUPED_SECTION);
-  }
-  return { topics: topics2, groupOrder };
-}

@@ -17,16 +17,12 @@ import type {
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import {
-  assignGroups,
   buildTree,
   isTopicRoot,
-  parseInventoryGroups,
-  type LifecycleInventoryGroup,
 } from '@lifecycle/tree';
 import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from '../paper-trading/engine/options-strategy-cors';
 import { SUPPORTED_REPOS, type SupportedRepo } from './config';
 import {
-  fetchFileText,
   githubGql,
   GitHubApiError,
 } from './github-client';
@@ -46,8 +42,6 @@ import {
   upsertIssueMapEntries,
 } from './issue-map';
 
-const INVENTORY_PATH = 'docs/dev-notes/TOPICS-INVENTORY.md';
-
 // ── Dependencies ──────────────────────────────────────────────────────────
 
 export interface GhLifecycleDeps {
@@ -58,8 +52,6 @@ export interface GhLifecycleDeps {
   fetchTopicRef: (entry: SupportedRepo, topicNumber: number) => Promise<TopicRootRef | null>;
   /** BFS over one root's subtree — identical semantics to the monolith walk. */
   fetchSubtreeData: (entry: SupportedRepo, root: { number: number; id: string }) => Promise<LifecycleFetchResult>;
-  /** Raw TOPICS-INVENTORY.md; null on 404. Throws for other failures. */
-  fetchInventoryDoc: (entry: SupportedRepo) => Promise<string | null>;
   /** issueNumber → rootTopicNumber for the repo ({} on missing doc). */
   readIssueMap: (entry: SupportedRepo) => Promise<Record<number, number>>;
   /** Upsert a fetched subtree into the map + prune stale entries for that root. */
@@ -85,7 +77,6 @@ export function ghLifecycleDeps(): GhLifecycleDeps {
     fetchIndexData: entry => fetchTopicIndexData(entry, gql),
     fetchTopicRef: (entry, topicNumber) => fetchTopicRootRef(entry, topicNumber, gql),
     fetchSubtreeData: (entry, root) => fetchTopicSubtreeData(entry, root, gql),
-    fetchInventoryDoc: entry => fetchFileText(token, entry, INVENTORY_PATH),
     readIssueMap: async entry => readIssueMap(await issueMapDb(), entry),
     syncIssueMapFromTree: async (entry, data) => syncIssueMapFromTree(await issueMapDb(), entry, data),
     upsertIssueMapEntries: async (entry, entries) => upsertIssueMapEntries(await issueMapDb(), entry, entries),
@@ -187,7 +178,7 @@ async function handle(
 ): Promise<LifecycleTreeResponse> {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
-  return fetchAndAssemble(entry, deps, deps.fetchData);
+  return fetchAndAssemble(entry, deps.fetchData);
 }
 
 /** Index variant — identical pipeline over the slim roots-only fetch.
@@ -199,7 +190,7 @@ async function handleIndex(
 ): Promise<LifecycleTreeResponse> {
   if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'unauthenticated');
   const entry = resolveSupportedRepo(request.data);
-  const response = await fetchAndAssemble(entry, deps, deps.fetchIndexData);
+  const response = await fetchAndAssemble(entry, deps.fetchIndexData);
   // issueMap emit — best-effort: a Firestore hiccup must not kill the
   // index; the FE falls back to resolveLifecycleIssue on a miss.
   try {
@@ -233,7 +224,7 @@ async function handleTopic(
   if (!isTopicRoot(ref.title)) {
     throw new HttpsError('invalid-argument', `issue #${topicNumber} is not a Topic root`);
   }
-  return fetchAndAssemble(entry, deps, async e => {
+  return fetchAndAssemble(entry, async e => {
     const fetched = await deps.fetchSubtreeData(e, ref);
     // Map maintenance rides every *complete* tree fetch — a truncated
     // walk would make honest entries look stale, so the guard that
@@ -253,7 +244,6 @@ async function handleTopic(
  *  resolves the same seam after its own request validation). */
 async function fetchAndAssemble(
   entry: SupportedRepo,
-  deps: GhLifecycleDeps,
   fetchData: (entry: SupportedRepo) => Promise<LifecycleFetchResult>,
 ): Promise<LifecycleTreeResponse> {
   let data: LifecycleFetchResult;
@@ -262,17 +252,14 @@ async function fetchAndAssemble(
   } catch (err) {
     throw err instanceof GitHubApiError ? mapGitHubError(err) : err;
   }
-  return assembleTreeResponse(data, entry, deps);
+  return assembleTreeResponse(data);
 }
 
-/** Truncation guard → inventory grouping → tree assembly — shared by the
- *  monolith, index, and per-topic handlers so all three degrade and warn
- *  identically. */
-async function assembleTreeResponse(
+/** Truncation guard → tree assembly — shared by the monolith, index, and
+ *  per-topic handlers. */
+function assembleTreeResponse(
   data: LifecycleFetchResult,
-  entry: SupportedRepo,
-  deps: GhLifecycleDeps,
-): Promise<LifecycleTreeResponse> {
+): LifecycleTreeResponse {
   if (data.truncatedNodes > 0) {
     throw new HttpsError(
       'internal',
@@ -281,45 +268,8 @@ async function assembleTreeResponse(
   }
 
   const fetchedAt = new Date().toISOString(); // stamp at data-ready time (post-walk)
-
-  let groupingWarning: string | undefined;
-  let groups: LifecycleInventoryGroup[] | null = null;
-  try {
-    const md = await deps.fetchInventoryDoc(entry);
-    if (md !== null) {
-      // null = no "## Open Topics" section or zero parseable groups —
-      // the doc exists but drifted; warn so the UI can distinguish it
-      // from a 404 (no doc → flat Ungrouped, no warning).
-      const parsed = parseInventoryGroups(md);
-      if (parsed === null) {
-        groupingWarning = 'TOPICS-INVENTORY.md parsed to zero groups — showing ungrouped';
-      } else {
-        groups = parsed;
-      }
-    }
-  } catch (err) {
-    // Non-404 doc failure is non-fatal: flat sections + a sanitized warning
-    // (never the raw upstream body — it goes to the client verbatim).
-    groupingWarning = err instanceof GitHubApiError
-      ? `grouping unavailable: GitHub ${err.status}${err.rateLimited ? ' (rate-limited)' : ''}`
-      : `grouping unavailable: ${err instanceof Error ? err.message : String(err)}`;
-  }
-
-  const trees = buildTree(data.roots, data.childrenOf, data.statusOf);
-  const { topics, groupOrder } = assignGroups(trees, groups);
-  // Drift the parser can't catch: the doc parsed but lists none of the
-  // fetched roots — every topic silently lands Ungrouped. Surface it
-  // through the same degrade banner as the other doc failures.
-  if (groups !== null && groups.length > 0 && topics.length > 0
-      && !topics.some(t => groups.some(g => g.topicNumbers.includes(t.number)))) {
-    groupingWarning = 'TOPICS-INVENTORY.md listed none of the fetched topics — doc may be stale';
-  }
-  return {
-    topics,
-    groupOrder,
-    fetchedAt,
-    ...(groupingWarning ? { groupingWarning } : {}),
-  };
+  const topics = buildTree(data.roots, data.childrenOf, data.statusOf);
+  return { topics, fetchedAt };
 }
 
 // ── Callable export ───────────────────────────────────────────────────────

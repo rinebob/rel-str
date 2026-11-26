@@ -1,17 +1,14 @@
 /**
- * Tests for lifecycle-tree transforms — label decode, node typing, tree
- * assembly, inventory-group parsing, and group assignment
+ * Tests for lifecycle-tree transforms — label decode, node typing, and
+ * tree assembly
  * (Blueprint #633 / task #637, contract v2 in #1522).
  */
 
 import {
-  assignGroups,
   buildTree,
   decodeLabels,
   isTopicRoot,
   nodeTypeFor,
-  parseInventoryGroups,
-  UNGROUPED_SECTION,
   type LifecycleRawIssue,
 } from './lifecycle-tree';
 
@@ -167,55 +164,6 @@ describe('buildTree', () => {
   });
 });
 
-describe('parseInventoryGroups', () => {
-  const md = [
-    '# Topics Inventory',
-    '',
-    '## Open Topics',
-    '',
-    '### A. Trading UX',
-    '',
-    '- **[#593 - Watchlist](https://github.com/o/r/issues/593)** — `WATCHLIST` — `8_LIVE`',
-    '  - [#599 - thread](https://github.com/o/r/issues/599) — nested rows ignored',
-    '- **[#594 - Swing](https://github.com/o/r/issues/594)** — `SWING-ANALYSIS` — `3_BLUEPRINT`',
-    '',
-    '### B. Dev Tools',
-    '',
-    '- **[#619 - GH UI](https://github.com/o/r/issues/619)** — `DEV-TOOLS` — `3_BLUEPRINT`',
-    '',
-    '## Closed Topics',
-    '',
-    '### C. Old',
-    '- **[#1](https://github.com/o/r/issues/1)** — old — `X` — `8_LIVE`',
-  ].join('\n');
-
-  it('parses group names + topic numbers from the Open Topics section', () => {
-    expect(parseInventoryGroups(md)).toEqual([
-      { name: 'A. Trading UX', topicNumbers: [593, 594] },
-      { name: 'B. Dev Tools', topicNumbers: [619] },
-    ]);
-  });
-
-  it('returns null when the doc has no Open Topics section', () => {
-    expect(parseInventoryGroups('# Topics\n\nnothing here')).toBeNull();
-  });
-
-  it('returns null when the section has no groups', () => {
-    expect(parseInventoryGroups('## Open Topics\n\n*None.*\n\n## Closed Topics')).toBeNull();
-  });
-
-  it('a topic listed under two groups belongs to the first', () => {
-    const dup = [
-      '## Open Topics',
-      '### A. One', '- **[#5](https://github.com/o/r/issues/5)** — x',
-      '### B. Two', '- **[#5](https://github.com/o/r/issues/5)** — x', '- **[#6](https://github.com/o/r/issues/6)** — y',
-    ].join('\n');
-    const groups = parseInventoryGroups(dup)!;
-    expect(groups[0].topicNumbers).toEqual([5]);
-    expect(groups[1].topicNumbers).toEqual([6]);
-  });
-});
-
 describe('isTopicRoot', () => {
   it.each(['Topic: x', 'TOPIC: x', 'topic: x', '  Topic: padded'])(
     'accepts %p', (title) => {
@@ -233,62 +181,3 @@ describe('isTopicRoot', () => {
   });
 });
 
-describe('assignGroups', () => {
-  const t = (n: number, updatedAt: string) => ({
-    number: n, title: `Topic ${n}`, state: 'open' as const, url: `u${n}`,
-    nodeType: 'topic' as const, labels: [], updatedAt, children: [],
-  });
-
-  it('stamps group per root and emits doc-order groupOrder; no sorting', () => {
-    const topics = [t(10, '2026-09-01T00:00:00Z'), t(1, '2026-09-01T00:00:00Z'),
-      t(2, '2026-09-20T00:00:00Z'), t(9, '2026-09-25T00:00:00Z')];
-    const groups = [
-      { name: 'A', topicNumbers: [2, 1] },
-      { name: 'B', topicNumbers: [9] },
-    ];
-    const { topics: out, groupOrder } = assignGroups(topics, groups);
-    expect(groupOrder).toEqual(['A', 'B', UNGROUPED_SECTION]);
-    const byNum = new Map(out.map(x => [x.number, x.group]));
-    expect(byNum.get(1)).toBe('A');
-    expect(byNum.get(2)).toBe('A');
-    expect(byNum.get(9)).toBe('B');
-    expect(byNum.get(10)).toBe(UNGROUPED_SECTION);
-    // Input order preserved — ordering is a consumer concern.
-    expect(out.map(x => x.number)).toEqual([10, 1, 2, 9]);
-  });
-
-  it('groups:null → every root Ungrouped, empty groupOrder', () => {
-    const { topics: out, groupOrder } = assignGroups(
-      [t(1, '2026-09-01T00:00:00Z'), t(2, '2026-09-20T00:00:00Z')], null);
-    expect(out.every(x => x.group === UNGROUPED_SECTION)).toBe(true);
-    expect(groupOrder).toEqual([]);
-  });
-
-  it('no Ungrouped entry appended when every root is grouped', () => {
-    const { groupOrder } = assignGroups([t(9, '2026-09-01T00:00:00Z')], [
-      { name: 'A', topicNumbers: [999, 9] }, // stale 999 ref — harmless
-    ]);
-    expect(groupOrder).toEqual(['A']);
-  });
-
-  it('dedupes groupOrder — repeated doc section names and a doc section named "Ungrouped"', () => {
-    const { groupOrder } = assignGroups([
-      t(1, '2026-09-01T00:00:00Z'), t(9, '2026-09-20T00:00:00Z'),
-      t(5, '2026-09-10T00:00:00Z'), // unlisted — exercises the append guard
-    ], [
-      { name: 'A', topicNumbers: [1] },
-      { name: 'A', topicNumbers: [9] },
-      { name: 'Ungrouped', topicNumbers: [9] },
-    ]);
-    expect(groupOrder).toEqual(['A', 'Ungrouped']);
-  });
-
-  it('empty roots → empty topics; groupOrder still mirrors the doc', () => {
-    const { topics: out, groupOrder } = assignGroups([], [
-      { name: 'A', topicNumbers: [999] },
-    ]);
-    expect(out).toEqual([]);
-    expect(groupOrder).toEqual(['A']);
-    expect(assignGroups([], null)).toEqual({ topics: [], groupOrder: [] });
-  });
-});

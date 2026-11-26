@@ -29,13 +29,11 @@ export const node = (
   ...overrides,
 });
 
-/** Declarative section fixtures → the flat v2 response shape. */
+/** Flat root list → the v3 response shape (#1667: no group fields). */
 export const resp = (
-  groups: { name: string; topics: LifecycleNode[] }[],
+  topics: LifecycleNode[],
 ): LifecycleTreeResponse => ({
-  topics: groups.flatMap(s =>
-    s.topics.map(t => ({ ...t, group: s.name }))),
-  groupOrder: groups.map(s => s.name),
+  topics,
   fetchedAt: '2026-09-28T12:00:00Z',
 });
 
@@ -55,7 +53,6 @@ export const treeOf = (
   topicNumber: number,
 ): LifecycleTreeResponse => ({
   topics: res.topics.filter(t => t.number === topicNumber),
-  groupOrder: res.groupOrder,
   fetchedAt: res.fetchedAt,
 });
 

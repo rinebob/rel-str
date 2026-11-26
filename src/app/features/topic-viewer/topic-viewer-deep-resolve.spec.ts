@@ -31,15 +31,12 @@ import {
 /** The deep-resolution fixture — root 2 owns thread 20 → issues 30/31;
  *  root 4 is a sibling for miss/epoch paths. `issueMap` pre-seeds 30→2. */
 const DEEP: LifecycleTreeResponse = {
-  ...resp([{
-    name: 'A',
-    topics: [
-      node(2, { nodeType: 'topic' }, [
-        node(20, { nodeType: 'thread' }, [node(30), node(31)]),
-      ]),
-      node(4, { nodeType: 'topic' }),
-    ],
-  }]),
+  ...resp([
+    node(2, { nodeType: 'topic' }, [
+      node(20, { nodeType: 'thread' }, [node(30), node(31)]),
+    ]),
+    node(4, { nodeType: 'topic' }),
+  ]),
   issueMap: { 30: 2 },
 };
 
@@ -464,14 +461,11 @@ describe('deep resolution guards + query trigger (#1696)', () => {
 
   it('resolved issue hidden by the closed filter → honest note on resolved', async () => {
     const closedFixture: LifecycleTreeResponse = {
-      ...resp([{
-        name: 'A',
-        topics: [
-          node(2, { nodeType: 'topic' }, [
-            node(20, { nodeType: 'thread' }, [node(30, { state: 'closed' })]),
-          ]),
-        ],
-      }]),
+      ...resp([
+        node(2, { nodeType: 'topic' }, [
+          node(20, { nodeType: 'thread' }, [node(30, { state: 'closed' })]),
+        ]),
+      ]),
       issueMap: { 30: 2 },
     };
     const s = svc(closedFixture);
@@ -504,10 +498,7 @@ describe('resolved-root visibility (#1696)', () => {
     await store.refresh();
     await store.resolveIssueNumber(30);
 
-    const vm = store.visibleTopics();
-    expect(vm.mode).toBe('grouped');
-    if (vm.mode !== 'grouped') return;
-    const all = vm.sections.flatMap(s => s.topics.map(t => t.number));
+    const all = store.visibleTopics().map(t => t.number);
     // Root 2 doesn't match '30' textually but must render — the landing
     // needs a visible selected row.
     expect(all).toContain(2);
@@ -521,9 +512,7 @@ describe('resolved-root visibility (#1696)', () => {
     await store.ensureTopic(2); // simulate the section fetched
     await store.resolveIssueNumber(30);
 
-    const sections = store.allTopicsSections();
-    const block = sections
-      .flatMap(s => s.topics)
+    const block = store.allTopicsBlocks()
       .find(b => b.topic.number === 2);
     expect(block).toBeTruthy();
     expect(block!.status).toBe('ready');
@@ -544,11 +533,7 @@ describe('resolved-root visibility (#1696)', () => {
       store.setQuery('999'); // digit filter — no root matches
       await store.resolveIssueNumber(999);
 
-      const vm = store.visibleTopics();
-      const all = vm.mode === 'grouped'
-        ? vm.sections.flatMap(x => x.topics.map(t => t.number))
-        : vm.topics.map(t => t.number);
-      expect(all).toEqual([]); // no phantom root pulled in for not-found
+      expect(store.visibleTopics()).toEqual([]); // no phantom root pulled in for not-found
       expect(store.issueResolution()?.phase).toBe('not-found');
     } finally {
       jest.useRealTimers();

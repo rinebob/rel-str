@@ -3,12 +3,13 @@
  * viewer (Topic #619 / Blueprint #635 / task #643).
  *
  * Header: repo picker, Refresh (spinner while loading), as-of timestamp,
- * Show-closed toggle, search + match count, sort toggle (Grouped|Issue #),
- * All-topics toggle, Labels button (disabled until #1533's dialog).
- * Left pane: `visibleTopics` — grouped sections or one flat number list.
- * Right pane: the selected topic's tree, or every section's trees in
+ * Show-closed toggle, search + match count, All-topics toggle, Labels
+ * button (disabled until #1533's dialog).
+ * Left pane: `visibleTopics` — one flat issue-# ascending list (#1667:
+ * the old Grouped|Issue-# sort died with topic grouping).
+ * Right pane: the selected topic's tree, or every topic's trees in
  * all-topics mode (expand-all / collapse-all). Error banner over a
- * preserved tree; grouping-warning banner when the inventory doc degraded.
+ * preserved tree.
  */
 
 import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
@@ -51,14 +52,6 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
         @if (store.query() && (store.selectedTopic() || store.showAllTopics())) {
           <span class="dim" data-testid="match-count">{{ store.matchCount() }} match{{ store.matchCount() === 1 ? '' : 'es' }}</span>
         }
-        <div class="pill-group" role="group" aria-label="Sort topics">
-          <button type="button" class="pill" [class.active]="store.sortMode() === 'grouped'"
-            [attr.aria-pressed]="store.sortMode() === 'grouped'" data-testid="sort-grouped"
-            (click)="store.setSortMode('grouped')">Grouped</button>
-          <button type="button" class="pill" [class.active]="store.sortMode() === 'number'"
-            [attr.aria-pressed]="store.sortMode() === 'number'" data-testid="sort-number"
-            (click)="store.setSortMode('number')">Issue #</button>
-        </div>
         <button class="ds-btn outline" type="button" data-testid="labels-btn" disabled
           title="Label manager — lands with #1533">Labels</button>
         <label class="dse-check"><input type="checkbox" [checked]="store.showAllTopics()" data-testid="all-topics"
@@ -81,34 +74,13 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
           <span class="dse-icon">error_outline</span><span>{{ err }}</span>
         </div>
       }
-      @if (store.groupingWarning(); as warn) {
-        <div class="banner warn" role="status" data-testid="grouping-warning">
-          <span class="dse-icon">warning_amber</span><span>{{ warn }}</span>
-        </div>
-      }
-
       <div class="panes">
         <nav class="topics" aria-label="Topics">
-          @if (store.visibleTopics(); as vm) {
-            @if (vm.mode === 'grouped') {
-              @for (sec of vm.sections; track sec.name) {
-                <div class="section-name" data-testid="section-name">{{ sec.name }}</div>
-                @for (t of sec.topics; track t.number) {
-                  <ng-container *ngTemplateOutlet="topicRow; context: { $implicit: t }" />
-                }
-              } @empty {
-                @if (!store.loading() && !store.error()) {
-                  <div class="empty" data-testid="empty-state">{{ emptyCopy() }}</div>
-                }
-              }
-            } @else {
-              @for (t of vm.topics; track t.number) {
-                <ng-container *ngTemplateOutlet="topicRow; context: { $implicit: t }" />
-              } @empty {
-                @if (!store.loading() && !store.error()) {
-                  <div class="empty" data-testid="empty-state">{{ emptyCopy() }}</div>
-                }
-              }
+          @for (t of store.visibleTopics(); track t.number) {
+            <ng-container *ngTemplateOutlet="topicRow; context: { $implicit: t }" />
+          } @empty {
+            @if (!store.loading() && !store.error()) {
+              <div class="empty" data-testid="empty-state">{{ emptyCopy() }}</div>
             }
           }
           <ng-template #topicRow let-t>
@@ -150,27 +122,24 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
               </div>
             }
             <div class="tree-scroll">
-            @for (sec of store.allTopicsSections(); track sec.name) {
-              <div class="section-name" [attr.data-testid]="'allsec-' + sec.name">{{ sec.name }}</div>
-              @for (b of sec.topics; track b.topic.number) {
-                @switch (b.status) {
-                  @case ('ready') {
-                    <app-topic-viewer-tree [rows]="b.rows" />
-                  }
-                  @case ('error') {
-                    <div class="empty" [attr.data-testid]="'allsec-error-' + b.topic.number">
-                      <span class="dse-icon">error_outline</span>
-                      <span>#{{ b.topic.number }} — {{ b.error }}</span>
-                      <button class="dse-button" type="button"
-                        [attr.data-testid]="'allsec-retry-' + b.topic.number"
-                        (click)="store.ensureTopic(b.topic.number)">Retry</button>
-                    </div>
-                  }
-                  @default {
-                    <div class="empty section-loading" [attr.data-testid]="'allsec-loading-' + b.topic.number">
-                      <span class="dse-spinner small" role="progressbar" aria-label="Loading topic tree"></span>
-                    </div>
-                  }
+            @for (b of store.allTopicsBlocks(); track b.topic.number) {
+              @switch (b.status) {
+                @case ('ready') {
+                  <app-topic-viewer-tree [rows]="b.rows" />
+                }
+                @case ('error') {
+                  <div class="empty" [attr.data-testid]="'allsec-error-' + b.topic.number">
+                    <span class="dse-icon">error_outline</span>
+                    <span>#{{ b.topic.number }} — {{ b.error }}</span>
+                    <button class="dse-button" type="button"
+                      [attr.data-testid]="'allsec-retry-' + b.topic.number"
+                      (click)="store.ensureTopic(b.topic.number)">Retry</button>
+                  </div>
+                }
+                @default {
+                  <div class="empty section-loading" [attr.data-testid]="'allsec-loading-' + b.topic.number">
+                    <span class="dse-spinner small" role="progressbar" aria-label="Loading topic tree"></span>
+                  </div>
                 }
               }
             } @empty {
@@ -226,6 +195,16 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
   `,
   styles: [`
     @use './stage-chips' as sc;
+    /* Workbench-page host bound (#1667) — same contract as the DS
+       page-host convention: the host owns a definite viewport height so
+       .page's height:100% resolves and the panes scroll internally.
+       --header-height is injected on the shell's content region (0px in
+       fullscreen). Without it the host is display:inline and the whole
+       page — toolbar included — scrolls under the shell's scroller. */
+    :host {
+      display: block;
+      height: calc(100vh - var(--header-height, 0px));
+    }
     .page { display: flex; flex-direction: column; gap: 8px; padding: 12px; height: 100%; box-sizing: border-box; }
     .header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .repo-picker { width: 180px; }
@@ -254,13 +233,6 @@ import { TopicViewerTreeComponent } from './topic-viewer-tree.component';
     .topics {
       flex: 0 0 430px; min-width: 360px; overflow-y: auto;
       border-right: 1px solid var(--mat-sys-outline-variant); padding-right: 8px;
-    }
-    .section-name {
-      font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--mat-sys-on-surface-variant);
-      margin: 14px 0 4px; padding-bottom: 3px;
-      border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
     .topic-row {
       display: flex; align-items: center; gap: 6px; width: 100%;

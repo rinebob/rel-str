@@ -6,10 +6,10 @@
  * with `children: []`); populated subtrees live in the `trees` memo and
  * land on demand via `ensureTopic` — selection, all-topics rendering,
  * and refresh all funnel through it. The left pane (filteredTopics /
- * visibleTopics / topicSections) reads the index alone and never waits
- * on subtree fetches. v2 view state (#1531): sort modes, search
- * predicate + in-tree match expansion, all-topics browse, and the
- * label-write patch path (patches the index AND any memoized tree).
+ * visibleTopics) reads the index alone and never waits on subtree
+ * fetches. v2 view state (#1531): search predicate + in-tree match
+ * expansion, all-topics browse, and the label-write patch path
+ * (patches the index AND any memoized tree).
  */
 
 import { computed, DestroyRef, inject } from '@angular/core';
@@ -24,7 +24,6 @@ import { firstValueFrom, throwError } from 'rxjs';
 
 import type {
   LifecycleNode,
-  LifecycleTopic,
   LifecycleTreeResponse,
 } from '@lifecycle/contracts';
 import {
@@ -44,13 +43,7 @@ export interface TopicRow {
   number: number;
   title: string;
   stageLabel?: string;
-  status?: string;
   closed: boolean;
-}
-
-export interface TopicSectionVm {
-  name: string;
-  topics: TopicRow[];
 }
 
 export interface TreeRow {
@@ -58,44 +51,27 @@ export interface TreeRow {
   depth: number;
 }
 
-export type TopicSortMode = 'grouped' | 'number';
-
 export type { IssueResolution } from './topic-viewer-deep-resolve';
 
-/** The single left-pane view model (#1531) — the pane binds this one
- *  signal and branches on `mode`: section headers + rows in grouped
- *  mode, a flat number-ascending list in number mode. */
-export type VisibleTopics =
-  | { mode: 'grouped'; sections: TopicSectionVm[] }
-  | { mode: 'number'; topics: TopicRow[] };
-
-/** One topic's render unit inside an all-topics section (#1638) —
+/** One topic's render unit in the all-topics right pane (#1638) —
  *  `status` drives the page's skeleton / error+retry / rows branch. */
 export interface AllTopicBlock {
-  topic: LifecycleTopic;
+  topic: LifecycleNode;
   status: 'ready' | 'loading' | 'error';
   error: string | null;
   rows: TreeRow[];
-}
-
-/** One all-topics section — every filtered topic gets a block so the
- *  pane renders progressively (skeletons for unfetched topics). */
-export interface AllTopicsSection {
-  name: string;
-  topics: AllTopicBlock[];
 }
 
 interface LifecycleState {
   repos: TopicViewerRepo[];
   selectedRepoIndex: number;
   /** The slim INDEX response — roots carry `children: []` (#1635).
-   *  Left-pane sections/filters/grouping read this; subtree data lives
-   *  in `trees`. */
+   *  Left-pane rows/filters read this; subtree data lives in `trees`. */
   response: LifecycleTreeResponse | null;
   /** Session-scoped memo of populated subtrees (#1637) — keyed by topic
    *  number, filled by ensureTopic, dropped wholesale on refresh/repo
    *  switch. */
-  trees: Record<number, LifecycleTopic>;
+  trees: Record<number, LifecycleNode>;
   /** Per-topic fetch timestamp (as-of display for the selected tree). */
   treeFetchedAt: Record<number, string>;
   /** Topic numbers with an in-flight subtree fetch — skeleton drivers
@@ -114,7 +90,6 @@ interface LifecycleState {
    *  empties or the selected tree/repo changes. */
   suppressedIds: number[];
   showClosed: boolean;
-  sortMode: TopicSortMode;
   query: string;
   showAllTopics: boolean;
   loading: boolean;
@@ -151,7 +126,6 @@ const initialState: LifecycleState = {
   expandedIds: [],
   suppressedIds: [],
   showClosed: false,
-  sortMode: 'grouped',
   query: '',
   showAllTopics: false,
   loading: false,
@@ -169,7 +143,6 @@ function toRow(n: LifecycleNode): TopicRow {
     number: n.number,
     title: n.title,
     stageLabel: n.stageLabel,
-    status: n.status,
     closed: n.state === 'closed',
   };
 }
@@ -189,30 +162,6 @@ function matchesQuery(
 }
 
 const hasQuery = (q: string): boolean => q.trim().length > 0;
-
-/** Fold flat topics into groupOrder-named sections (contract v2 fold —
- *  shared by topicSections and the all-topics row builder so the two
- *  views can never disagree on grouping). */
-function foldGroups(
-  topics: LifecycleTopic[],
-  groupOrder: string[],
-): { name: string; topics: LifecycleTopic[] }[] {
-  const byGroup = new Map<string, LifecycleTopic[]>();
-  for (const t of topics) {
-    const list = byGroup.get(t.group) ?? [];
-    list.push(t);
-    byGroup.set(t.group, list);
-  }
-  const byNumber = (a: LifecycleTopic, b: LifecycleTopic) => a.number - b.number;
-  const names = [
-    ...groupOrder,
-    // Safety net: a stamped group absent from groupOrder still renders.
-    ...[...byGroup.keys()].filter(n => !groupOrder.includes(n)),
-  ];
-  return names
-    .map(name => ({ name, topics: (byGroup.get(name) ?? []).sort(byNumber) }))
-    .filter(s => s.topics.length > 0);
-}
 
 /** Flatten one topic into depth rows — the node emits children only
  *  when its number is in `expanded` (root row always emits so a
@@ -277,7 +226,7 @@ export const TopicViewerStore = signalStore(
      *  matches the digit query textually, but the pane must render the
      *  landing — in all-topics mode the section appears, in single mode
      *  the row shows selected. */
-    filteredTopics: computed<LifecycleTopic[]>(() => {
+    filteredTopics: computed<LifecycleNode[]>(() => {
       const res = store.response();
       if (!res) return [];
       const showClosed = store.showClosed();
@@ -296,10 +245,6 @@ export const TopicViewerStore = signalStore(
 
     selectedRepo: computed(() => store.repos()[store.selectedRepoIndex()] ?? null),
 
-    /** BE-side degrade notice (inventory doc failed non-404 / parsed
-     *  empty) — surfaced by the page so flat sections aren't silent. */
-    groupingWarning: computed(() => store.response()?.groupingWarning ?? null),
-
     /** The selected topic's POPULATED node — read from the trees memo;
      *  null until ensureTopic lands it (the index root carries no
      *  children). */
@@ -316,32 +261,24 @@ export const TopicViewerStore = signalStore(
 
   // Second block — these computeds consume first-block computeds.
   withComputed((store) => ({
+    /** filteredTopics in issue-# ascending order — the single sort every
+     *  topic list consumes (#1667: the old Issue-# sort is the only mode
+     *  now that grouping is gone). */
+    sortedFilteredTopics: computed<LifecycleNode[]>(
+      () => [...store.filteredTopics()].sort((a, b) => a.number - b.number)),
+
     /** Filtered topics whose subtrees have actually been fetched — the
      *  honest "rendered trees" set for all-topics match/expand/rows
      *  derivations (unfetched sections contribute nothing, not stubs). */
-    fetchedTopics: computed<LifecycleTopic[]>(() => {
+    fetchedTopics: computed<LifecycleNode[]>(() => {
       const memo = store.trees();
       return store.filteredTopics()
         .map(t => memo[t.number])
-        .filter((t): t is LifecycleTopic => t !== undefined);
-    }),
-
-    /** Grouped topic list — flat `topics` folded into `groupOrder`
-     *  sections (contract v2, #1522); closed topics hidden unless
-     *  showClosed; emptied sections dropped (incl. query-emptied).
-     *  Intra-group order is issue-number ascending — deterministic and
-     *  stable across refreshes. Identical to the pre-search view when
-     *  the query is empty. */
-    topicSections: computed<TopicSectionVm[]>(() => {
-      const res = store.response();
-      if (!res) return [];
-      return foldGroups(store.filteredTopics(), res.groupOrder)
-        .map(s => ({ name: s.name, topics: s.topics.map(toRow) }));
+        .filter((t): t is LifecycleNode => t !== undefined);
     }),
   })),
 
-  // Third block — match scope + view dispatch consume second-block
-  // computeds (fetchedTopics/topicSections).
+  // Third block — match scope consumes the fetched-trees set.
   withComputed((store) => ({
     /** In-tree search derivation — one walk per rendered root yields
      *  the match set AND the ancestors that must auto-expand to surface
@@ -381,17 +318,9 @@ export const TopicViewerStore = signalStore(
       return { set, ancestors };
     }),
 
-    /** The left pane's view model — grouped sections or the flat
-     *  number-ascending list depending on sortMode (#1531). */
-    visibleTopics: computed<VisibleTopics>(() =>
-      store.sortMode() === 'grouped'
-        ? { mode: 'grouped', sections: store.topicSections() }
-        : {
-            mode: 'number',
-            topics: [...store.filteredTopics()]
-              .sort((a, b) => a.number - b.number)
-              .map(toRow),
-          }),
+    /** The left pane's rows — the filtered set in issue-# order. */
+    visibleTopics: computed<TopicRow[]>(() =>
+      store.sortedFilteredTopics().map(toRow)),
   })),
 
   // Fourth block — match signals + effective expansion consume matchInfo.
@@ -453,34 +382,29 @@ export const TopicViewerStore = signalStore(
         topic, store.effectiveExpandedIds(), store.showClosed());
     }),
 
-    /** Every filtered section's per-topic render state for the
-     *  all-topics right pane (#1638) — unfetched topics emit a
-     *  'loading' block (skeleton), failed ones an 'error' block with
-     *  its own retry, fetched ones their flattened rows. Sections
-     *  appear progressively as trees land. */
-    allTopicsSections: computed<AllTopicsSection[]>(() => {
-      const res = store.response();
-      if (!res) return [];
+    /** Every filtered topic's render state for the all-topics right
+     *  pane (#1638) — flat issue-# ascending (#1667: group sections
+     *  removed). Unfetched topics emit a 'loading' block (skeleton),
+     *  failed ones an 'error' block with its own retry, fetched ones
+     *  their flattened rows. Blocks land progressively as trees land. */
+    allTopicsBlocks: computed<AllTopicBlock[]>(() => {
       const trees = store.trees();
       const errors = store.treeErrors();
       const expanded = store.effectiveExpandedIds();
       const showClosed = store.showClosed();
-      return foldGroups(store.filteredTopics(), res.groupOrder)
-        .map(s => ({
-          name: s.name,
-          topics: s.topics.map(t => {
-            const tree = trees[t.number];
-            const error = errors[t.number] ?? null;
-            const status: AllTopicBlock['status'] =
-              tree ? 'ready' : error ? 'error' : 'loading';
-            return {
-              topic: t,
-              status,
-              error,
-              rows: tree ? flattenTopic(tree, expanded, showClosed) : [],
-            };
-          }),
-        }));
+      return store.sortedFilteredTopics()
+        .map(t => {
+          const tree = trees[t.number];
+          const error = errors[t.number] ?? null;
+          const status: AllTopicBlock['status'] =
+            tree ? 'ready' : error ? 'error' : 'loading';
+          return {
+            topic: t,
+            status,
+            error,
+            rows: tree ? flattenTopic(tree, expanded, showClosed) : [],
+          };
+        });
     }),
 
   })),
@@ -515,7 +439,7 @@ export const TopicViewerStore = signalStore(
 
     /** In-flight subtree fetch dedupe (#1637) — promises aren't render
      *  state, so the map lives in the closure, not signal state. */
-    const inFlight = new Map<number, Promise<LifecycleTopic | null>>();
+    const inFlight = new Map<number, Promise<LifecycleNode | null>>();
 
     /** All-topics fetch queue — FIFO topic numbers at bounded
      *  concurrency. `queueActive` counts queue-dispatched fetches only:
@@ -595,7 +519,7 @@ export const TopicViewerStore = signalStore(
      *  (#1637): memo hit → in-flight join → fresh callable. Errors
      *  isolate to treeErrors[n]; a rate-limit-class error additionally
      *  drains the all-topics queue so siblings don't pile on. */
-    function ensureTopic(n: number): Promise<LifecycleTopic | null> {
+    function ensureTopic(n: number): Promise<LifecycleNode | null> {
       const memo = store.trees()[n];
       if (memo) return Promise.resolve(memo);
       const pending = inFlight.get(n);
@@ -857,10 +781,6 @@ export const TopicViewerStore = signalStore(
         if (store.showAllTopics()) enqueueFiltered();
       },
 
-      setSortMode(mode: TopicSortMode): void {
-        patchState(store, { sortMode: mode });
-      },
-
       setQuery(q: string): void {
         // An emptied query retires its suppressions — the tree returns
         // to exactly the manual expansion.
@@ -932,7 +852,7 @@ export const TopicViewerStore = signalStore(
         }
         const memo = store.trees();
         let changed = false;
-        const trees: Record<number, LifecycleTopic> = {};
+        const trees: Record<number, LifecycleNode> = {};
         for (const [key, t] of Object.entries(memo)) {
           const patched = patchNodeLabels(t, issueNumber, labels);
           trees[Number(key)] = patched;

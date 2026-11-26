@@ -7,7 +7,7 @@
  * Index contract under test:
  *   - every topic root carries children: [] (no subIssues expansion)
  *   - root metadata intact: title/state/url/labels/updatedAt/Status
- *   - groupOrder + grouping parity with the monolith pipeline
+ *   - shape parity with the monolith pipeline
  *   - ^Topic: root filter still applies
  *
  * Token: GITHUB_READ_TOKEN env, else `gh auth token` fallback (read-only).
@@ -71,14 +71,11 @@ async function main(): Promise<void> {
   check('every topic carries labels[] (stage chips need them)',
     res.topics.every(t => Array.isArray(t.labels)),
     res.topics.filter(t => !Array.isArray(t.labels)).map(t => `#${t.number}`).join(','));
-  check('every topic carries a group', res.topics.every(t => !!t.group));
-  check('groupOrder array present', Array.isArray(res.groupOrder));
   check('fetchedAt stamped', /^\d{4}-\d{2}-\d{2}T/.test(res.fetchedAt));
   check('some topic has a project Status', res.topics.some(t => !!t.status),
     'no topic carried status — Status decode may be broken');
   check('nodeType is topic on every root', res.topics.every(t => t.nodeType === 'topic'));
-  console.log(`  topics: ${res.topics.length}, groupOrder: [${res.groupOrder.join(', ')}]` +
-    (res.groupingWarning ? `, warning: ${res.groupingWarning}` : ''));
+  console.log(`  topics: ${res.topics.length}`);
 
   console.log('\n--- validation ---');
   const bad = await handleGetLifecycleTopicIndex(

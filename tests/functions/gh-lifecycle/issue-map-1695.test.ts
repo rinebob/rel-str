@@ -127,7 +127,6 @@ function deps(overrides: Partial<GhLifecycleDeps> = {}): GhLifecycleDeps {
     fetchTopicRef: async (_e, n) =>
       n === 619 ? { number: 619, id: 'I_619', title: 'Topic: GitHub read-only issue UI' } : null,
     fetchSubtreeData: async () => tree,
-    fetchInventoryDoc: async () => null,
     readIssueMap: async () => ({ 1609: 619 }),
     syncIssueMapFromTree: async () => undefined,
     upsertIssueMapEntries: async () => undefined,

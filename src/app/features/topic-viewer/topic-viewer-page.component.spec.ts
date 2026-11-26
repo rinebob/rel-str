@@ -1,6 +1,7 @@
 /**
- * TopicViewerPageComponent spec (task #643) — header controls, grouped
- * topic list, banners, empty states. Store is stubbed with signals.
+ * TopicViewerPageComponent spec (task #643) — header controls, flat
+ * topic list (#1667), banners, empty states. Store is stubbed with
+ * signals.
  */
 
 jest.mock('@angular/fire/functions', () => ({
@@ -17,30 +18,29 @@ import { TopicViewerStore } from './topic-viewer.store';
 import { NAV_MENU_ITEMS } from '../../core/common/constants';
 import { AppRoutes } from '../../core/common/interfaces';
 import CORE_ROUTES from '../../core/core-routes';
-import type { LifecycleNode, LifecycleTopic, LifecycleTreeResponse } from '@lifecycle/contracts';
-import type { AllTopicBlock, AllTopicsSection, IssueResolution, TopicSortMode, TreeRow, VisibleTopics } from './topic-viewer.store';
+import type { LifecycleNode, LifecycleTreeResponse } from '@lifecycle/contracts';
+import type { AllTopicBlock, IssueResolution, TopicRow, TreeRow } from './topic-viewer.store';
 
-// Children never carry `group` — the factory returns a plain LifecycleNode;
-// `topic` wraps it with the stamped group for the flat response surface.
 const node = (n: number, children: LifecycleNode[] = []): LifecycleNode => ({
   number: n, title: `Topic ${n}`, state: 'open',
   url: `https://github.com/rinebob/rel-str/issues/${n}`,
   nodeType: 'topic', stageLabel: '5_IMPLEMENT', status: 'IN PROGRESS',
   labels: [], updatedAt: '2026-09-28T00:00:00Z', children,
 });
-const topic = (n: number, children: LifecycleNode[] = []): LifecycleTopic => ({
-  ...node(n, children), group: 'A. Group',
+
+const row = (t: LifecycleNode): TopicRow => ({
+  number: t.number, title: t.title, stageLabel: t.stageLabel,
+  closed: t.state === 'closed',
 });
 
 const RESPONSE: LifecycleTreeResponse = {
-  topics: [topic(1, [node(10)])],
-  groupOrder: ['A. Group'],
+  topics: [node(1, [node(10)])],
   fetchedAt: '2026-09-28T12:00:00Z',
 };
 
 /** A 'ready' all-topics block (#1638) — the topic's flattened rows. */
 const readyBlock = (n: number): AllTopicBlock => ({
-  topic: topic(n), status: 'ready', error: null,
+  topic: node(n), status: 'ready', error: null,
   rows: [{ node: node(n), depth: 0 }],
 });
 
@@ -51,17 +51,15 @@ describe('TopicViewerPageComponent', () => {
   const loading = signal(false);
   const error = signal<string | null>(null);
   const showClosed = signal(false);
-  const groupingWarning = signal<string | null>(null);
   const selectedTopicNumber = signal<number | null>(null);
   const selectedTopic = signal<LifecycleNode | null>(null);
   const fetchedAt = signal<string | null>(null);
-  const visibleTopics = signal<VisibleTopics>({ mode: 'grouped', sections: [] });
+  const visibleTopics = signal<TopicRow[]>([]);
   const query = signal('');
-  const sortMode = signal<TopicSortMode>('grouped');
   const showAllTopics = signal(false);
   const matchCount = signal(0);
   const matchSet = signal<ReadonlySet<number>>(new Set());
-  const allTopicsSections = signal<AllTopicsSection[]>([]);
+  const allTopicsBlocks = signal<AllTopicBlock[]>([]);
   const allTopicsDrained = signal(false);
   const anyTreeLoading = signal(false);
   const anyTreeError = signal(false);
@@ -74,7 +72,6 @@ describe('TopicViewerPageComponent', () => {
   const selectTopic = jest.fn();
   const setShowClosed = jest.fn();
   const setQuery = jest.fn();
-  const setSortMode = jest.fn();
   const setShowAllTopics = jest.fn();
   const expandAll = jest.fn();
   const collapseAll = jest.fn();
@@ -86,18 +83,16 @@ describe('TopicViewerPageComponent', () => {
     loading.set(false);
     error.set(null);
     showClosed.set(false);
-    groupingWarning.set(null);
     selectedTopicNumber.set(null);
     selectedTopic.set(null);
     fetchedAt.set(null);
     response.set(null);
-    visibleTopics.set({ mode: 'grouped', sections: [] });
+    visibleTopics.set([]);
     query.set('');
-    sortMode.set('grouped');
     showAllTopics.set(false);
     matchCount.set(0);
     matchSet.set(new Set());
-    allTopicsSections.set([]);
+    allTopicsBlocks.set([]);
     allTopicsDrained.set(false);
     anyTreeLoading.set(false);
     anyTreeError.set(false);
@@ -110,23 +105,9 @@ describe('TopicViewerPageComponent', () => {
 
   async function setup() {
     const res = response();
-    const sections = res
-      ? res.groupOrder.map(name => ({
-          name,
-          topics: res.topics.filter(t => t.group === name).map(t => ({
-            number: t.number, title: t.title,
-            stageLabel: t.stageLabel, status: t.status, closed: false,
-          })),
-        })).filter(s => s.topics.length > 0) // matches the store's drop
-      : [];
+    // Flat issue-# ascending list — the only mode (#1667).
     visibleTopics.set(
-      sortMode() === 'number'
-        ? {
-            mode: 'number',
-            topics: sections.flatMap(s => s.topics).sort((a, b) => a.number - b.number),
-          }
-        : { mode: 'grouped', sections },
-    );
+      res ? res.topics.map(row).sort((a, b) => a.number - b.number) : []);
     await TestBed.configureTestingModule({
       imports: [TopicViewerPageComponent],
       providers: [
@@ -137,10 +118,10 @@ describe('TopicViewerPageComponent', () => {
           useValue: {
             repos: signal([{ owner: 'rinebob', repo: 'rel-str', label: 'rel-str' }]),
             selectedRepoIndex: signal(0),
-            response, loading, error, showClosed, groupingWarning,
+            response, loading, error, showClosed,
             selectedTopicNumber, selectedTopic, fetchedAt,
-            visibleTopics, query, sortMode, showAllTopics,
-            matchCount, matchSet, allTopicsSections, allTopicsDrained,
+            visibleTopics, query, showAllTopics,
+            matchCount, matchSet, allTopicsBlocks, allTopicsDrained,
             // The tree child binds effectiveExpandedIds — stub it so a
             // non-empty treeRows can't hit an undefined signal (#1532).
             effectiveExpandedIds: signal<ReadonlySet<number>>(new Set()),
@@ -157,7 +138,7 @@ describe('TopicViewerPageComponent', () => {
             treeRows: signal<TreeRow[]>([]),
             expandableIds: signal<number[]>([]),
             refresh, selectRepo, selectTopic, setShowClosed,
-            setQuery, setSortMode, setShowAllTopics,
+            setQuery, setShowAllTopics,
             expandAll, collapseAll,
             ensureTopic, resumeAllTopics,
             toggleExpanded: jest.fn(),
@@ -192,11 +173,12 @@ describe('TopicViewerPageComponent', () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it('sections render group names + topic rows; select calls store', async () => {
+  it('flat list renders topic rows; select calls store', async () => {
     response.set(RESPONSE);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('[data-testid="section-name"]')?.textContent).toContain('A. Group');
+    // No group/section headers — flat rows only (#1667).
+    expect(el.querySelector('[data-testid="section-name"]')).toBeNull();
     (el.querySelector('[data-testid="topic-1"]') as HTMLElement).click();
     expect(selectTopic).toHaveBeenCalledWith(1);
   });
@@ -204,9 +186,9 @@ describe('TopicViewerPageComponent', () => {
   it('topic rows strip the "Topic:" title prefix and show a stage chip (#1532 — dot removed)', async () => {
     response.set(RESPONSE);
     await setup();
-    visibleTopics.set({ mode: 'grouped', sections: [{
-      name: 'G', topics: [{ number: 7, title: 'Topic: Cool Stuff', stageLabel: '5_IMPLEMENT', closed: false }],
-    }]});
+    visibleTopics.set([
+      { number: 7, title: 'Topic: Cool Stuff', stageLabel: '5_IMPLEMENT', closed: false },
+    ]);
     fixture.detectChanges();
     const row = fixture.nativeElement.querySelector('[data-testid="topic-7"]') as HTMLElement;
     expect(row.textContent).toContain('Cool Stuff');
@@ -217,7 +199,7 @@ describe('TopicViewerPageComponent', () => {
     expect(row.querySelector('.stage-dot')).toBeNull();
   });
 
-  // ── #1532: header controls + visibleTopics union ─────────────────────────
+  // ── #1532: header controls ───────────────────────────────────────────
 
   it('search input reflects the query and forwards input to setQuery', async () => {
     response.set(RESPONSE);
@@ -264,27 +246,12 @@ describe('TopicViewerPageComponent', () => {
     expect(el.querySelector('[data-testid="match-count"]')?.textContent).toContain('1 match');
   });
 
-  it('sort toggle reflects sortMode and calls setSortMode on click', async () => {
+  it('no sort pill — flat issue-# list is the only mode (#1667)', async () => {
     response.set(RESPONSE);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
-    const grouped = el.querySelector('[data-testid="sort-grouped"]') as HTMLButtonElement;
-    const number = el.querySelector('[data-testid="sort-number"]') as HTMLButtonElement;
-    expect(grouped.getAttribute('aria-pressed')).toBe('true');
-    expect(number.getAttribute('aria-pressed')).toBe('false');
-    number.click();
-    expect(setSortMode).toHaveBeenCalledWith('number');
-    sortMode.set('number');
-    fixture.detectChanges();
-    expect(number.getAttribute('aria-pressed')).toBe('true');
-  });
-
-  it('number mode renders one flat topic list — no section headers', async () => {
-    response.set(RESPONSE);
-    sortMode.set('number');
-    await setup();
-    const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('[data-testid="section-name"]').length).toBe(0);
+    expect(el.querySelector('[data-testid="sort-grouped"]')).toBeNull();
+    expect(el.querySelector('[data-testid="sort-number"]')).toBeNull();
     expect(el.querySelector('[data-testid="topic-1"]')).toBeTruthy();
   });
 
@@ -307,33 +274,24 @@ describe('TopicViewerPageComponent', () => {
 
   // ── #1532: all-topics right pane ──────────────────────────────────────
 
-  it('all-topics mode renders every section header + a tree per section', async () => {
+  it('all-topics mode renders a tree block per topic — no section headers', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([
-      { name: 'A. Group', topics: [readyBlock(1)] },
-      { name: 'B. Group', topics: [readyBlock(2)] },
-    ]);
+    allTopicsBlocks.set([readyBlock(1), readyBlock(2)]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('[data-testid="allsec-A. Group"]')?.textContent).toContain('A. Group');
-    expect(el.querySelector('[data-testid="allsec-B. Group"]')?.textContent).toContain('B. Group');
-    // Two tree children render — each fed its section's rows.
-    const trees = el.querySelectorAll('app-topic-viewer-tree');
-    expect(trees.length).toBe(2);
+    // Flat blocks — no grouped section headers (#1667).
+    expect(el.querySelectorAll('app-topic-viewer-tree').length).toBe(2);
     expect(el.querySelector('[data-testid="tree-node-1"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="tree-node-2"]')).toBeTruthy();
     // The single-topic head/link is replaced by the all-topics head.
     expect(el.querySelector('[data-testid="tree-topic-link"]')).toBeNull();
   });
 
-  it('all-topics query hits highlight in whichever section tree they live (#1532 gate)', async () => {
+  it('all-topics query hits highlight in whichever tree they live (#1532 gate)', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([
-      { name: 'A. Group', topics: [readyBlock(1)] },
-      { name: 'B. Group', topics: [readyBlock(2)] },
-    ]);
+    allTopicsBlocks.set([readyBlock(1), readyBlock(2)]);
     matchSet.set(new Set([2]));
     await setup();
     const el = fixture.nativeElement as HTMLElement;
@@ -346,7 +304,7 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics empty state is query-aware and loading-gated', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([]);
+    allTopicsBlocks.set([]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="all-topics-empty"]')?.textContent)
@@ -360,7 +318,7 @@ describe('TopicViewerPageComponent', () => {
   it('left-pane empty state is query-aware', async () => {
     response.set(RESPONSE);
     await setup();
-    visibleTopics.set({ mode: 'grouped', sections: [] });
+    visibleTopics.set([]);
     query.set('zzz');
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="empty-state"]')?.textContent)
@@ -370,12 +328,12 @@ describe('TopicViewerPageComponent', () => {
   it('leaving all-topics restores the selected-topic pane + select prompt', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([{ name: 'A. Group', topics: [readyBlock(1)] }]);
+    allTopicsBlocks.set([readyBlock(1)]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     showAllTopics.set(false);
     fixture.detectChanges();
-    expect(el.querySelector('[data-testid="allsec-A. Group"]')).toBeNull();
+    expect(el.querySelector('app-topic-viewer-tree')).toBeNull();
     expect(el.querySelector('[data-testid="tree-empty"]')).toBeTruthy();
   });
 
@@ -384,9 +342,9 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics loading block renders a spinner, not a tree', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([{ name: 'A. Group', topics: [
-      { topic: topic(7), status: 'loading', error: null, rows: [] },
-    ] }]);
+    allTopicsBlocks.set([
+      { topic: node(7), status: 'loading', error: null, rows: [] },
+    ]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="allsec-loading-7"]')).toBeTruthy();
@@ -397,9 +355,9 @@ describe('TopicViewerPageComponent', () => {
   it('all-topics error block shows its own retry → ensureTopic', async () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
-    allTopicsSections.set([{ name: 'A. Group', topics: [
-      { topic: topic(7), status: 'error', error: 'functions/internal: internal', rows: [] },
-    ] }]);
+    allTopicsBlocks.set([
+      { topic: node(7), status: 'error', error: 'functions/internal: internal', rows: [] },
+    ]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     const err = el.querySelector('[data-testid="allsec-error-7"]') as HTMLElement;
@@ -413,7 +371,7 @@ describe('TopicViewerPageComponent', () => {
     response.set(RESPONSE);
     showAllTopics.set(true);
     allTopicsDrained.set(true);
-    allTopicsSections.set([{ name: 'A. Group', topics: [readyBlock(1)] }]);
+    allTopicsBlocks.set([readyBlock(1)]);
     await setup();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-testid="drain-notice"]')?.textContent)
@@ -461,16 +419,8 @@ describe('TopicViewerPageComponent', () => {
     expect(el.querySelector('[data-testid="topic-1"]')).toBeTruthy(); // preserved
   });
 
-  it('grouping warning banner renders when set', async () => {
-    response.set(RESPONSE);
-    groupingWarning.set('grouping unavailable: GitHub 500');
-    await setup();
-    expect(fixture.nativeElement.querySelector('[data-testid="grouping-warning"]')?.textContent)
-      .toContain('GitHub 500');
-  });
-
   it('empty state shows when no topics and no error', async () => {
-    response.set(resp2Empty());
+    response.set({ topics: [], fetchedAt: 'x' });
     error.set(null);
     await setup();
     expect(fixture.nativeElement.querySelector('[data-testid="empty-state"]')?.textContent)
@@ -550,9 +500,6 @@ describe('TopicViewerPageComponent', () => {
     expect(selectTopic).toHaveBeenCalledWith(619);
   });
 
-  function resp2Empty(): LifecycleTreeResponse {
-    return { topics: [], groupOrder: [], fetchedAt: 'x' };
-  }
   // ── deep-resolution note (#1696) ────────────────────────────────────
 
   it('resolution-note is absent until a resolution is in play', async () => {

@@ -12,7 +12,7 @@ jest.mock('@angular/fire/functions', () => ({
 }));
 
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom, from, of, Subject, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 
 import { TopicViewerStore } from './topic-viewer.store';
 import { TopicViewerService } from './topic-viewer.service';
@@ -32,71 +32,46 @@ import {
 } from './topic-viewer.store.testbed';
 
 const FIXTURE = resp([
-  { name: 'A. Group', topics: [node(1)] },
-  {
-    name: 'Ungrouped',
-    topics: [
-      node(2, { state: 'open' }, [
-        node(20, { nodeType: 'thread' }, [node(30), node(31)]),
-      ]),
-      node(3, { state: 'closed' }),
-    ],
-  },
+  node(1),
+  node(2, { state: 'open' }, [
+    node(20, { nodeType: 'thread' }, [node(30), node(31)]),
+  ]),
+  node(3, { state: 'closed' }),
 ]);
 
-/** Flattened topic numbers out of the visibleTopics union — number mode
- *  asserts read this; grouped-mode specs check `.sections` directly. */
-const vmTopics = (store: ReturnType<typeof storeWith>): number[] => {
-  const vm = store.visibleTopics();
-  return vm.mode === 'number' ? vm.topics.map(t => t.number) : [];
-};
+/** Flattened topic numbers out of visibleTopics (#1667 — flat issue-#
+ *  ascending list is the only mode). */
+const vmTopics = (store: ReturnType<typeof storeWith>): number[] =>
+  store.visibleTopics().map(t => t.number);
 
 describe('TopicViewerStore', () => {
   beforeEach(() => TestBed.resetTestingModule());
 
-  it('maps sections to view rows; closed filtered unless showClosed', async () => {
+  it('flat rows in issue-# order; closed filtered unless showClosed', async () => {
     const store = storeWith(lazyStub(FIXTURE));
     await store.refresh();
 
-    let sections = store.topicSections();
-    expect(sections.map(s => s.name)).toEqual(['A. Group', 'Ungrouped']);
-    expect(sections[1].topics.map(t => t.number)).toEqual([2]); // #3 closed → hidden
+    expect(vmTopics(store)).toEqual([1, 2]); // #3 closed → hidden
 
     store.setShowClosed(true);
-    sections = store.topicSections();
-    expect(sections[1].topics.map(t => t.number)).toEqual([2, 3]);
-    expect(sections[1].topics[1].closed).toBe(true);
+    expect(vmTopics(store)).toEqual([1, 2, 3]);
+    expect(store.visibleTopics()[2].closed).toBe(true);
   });
 
-  it('sorts topics within a group by issue number ascending', async () => {
-    const f = resp([{
-      name: 'A', topics: [node(3), node(1), node(2)],
-    }]);
+  it('sorts the flat list by issue number ascending (#1667)', async () => {
+    const f = resp([node(3), node(1), node(2)]);
     const store = storeWith(lazyStub(f));
     await store.refresh();
-    expect(store.topicSections()[0].topics.map(t => t.number)).toEqual([1, 2, 3]);
+    expect(vmTopics(store)).toEqual([1, 2, 3]);
   });
 
-  it('empty groupOrder falls back to stamped group names (degrade path)', async () => {
-    const f: LifecycleTreeResponse = {
-      topics: [{ ...node(1), group: 'Ungrouped' }],
-      groupOrder: [], fetchedAt: '2026-09-28T12:00:00Z',
-      groupingWarning: 'grouping unavailable: GitHub 500',
-    };
-    const store = storeWith(lazyStub(f));
-    await store.refresh();
-    const sections = store.topicSections();
-    expect(sections.map(s => s.name)).toEqual(['Ungrouped']);
-    expect(sections[0].topics.map(t => t.number)).toEqual([1]);
-  });
-
-  it('emptied sections drop out of the list', async () => {
-    const empty = resp([{ name: 'A', topics: [node(9, { state: 'closed' })] }]);
+  it('closed topics drop out of the list unless showClosed', async () => {
+    const empty = resp([node(9, { state: 'closed' })]);
     const store = storeWith(lazyStub(empty));
     await store.refresh();
-    expect(store.topicSections()).toEqual([]);
+    expect(store.visibleTopics()).toEqual([]);
     store.setShowClosed(true);
-    expect(store.topicSections()[0].name).toBe('A');
+    expect(store.visibleTopics().map(t => t.number)).toEqual([9]);
   });
 
   it('treeRows flatten visible nodes honoring expandedIds', async () => {
@@ -124,10 +99,9 @@ describe('TopicViewerStore', () => {
   });
 
   it('closed children hidden under showClosed=false', async () => {
-    const f = resp([{
-      name: 'Ungrouped',
-      topics: [node(2, {}, [node(20, {}, [node(30, { state: 'closed' })])])],
-    }]);
+    const f = resp([
+      node(2, {}, [node(20, {}, [node(30, { state: 'closed' })])]),
+    ]);
     const store = storeWith(lazyStub(f));
     await store.refresh();
     store.selectTopic(2);
@@ -144,22 +118,25 @@ describe('TopicViewerStore', () => {
     const slow = new Subject<LifecycleTreeResponse>();
     let call = 0;
     const index$ = jest.fn(() =>
-      ++call === 1 ? slow.asObservable() : of(indexOf(resp([{ name: 'Ungrouped', topics: [node(7)] }]))));
+      ++call === 1 ? slow.asObservable() : of(indexOf(resp([
+  node(7),
+]))));
     const store = storeWith({
       getLifecycleTopicIndex$: index$,
-      getLifecycleTopicTree$: jest.fn(() => of({ topics: [], groupOrder: [], fetchedAt: '' })),
+      getLifecycleTopicTree$: jest.fn(() => of({ topics: [], fetchedAt: '' })),
     });
 
     const p1 = store.refresh();          // seq 1 — stays in-flight
     await store.refresh();               // seq 2 — resolves immediately
     expect(store.selectedTopicNumber()).toBeNull();
     // seq-1 resolves late — must be discarded, not overwrite seq-2's index
-    slow.next(indexOf(resp([{ name: 'Ungrouped', topics: [node(99)] }])));
+    slow.next(indexOf(resp([
+  node(99),
+])));
     slow.complete();
     await p1;
 
-    const nums = store.topicSections().flatMap(s => s.topics.map(t => t.number));
-    expect(nums).toEqual([7]);
+    expect(vmTopics(store)).toEqual([7]);
     expect(store.loading()).toBe(false);
   });
 
@@ -174,12 +151,12 @@ describe('TopicViewerStore', () => {
     });
     await store.refresh();
     await store.ensureTopic(2);
-    expect(store.topicSections().length).toBe(2);
+    expect(store.visibleTopics().length).toBe(2);
     expect(store.trees()[2]?.number).toBe(2);
 
     await store.refresh();
     expect(store.error()).toBe('boom');
-    expect(store.topicSections().length).toBe(2); // index still there
+    expect(store.visibleTopics().length).toBe(2); // index still there
     expect(store.trees()[2]?.number).toBe(2);     // memo survives a failed refresh
     expect(store.loading()).toBe(false);
   });
@@ -189,10 +166,12 @@ describe('TopicViewerStore', () => {
     const index$ = jest.fn(() =>
       ++call === 1
         ? throwError(() => new Error('first'))
-        : of(indexOf(resp([{ name: 'Ungrouped', topics: [node(5)] }]))));
+        : of(indexOf(resp([
+  node(5),
+]))));
     const store = storeWith({
       getLifecycleTopicIndex$: index$,
-      getLifecycleTopicTree$: jest.fn(() => of({ topics: [], groupOrder: [], fetchedAt: '' })),
+      getLifecycleTopicTree$: jest.fn(() => of({ topics: [], fetchedAt: '' })),
     });
     await store.refresh();
     expect(store.error()).toBe('first');
@@ -205,7 +184,9 @@ describe('TopicViewerStore', () => {
   it('selection drops when the topic vanishes in a refresh', async () => {
     let call = 0;
     const index$ = jest.fn(() =>
-      ++call === 1 ? of(indexOf(FIXTURE)) : of(indexOf(resp([{ name: 'Ungrouped', topics: [node(7)] }]))));
+      ++call === 1 ? of(indexOf(FIXTURE)) : of(indexOf(resp([
+  node(7),
+]))));
     const store = storeWith({
       getLifecycleTopicIndex$: index$,
       getLifecycleTopicTree$: jest.fn((req: LifecycleTopicTreeRequest) =>
@@ -222,24 +203,14 @@ describe('TopicViewerStore', () => {
 
   // ── v2 view state (task #1531) ───────────────────────────────────────────
 
-  describe('sort modes', () => {
-    it('grouped mode is the default and identical to the existing view', async () => {
-      const store = storeWith(lazyStub(FIXTURE));
-      await store.refresh();
-      expect(store.sortMode()).toBe('grouped');
-      expect(store.topicSections().map(s => s.name)).toEqual(['A. Group', 'Ungrouped']);
-      const vm = store.visibleTopics();
-      expect(vm.mode).toBe('grouped');
-    });
-
-    it('number mode emits one flat issue-number ascending list', async () => {
+  describe('flat issue-# list (#1667)', () => {
+    it('emits one issue-number ascending list — the only mode', async () => {
       const f = resp([
-        { name: 'A', topics: [node(9), node(2)] },
-        { name: 'B', topics: [node(5), node(1, { state: 'closed' })] },
+        node(9), node(2),
+        node(5), node(1, { state: 'closed' }),
       ]);
       const store = storeWith(lazyStub(f));
       await store.refresh();
-      store.setSortMode('number');
       expect(vmTopics(store)).toEqual([2, 5, 9]);
       store.setShowClosed(true);
       expect(vmTopics(store)).toEqual([1, 2, 5, 9]);
@@ -248,23 +219,20 @@ describe('TopicViewerStore', () => {
 
   describe('query predicates', () => {
     const QFIX = resp([
-      { name: 'A', topics: [node(1, { title: 'Lifecycle viewer', labels: ['INTERNAL'] })] },
-      { name: 'B', topics: [node(154, { title: 'Scanner fix', labels: ['BACKTEST'] }), node(9, { title: 'Other' })] },
+      node(1, { title: 'Lifecycle viewer', labels: ['INTERNAL'] }),
+      node(154, { title: 'Scanner fix', labels: ['BACKTEST'] }), node(9, { title: 'Other' }),
     ]);
 
-    it('title substring filters case-insensitively in both modes', async () => {
+    it('title substring filters case-insensitively', async () => {
       const store = storeWith(lazyStub(QFIX));
       await store.refresh();
       store.setQuery('lifecycle');
-      expect(store.topicSections().map(s => s.name)).toEqual(['A']);
-      store.setSortMode('number');
       expect(vmTopics(store)).toEqual([1]);
     });
 
     it("numeric query '154' and '#154' match the issue number", async () => {
       const store = storeWith(lazyStub(QFIX));
       await store.refresh();
-      store.setSortMode('number');
       store.setQuery('154');
       expect(vmTopics(store)).toEqual([154]);
       store.setQuery('#154');
@@ -274,7 +242,6 @@ describe('TopicViewerStore', () => {
     it('label substring matches label carriers', async () => {
       const store = storeWith(lazyStub(QFIX));
       await store.refresh();
-      store.setSortMode('number');
       store.setQuery('backtest');
       expect(vmTopics(store)).toEqual([154]);
     });
@@ -282,18 +249,17 @@ describe('TopicViewerStore', () => {
     it('empty query disables filtering', async () => {
       const store = storeWith(lazyStub(QFIX));
       await store.refresh();
-      store.setSortMode('number');
       store.setQuery('zz');
       expect(vmTopics(store)).toEqual([]);
       store.setQuery('   ');
       expect(vmTopics(store)).toEqual([1, 9, 154]);
     });
 
-    it('a section emptied by the query drops out', async () => {
+    it('non-matching topics drop out of the flat list', async () => {
       const store = storeWith(lazyStub(QFIX));
       await store.refresh();
       store.setQuery('lifecycle');
-      expect(store.topicSections().some(s => s.name === 'B')).toBe(false);
+      expect(vmTopics(store)).toEqual([1]);
     });
 
     it('selection survives the selected topic being filtered out of the list', async () => {
@@ -310,16 +276,15 @@ describe('TopicViewerStore', () => {
   });
 
   describe('in-tree match', () => {
-    const TREE = resp([{
-      name: 'A',
-      topics: [node(2, {}, [
+    const TREE = resp([
+      node(2, {}, [
         node(20, { nodeType: 'thread' }, [
           node(30),
           node(31, {}, [node(99, { title: 'Deep hit' })]),
         ]),
         node(21, { nodeType: 'thread' }, [node(40)]),
-      ])],
-    }]);
+      ]),
+    ]);
 
     it('matchSet + ancestor expansion reveals a depth-3 hit, unrelated subtrees stay collapsed', async () => {
       const store = storeWith(lazyStub(TREE));
@@ -388,10 +353,9 @@ describe('TopicViewerStore', () => {
     });
 
     it('a closed match is hidden until showClosed, then revealed', async () => {
-      const f = resp([{
-        name: 'A',
-        topics: [node(2, {}, [node(20, {}, [node(30, { state: 'closed', title: 'Deep hit' })])])],
-      }]);
+      const f = resp([
+        node(2, {}, [node(20, {}, [node(30, { state: 'closed', title: 'Deep hit' })])]),
+      ]);
       const store = storeWith(lazyStub(f));
       await store.refresh();
       store.selectTopic(2);
@@ -406,21 +370,21 @@ describe('TopicViewerStore', () => {
 
   describe('all-topics view', () => {
     const ALL = resp([
-      { name: 'A', topics: [node(1, {}, [node(10)])] },
-      { name: 'B', topics: [node(5, {}, [node(50)])] },
-    ]);
+  node(1, {}, [node(10)]),
+  node(5, {}, [node(50)]),
+]);
 
-    it('flattens every filtered section with depth; roots collapsed by default', async () => {
+    it('flattens every filtered topic with depth; roots collapsed by default', async () => {
       const store = storeWith(lazyStub(ALL));
       await store.refresh();
       store.setShowAllTopics(true);
       await store.ensureTopic(1);
       await store.ensureTopic(5);
-      const all = store.allTopicsSections();
-      expect(all.map(s => s.name)).toEqual(['A', 'B']);
-      expect(all[0].topics[0].rows.map(r => [r.node.number, r.depth])).toEqual([[1, 0]]);
+      const all = store.allTopicsBlocks();
+      expect(all.map(b => b.topic.number)).toEqual([1, 5]);
+      expect(all[0].rows.map(r => [r.node.number, r.depth])).toEqual([[1, 0]]);
       store.toggleExpanded(1);
-      expect(store.allTopicsSections()[0].topics[0].rows.map(r => r.node.number)).toEqual([1, 10]);
+      expect(store.allTopicsBlocks()[0].rows.map(r => r.node.number)).toEqual([1, 10]);
     });
 
     it('expandableIds spans all fetched trees in all-topics mode', async () => {
@@ -432,7 +396,7 @@ describe('TopicViewerStore', () => {
       await store.ensureTopic(5);
       expect(store.expandableIds().sort()).toEqual([1, 5]);
       store.expandAll();
-      expect(store.allTopicsSections().flatMap(s => s.topics.flatMap(b => b.rows)).map(r => r.node.number))
+      expect(store.allTopicsBlocks().flatMap(b => b.rows).map(r => r.node.number))
         .toEqual([1, 10, 5, 50]);
     });
 
@@ -443,19 +407,16 @@ describe('TopicViewerStore', () => {
       await store.ensureTopic(1);
       await store.ensureTopic(5);
       store.setQuery('issue 5');
-      const all = store.allTopicsSections();
-      expect(all.map(s => s.name)).toEqual(['B']);
+      const all = store.allTopicsBlocks();
+      expect(all.map(b => b.topic.number)).toEqual([5]);
     });
 
     it('match scope spans every rendered tree in all-topics mode (#1532)', async () => {
       const ALL2 = resp([
-        { name: 'A', topics: [node(1, {}, [node(10)])] },
-        {
-          name: 'B',
-          topics: [node(5, { title: 'Deep hit root' }, [
-            node(50, {}, [node(51, { title: 'Deep hit leaf' })]),
-          ])],
-        },
+        node(1, {}, [node(10)]),
+        node(5, { title: 'Deep hit root' }, [
+          node(50, {}, [node(51, { title: 'Deep hit leaf' })]),
+        ]),
       ]);
       const store = storeWith(lazyStub(ALL2));
       await store.refresh();
@@ -468,16 +429,16 @@ describe('TopicViewerStore', () => {
       expect([...store.matchSet()].sort()).toEqual([5, 51]);
       expect(store.matchCount()).toBe(2);
       expect([...store.matchAncestorIds()].sort()).toEqual([5, 50]);
-      const all = store.allTopicsSections();
-      expect(all.map(s => s.name)).toEqual(['B']); // A filtered out
-      expect(all[0].topics[0].rows.map(r => r.node.number)).toEqual([5, 50, 51]);
+      const all = store.allTopicsBlocks();
+      expect(all.map(b => b.topic.number)).toEqual([5]); // #1 filtered out
+      expect(all[0].rows.map(r => r.node.number)).toEqual([5, 50, 51]);
     });
 
     it('descendant-only query in all-topics: topic filtered out → 0 matches, never a phantom count', async () => {
       // The hit lives inside topic 5 but 5's own fields don't match —
       // filteredTopics drops it, nothing renders, count is honestly 0.
       const DEEP = resp([
-        { name: 'B', topics: [node(5, {}, [node(50, {}, [node(51, { title: 'Deep hit' })])])] },
+        node(5, {}, [node(50, {}, [node(51, { title: 'Deep hit' })])]),
       ]);
       const store = storeWith(lazyStub(DEEP));
       await store.refresh();
@@ -486,7 +447,7 @@ describe('TopicViewerStore', () => {
       store.setQuery('deep hit');
       expect(store.filteredTopics().length).toBe(0);
       expect(store.matchCount()).toBe(0);
-      expect(store.allTopicsSections()).toEqual([]);
+      expect(store.allTopicsBlocks()).toEqual([]);
     });
 
     it('selectTopic seeds expansion additively in all-topics mode (#1532)', async () => {
@@ -501,7 +462,7 @@ describe('TopicViewerStore', () => {
       expect(store.expandedIds()).toContain(5);
     });
 
-    it('allTopicsSections carries per-topic status — loading / error / ready (#1638)', async () => {
+    it('allTopicsBlocks carries per-topic status — loading / error / ready (#1638)', async () => {
       const s1 = new Subject<LifecycleTreeResponse>();
       const store = storeWith({
         getLifecycleTopicIndex$: jest.fn(() => of(indexOf(ALL))),
@@ -514,16 +475,16 @@ describe('TopicViewerStore', () => {
       store.setShowAllTopics(true);
       await flush();
 
-      let all = store.allTopicsSections();
-      expect(all[0].topics[0].status).toBe('loading');  // 1 in flight → skeleton
-      expect(all[1].topics[0].status).toBe('error');    // 5 failed → its own retry
-      expect(all[1].topics[0].error).toContain('internal');
-      expect(all[1].topics[0].rows).toEqual([]);
+      let all = store.allTopicsBlocks();
+      expect(all[0].status).toBe('loading');  // 1 in flight → skeleton
+      expect(all[1].status).toBe('error');    // 5 failed → its own retry
+      expect(all[1].error).toContain('internal');
+      expect(all[1].rows).toEqual([]);
 
       s1.next(treeOf(ALL, 1)); s1.complete(); await flush();
-      all = store.allTopicsSections();
-      expect(all[0].topics[0].status).toBe('ready');
-      expect(all[0].topics[0].rows.map(r => r.node.number)).toEqual([1]);
+      all = store.allTopicsBlocks();
+      expect(all[0].status).toBe('ready');
+      expect(all[0].rows.map(r => r.node.number)).toEqual([1]);
     });
   });
 
@@ -628,7 +589,7 @@ describe('TopicViewerStore', () => {
         { owner: 'rinebob', repo: 'rel-str' });
       expect(svc.getLifecycleTopicTree$).not.toHaveBeenCalled();
       // left pane renders from index data alone
-      expect(store.topicSections().map(s => s.name)).toEqual(['A. Group', 'Ungrouped']);
+      expect(vmTopics(store)).toEqual([1, 2]);
       // no subtree memoized — the right pane is honestly empty
       expect(store.selectedTopic()).toBeNull();
       expect(store.treeRows()).toEqual([]);
@@ -700,7 +661,7 @@ describe('TopicViewerStore', () => {
       const store = storeWith({
         getLifecycleTopicIndex$: jest.fn(() => of(indexOf(FIXTURE))),
         getLifecycleTopicTree$: jest.fn(() =>
-          of({ topics: [], groupOrder: [], fetchedAt: '' })),
+          of({ topics: [], fetchedAt: '' })),
       });
       await store.refresh();
       await store.ensureTopic(99);
@@ -760,9 +721,9 @@ describe('TopicViewerStore', () => {
 
   describe('all-topics fetch queue', () => {
     const MANY = resp([
-      { name: 'A', topics: [node(1), node(2), node(3), node(4)] },
-      { name: 'B', topics: [node(5), node(6), node(7)] },
-    ]);
+  node(1), node(2), node(3), node(4),
+  node(5), node(6), node(7),
+]);
 
     it('enabling all-topics queues unfetched filtered topics at bounded concurrency', async () => {
       const subjects = new Map<number, Subject<LifecycleTreeResponse>>();
@@ -967,9 +928,9 @@ describe('TopicViewerStore', () => {
 
     it('refresh in all-topics mode refetches the filtered set only', async () => {
       const MANY = resp([
-        { name: 'A', topics: [node(1), node(2)] },
-        { name: 'B', topics: [node(5)] },
-      ]);
+  node(1), node(2),
+  node(5),
+]);
       const svc = lazyStub(MANY);
       const store = storeWith(svc);
       await store.refresh();
@@ -1000,9 +961,9 @@ describe('TopicViewerStore', () => {
       return s.asObservable();
     });
     const MANY = resp([
-      { name: 'A', topics: [node(1), node(2), node(3), node(4)] },
-      { name: 'B', topics: [node(5), node(6), node(7)] },
-    ]);
+  node(1), node(2), node(3), node(4),
+  node(5), node(6), node(7),
+]);
     const store = storeWith({
       getLifecycleTopicIndex$: jest.fn(() => of(indexOf(MANY))),
       getLifecycleTopicTree$: tree$,
@@ -1061,14 +1022,14 @@ describe('TopicViewerStore', () => {
     await store.refresh();
     store.setShowClosed(true);
     expect(svc.getLifecycleTopicTree$).not.toHaveBeenCalled();
-    expect(store.topicSections()[1].topics.map(t => t.number)).toEqual([2, 3]);
+    expect(vmTopics(store)).toEqual([1, 2, 3]);
   });
 
   it('match counts only fetched trees in all-topics mode (PRD caveat)', async () => {
     const CAV = resp([
-      { name: 'A', topics: [node(1, { title: 'Deep hit A' }, [node(10, { title: 'Deep hit leaf' })])] },
-      { name: 'B', topics: [node(5, { title: 'Deep hit B' }, [node(50, { title: 'Deep hit leaf' })])] },
-    ]);
+  node(1, { title: 'Deep hit A' }, [node(10, { title: 'Deep hit leaf' })]),
+  node(5, { title: 'Deep hit B' }, [node(50, { title: 'Deep hit leaf' })]),
+]);
     const hanging = new Subject<LifecycleTreeResponse>();
     const store = storeWith({
       getLifecycleTopicIndex$: jest.fn(() => of(indexOf(CAV))),

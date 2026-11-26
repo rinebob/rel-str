@@ -31,22 +31,12 @@ export interface LifecycleNode {
   children: LifecycleNode[];
 }
 
-/** A topic root stamped with its TOPICS-INVENTORY group (or
- *  UNGROUPED_SECTION). Children never carry `group`. */
-export interface LifecycleTopic extends LifecycleNode {
-  group: string;
-}
-
 export interface LifecycleTreeResponse {
-  /** Flat root list — grouping/sorting is a view concern. */
-  topics: LifecycleTopic[];
-  /** TOPICS-INVENTORY section names in doc order (Ungrouped appended when
-   *  ungrouped roots exist); empty when the inventory doc is absent. */
-  groupOrder: string[];
+  /** Flat root list — ordering/filtering is a view concern (#1667:
+   *  hand-maintained topic grouping removed; future grouping derives
+   *  from issue metadata, not a repo doc). */
+  topics: LifecycleNode[];
   fetchedAt: string;
-  /** Present only when the inventory doc degraded: non-404 fetch
-   *  failure, parse-null, or listing none of the fetched topics. */
-  groupingWarning?: string;
   /** issueNumber → rootTopicNumber for every issue the maintained map
    *  knows (seeded once, refreshed by every tree fetch). Emitted on the
    *  getLifecycleTopicIndex response only; absent when the map doc is

@@ -72,7 +72,6 @@ function fixtureDeps(overrides: Partial<GhLifecycleDeps> = {}): GhLifecycleDeps 
     }),
     fetchTopicRef: async () => ({ number: 619, id: 'I_619', title: 'Topic: GitHub read-only issue UI' }),
     fetchSubtreeData: async () => TREE,
-    fetchInventoryDoc: async () => null,
     readIssueMap: async () => ({ 1609: 619, 1695: 619 }),
     syncIssueMapFromTree: async () => undefined,
     upsertIssueMapEntries: async () => undefined,

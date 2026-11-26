@@ -47,19 +47,13 @@ async function main(): Promise<void> {
   const res = await handleGetLifecycleTree(
     req({ owner: 'rinebob', repo: 'rel-str' }), deps);
 
-  check('response parses to LifecycleTreeResponse v2 shape',
-    Array.isArray(res.topics) && Array.isArray(res.groupOrder) &&
+  check('response parses to LifecycleTreeResponse shape',
+    Array.isArray(res.topics) &&
     typeof res.fetchedAt === 'string');
   check('no legacy sections key on the response',
     !('sections' in (res as object)));
   check('fetchedAt is fresh ISO', Date.now() - Date.parse(res.fetchedAt) < 60_000);
   check('topics non-empty', res.topics.length > 0, `${res.topics.length} topics`);
-  check('every topic carries a group', res.topics.every(t => !!t.group));
-  // Degrade path (doc 404/parse fail) yields groupOrder [] with all topics
-  // Ungrouped — legitimate, signaled via groupingWarning below.
-  check('every stamped group appears in groupOrder',
-    res.groupOrder.length === 0 ||
-    res.topics.every(t => res.groupOrder.includes(t.group)));
   const all: LifecycleNode[] = [];
   const walk = (ns: LifecycleNode[]) => {
     for (const n of ns) { all.push(n); if (n.children.length) walk(n.children); }
@@ -72,11 +66,6 @@ async function main(): Promise<void> {
   check('every node has number/title/state/url (recursive)', all.every(t =>
     t.number > 0 && !!t.title && (t.state === 'open' || t.state === 'closed') && !!t.url));
   check('nodes carry stageLabel (stages/threads labeled)', all.some(n => n.stageLabel));
-  // Named groups only required when the inventory doc fetched and parsed.
-  if (res.groupingWarning || res.groupOrder.length === 0) {
-    console.log('  info no named groups — doc 404 or parse warning is legitimate');
-  }
-  if (res.groupingWarning) console.log(`  info groupingWarning: ${res.groupingWarning}`);
 
   console.log('\n--- validation (fixture deps) ---');
   const bad = await handleGetLifecycleTree(

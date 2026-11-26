@@ -1,18 +1,15 @@
 /**
  * Tests for the lifecycle-viewer shared contracts — assert the shape of
- * real buildTree/assignGroups output rather than hand-written fixtures, so
+ * real buildTree output rather than hand-written fixtures, so
  * a contract change fails loudly
  * (Blueprint #633 / task #637, contract v2 in #1522).
  */
 
 import {
-  assignGroups,
   buildTree,
-  UNGROUPED_SECTION,
   type LifecycleRawIssue,
 } from './lifecycle-tree';
 import type {
-  LifecycleTopic,
   LifecycleTreeResponse,
 } from './lifecycle-contracts';
 
@@ -51,30 +48,13 @@ describe('LifecycleNode shape (via buildTree)', () => {
   });
 });
 
-describe('LifecycleTopic shape (via assignGroups)', () => {
-  it('is a LifecycleNode plus group', () => {
-    const [node] = buildTree([raw], new Map(), new Map());
-    const { topics } = assignGroups([node], null);
-    const t: LifecycleTopic = topics[0];
-    expect(t.group).toBe(UNGROUPED_SECTION);
-    expect(Object.keys(t).sort()).toEqual([
-      'children', 'group', 'labels', 'nodeType', 'number', 'state', 'title',
-      'updatedAt', 'url',
-    ]);
-  });
-});
-
 describe('LifecycleTreeResponse', () => {
-  it('flat topics + groupOrder + fetchedAt; groupingWarning optional', () => {
-    const [node] = buildTree([raw], new Map(), new Map());
+  it('flat topics + fetchedAt; no group fields (#1667)', () => {
     const res: LifecycleTreeResponse = {
-      ...assignGroups([node], null),
+      topics: buildTree([raw], new Map(), new Map()),
       fetchedAt: '2026-09-28T00:00:00Z',
     };
     expect(res.topics).toHaveLength(1);
-    expect(res.topics[0].group).toBe(UNGROUPED_SECTION);
-    expect(res.groupOrder).toEqual([]);
-    expect(res.groupingWarning).toBeUndefined();
-    expect(Object.keys(res).sort()).toEqual(['fetchedAt', 'groupOrder', 'topics']);
+    expect(Object.keys(res).sort()).toEqual(['fetchedAt', 'topics']);
   });
 });
