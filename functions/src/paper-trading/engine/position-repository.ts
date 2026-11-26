@@ -69,7 +69,6 @@ const lifecycleHook = makeTradeLifecycleHook(db);
 export {
   buildLegId,
   buildPositionId,
-  findPrimaryLeg,
 } from './position-ids';
 export type { PositionIdConfig } from './position-ids';
 
@@ -157,16 +156,18 @@ export async function listOpenOptionTrades(): Promise<PaperTrade[]> {
   return trades.filter(isOpenOptionPosition);
 }
 
-export async function listHeldSharesPositions(
-  instanceId?: string,
-): Promise<Position[]> {
-  const filters = [
+/**
+ * The held-shares pass's selection (#1714): every ASSIGNED trade except
+ * signal-owned ones — signal positions' marks stay with the signal
+ * machinery, disjoint by source the same way settlement is. Era-agnostic:
+ * legacy docs missing `source` sweep in. Trade docs returned raw (the pass
+ * maps `tradeToPosition` for the `shares`/`symbol` view).
+ */
+export async function listAssignedTrades(): Promise<PaperTrade[]> {
+  const trades = await queryTrades([
     { field: 'status', value: PaperTradeStatus.ASSIGNED },
-    { field: 'source', value: PaperTradeSource.STRATEGY },
-    ...(instanceId ? [{ field: 'strategyInstanceId', value: instanceId }] : []),
-  ];
-  const trades = await queryTrades(filters);
-  return trades.map(tradeToPosition);
+  ]);
+  return trades.filter((t) => t.source !== PaperTradeSource.SIGNAL);
 }
 
 // ── Write ──────────────────────────────────────────────────────────────────────
@@ -373,7 +374,7 @@ export async function markPositionSettled(
   let settledTrade: PaperTrade | undefined;
   // Hoisted for the post-commit stats increment — the same signed premium
   // the txn banks into realizedPnl (#1563).
-  let settledPremium = 0;
+  let settledRealized = 0;
   await db.runTransaction(async (txn) => {
     // All reads before all writes: trade → instance → account.
     const ref = tradeRef(positionId);
@@ -406,7 +407,9 @@ export async function markPositionSettled(
 
     const outcomeByLegId = new Map(legOutcomes.map((o) => [o.legId, o]));
     const legs = trade.legs.map((leg) => {
-      const outcome = outcomeByLegId.get(leg.id ?? '');
+      // Id-less legs never look up by '' — several would collide on the key
+      // and silently adopt each other's outcome. Leave them unstamped.
+      const outcome = leg.id ? outcomeByLegId.get(leg.id) : undefined;
       return outcome
         ? { ...leg, outcome: outcome.outcome, closeDate: outcome.closeDate, lastMark: 0 }
         : leg;
@@ -429,20 +432,30 @@ export async function markPositionSettled(
     const premium = entryFill
       ? signedCashDelta(entryFill, trade.order.side, trade.legs)
       : 0;
-    settledPremium = premium;
     // Liquidation value carried before the close (short legs negative).
     const markedValue = positionValue(trade.legs);
-    // Assignment: shares delivered at strike → cash debit + share value added.
-    const cashDelta = expired
-      ? 0
-      : -(settlement.assignment?.strikePrice ?? 0) *
-        SHARES_PER_CONTRACT *
+    // Delivered-strike cash moves whenever legs settle into shares — even
+    // when legs offset to flat (a fully-ITM spread pays the width; it is
+    // not cash-neutral). +deliveryCash = shares delivered to the account
+    // (cash debited); − = shares delivered away (cash credited). Falls
+    // back to the single-leg assignment derivation for callers that don't
+    // supply it (#1714).
+    const deliveryCashContracts =
+      settlement.deliveryCash ??
+      (settlement.assignment?.strikePrice ?? 0) *
         (settlement.shares?.quantity ?? 0);
+    const cashDelta = -deliveryCashContracts * SHARES_PER_CONTRACT;
     const shareValue = expired
       ? 0
       : (dailyUpdate?.underlyingClose ?? settlement.assignment?.strikePrice ?? 0) *
         SHARES_PER_CONTRACT *
         (settlement.shares?.quantity ?? 0);
+    // Realized books premium plus the delivery cash when no shares stay on
+    // the book — offsetting assignments settle the spread's intrinsic
+    // loss in cash, not in a share position. When shares are held, the
+    // delivery is an asset purchase (cost basis), premium-only realized.
+    const realizedDelta = premium + (settlement.shares ? 0 : cashDelta);
+    settledRealized = realizedDelta;
 
     // Finalize the governing variant run honestly: settlement decides the
     // real lifecycle. Expired options exit at 0; assigned options exit at
@@ -457,14 +470,16 @@ export async function markPositionSettled(
       : undefined;
     const ulClose =
       dailyUpdate?.underlyingClose ?? settlement.assignment?.strikePrice ?? 0;
-    const exitPrice = expired
+    const exitPrice =
+      settlement.orderExitPrice ??
+      (expired
       ? 0
       : Math.max(
           0,
           settledLeg?.kind === 'option' && settledLeg.type === OptionType.CALL
             ? ulClose - (settlement.assignment?.strikePrice ?? 0)
             : (settlement.assignment?.strikePrice ?? 0) - ulClose,
-        );
+        ));
     const variantRuns = trade.variantRuns.map((r) =>
       r.governing && r.state === 'ACTIVE'
         ? {
@@ -491,7 +506,7 @@ export async function markPositionSettled(
       // Ledger convention: unrealized is 0 once the position is closed;
       // assignment keeps share P&L unrealized while the position stays open.
       unrealizedPnl: expired ? 0 : settlement.unrealizedPnl,
-      realizedPnl: trade.realizedPnl + premium,
+      realizedPnl: trade.realizedPnl + realizedDelta,
       lastMarkedAt: settlement.currentValueAsOf,
       ...(settlement.assignment ? { assignment: settlement.assignment } : {}),
       ...(settlement.shares ? { shares: settlement.shares } : {}),
@@ -505,7 +520,7 @@ export async function markPositionSettled(
       txn.update(acctSnap.ref, {
         cash: acct.cash + cashDelta,
         equity: acct.equity + cashDelta - markedValue + shareValue,
-        realizedPnl: acct.realizedPnl + premium,
+        realizedPnl: acct.realizedPnl + realizedDelta,
         ...(expired
           ? { openTradeCount: Math.max(0, acct.openTradeCount - 1) }
           : {}),
@@ -525,24 +540,27 @@ export async function markPositionSettled(
   }
 
   // Stats rollup (#1563): the same transition the recompute counts —
-  // EXPIRED closes + realizes premium; ASSIGNED bumps assignedCount only.
+  // EXPIRED closes + books realized (premium net of offsetting delivery
+  // cash, #1714); ASSIGNED bumps assignedCount only.
   // Post-commit, self-swallowing — a stats failure can't fail a settle.
   // Called directly (not through LedgerDeps) — consistent with this
   // file's module-`db` architecture; the impl swallows internally.
   if (settledTrade) {
     const settleStatus = settlement.status;
-    const premium = settledPremium;
+    const realized = settledRealized;
     const trade = settledTrade;
     await incrementStatsOnTransition(() =>
-      statsInputFor(trade, statsDeltasOnSettle(settleStatus, premium)),
+      statsInputFor(trade, statsDeltasOnSettle(settleStatus, realized)),
     );
   }
 }
 
-/** Atomically update a held-shares position's mark + daily-update. */
+/** Atomically update a held-shares position's mark + daily-update.
+ *  Only these fields persist — `currentValue` is a Position-view
+ *  computation, not a doc field, so callers must not claim it writes. */
 export async function markHeldSharesPosition(
   positionId: string,
-  update: Partial<Position>,
+  update: { unrealizedPnl?: number; currentValueAsOf?: string },
   dailyUpdate: DailyUpdate,
 ): Promise<void> {
   const now = new Date().toISOString();

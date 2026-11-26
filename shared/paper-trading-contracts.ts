@@ -279,7 +279,9 @@ export interface PaperTrade extends PaperTradingDocBase {
     /** Market date (YYYY-MM-DD) the position was assigned. */
     assignedAt: string;
   };
-  /** Held shares after assignment (ASSIGNED status). */
+  /** Held shares after assignment (ASSIGNED status). `quantity` is in
+   *  contracts, not shares (×100 = shares) — legacy naming, do not rename
+   *  without a doc migration. */
   shares?: {
     quantity: number;
     costBasis: number;

@@ -8,7 +8,7 @@
 import { getFunctions } from 'firebase-admin/functions';
 import { db } from '../firebase-admin-init';
 import { startStRun } from '../common/st-orchestration';
-import { runOptionsSelectionPass, runSettlementForAllInstances } from '../options-strategy-engine/options-strategy-pass-orchestrators';
+import { runOptionsSelectionPass, runNightlySettlementChain } from '../options-strategy-engine/options-strategy-pass-orchestrators';
 import type { SdsCompletionDeps } from './sds-completion';
 
 /**
@@ -26,7 +26,7 @@ export function createCompletionDeps(): SdsCompletionDeps {
       await runOptionsSelectionPass(marketDate);
     },
     async runSettlementPass(marketDate: string, symbols?: string[]) {
-      await runSettlementForAllInstances(marketDate);
+      await runNightlySettlementChain(marketDate);
     },
     async startStRun(marketDate: string, triggeredBy: 'manual' | 'pdr' | 'nightly' | 'symbol-added') {
       await startStRun(marketDate, triggeredBy);

@@ -17,7 +17,7 @@ import { OPTIONS_STRATEGY_ALLOWED_ORIGINS } from './options-strategy-cors';
 import { getMarketDatePT } from '../../common/pt-date-utils';
 import {
   runUnifiedMarkPass,
-  runSettlementForAllInstances,
+  runNightlySettlementChain,
 } from './options-strategy-pass-orchestrators';
 import { RobinhoodMcpOptionQuoteProvider } from './quote-providers/rh-mcp-option-quote-provider';
 import type { RobinhoodMcpSessionManager } from '../../options-strategy-engine/mcp/robinhood-mcp-session-manager';
@@ -204,6 +204,6 @@ export const optionsSettlementPassManual = onCall(
       : getMarketDatePT();
     log.info(`Manual settlement pass triggered by ${request.auth.uid} for ${marketDate}`);
 
-    return runSettlementForAllInstances(marketDate);
+    return runNightlySettlementChain(marketDate);
   },
 );

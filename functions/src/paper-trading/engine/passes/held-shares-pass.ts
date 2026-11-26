@@ -1,9 +1,14 @@
 /**
  *
- * Held-shares mark pass — daily marks for positions in
- * ASSIGNED_HOLDING_SHARES status. The position's current value tracks the
- * underlying's closing price (not the strike), and unrealized P&L is computed
- * against the per-share cost basis (the strike price at assignment).
+ * Held-shares mark pass — position-grain sweep (#1714) over every ASSIGNED
+ * trade except signal-owned ones (the signal machinery marks those).
+ * Selection needs no instance, so held positions on legacy zombie docs and
+ * STOPPED instances mark alongside manage positions, each priced against
+ * its own symbol's close.
+ *
+ * The position's current value tracks the underlying's closing price (not
+ * the strike), and unrealized P&L is computed against the per-share cost
+ * basis (the strike price at assignment).
  *
  * PRD story 8: unrealizedPnl = (currentClose - strikePrice) × 100 × quantity,
  * where quantity is in contracts and ×100 is shares per contract.
@@ -12,12 +17,15 @@
  * mirroring the runMarkPass / runSettlementPass seam pattern.
  */
 
-import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
+import { PaperTradeSource } from '@paper-trading/contracts';
+import type { PaperTrade } from '@paper-trading/contracts';
 import {
-  listHeldSharesPositions,
+  listAssignedTrades,
   markHeldSharesPosition,
 } from '../position-repository';
+import { tradeToPosition } from '../trade-adapter';
 import type { Position, DailyUpdate } from '../types';
+import { getUnderlyingCloseForDate } from '../options-strategy-market-data';
 import type { UnderlyingCloseReader } from '../options-strategy-market-data';
 import { SHARES_PER_CONTRACT } from '../types';
 import { createLogger } from '../logging';
@@ -35,19 +43,17 @@ export interface HeldSharesMarkResult {
 }
 
 export interface HeldSharesMarkPassResult {
-  instanceId: string;
   date: string;
   marked: HeldSharesMarkResult[];
-  deferred: { positionId: string; reason: string }[];
   errors: { positionId: string; error: string }[];
 }
 
 export interface HeldSharesMarkPassDependencies {
-  listHeldSharesPositions?: (instanceId: string) => Promise<Position[]>;
-  getUnderlyingClose: UnderlyingCloseReader;
+  listAssignedTrades?: () => Promise<PaperTrade[]>;
+  getUnderlyingClose?: UnderlyingCloseReader;
   markHeldSharesPosition?: (
     positionId: string,
-    update: Partial<Position>,
+    update: { unrealizedPnl: number; currentValueAsOf: string },
     dailyUpdate: DailyUpdate,
   ) => Promise<void>;
 }
@@ -55,27 +61,32 @@ export interface HeldSharesMarkPassDependencies {
 // ── Main ────────────────────────────────────────────────────────────────────
 
 export async function runHeldSharesMarkPass(
-  instanceId: string,
   date: string,
-  config: StrategyInstanceConfig,
   deps: HeldSharesMarkPassDependencies,
 ): Promise<HeldSharesMarkPassResult> {
-  const listHeld = deps.listHeldSharesPositions ?? listHeldSharesPositions;
-  const getClose = deps.getUnderlyingClose;
+  const listHeld = deps.listAssignedTrades ?? listAssignedTrades;
+  const getClose = deps.getUnderlyingClose ?? getUnderlyingCloseForDate;
   const mark = deps.markHeldSharesPosition ?? markHeldSharesPosition;
 
   const marked: HeldSharesMarkResult[] = [];
-  const deferred: { positionId: string; reason: string }[] = [];
   const errors: { positionId: string; error: string }[] = [];
 
-  const heldPositions = await listHeld(instanceId);
-  if (heldPositions.length === 0) {
-    logger.info(`No held-shares positions for ${instanceId}`);
-    return { instanceId, date, marked, deferred, errors };
+  // Same disjointness as settlement — signal-source ASSIGNED positions
+  // belong to the signal machinery; an injected lister can't leak them.
+  const heldTrades = (await listHeld()).filter(
+    (t) => t.source !== PaperTradeSource.SIGNAL,
+  );
+  if (heldTrades.length === 0) {
+    logger.info('No held-shares positions');
+    return { date, marked, errors };
   }
 
-  for (const pos of heldPositions) {
+  for (const trade of heldTrades) {
+    // Adapter inside the try — a malformed ASSIGNED doc lands in errors[]
+    // rather than aborting the sweep.
+    let pos: Position;
     try {
+      pos = tradeToPosition(trade);
       if (!pos.shares) {
         errors.push({
           positionId: pos.id,
@@ -84,11 +95,15 @@ export async function runHeldSharesMarkPass(
         continue;
       }
 
-      const underlyingClose = await getClose(config.symbol, date);
-      if (underlyingClose === null) {
+      const underlyingClose = await getClose(pos.symbol, date);
+      if (
+        underlyingClose === null ||
+        !Number.isFinite(underlyingClose) ||
+        underlyingClose <= 0
+      ) {
         errors.push({
           positionId: pos.id,
-          error: `No underlying closing bar for ${config.symbol}/${date} — symbol-data sync may have failed`,
+          error: `No usable underlying closing bar for ${pos.symbol}/${date} — symbol-data sync may have failed`,
         });
         continue;
       }
@@ -99,10 +114,11 @@ export async function runHeldSharesMarkPass(
         (underlyingClose - costBasis) * SHARES_PER_CONTRACT * quantity;
       const markedAt = new Date().toISOString();
 
+      // currentValue stays a Position-view value — the doc write only
+      // persists unrealizedPnl + lastMarkedAt (Position convention).
       await mark(
         pos.id,
         {
-          currentValue,
           currentValueAsOf: markedAt,
           unrealizedPnl,
         },
@@ -118,14 +134,14 @@ export async function runHeldSharesMarkPass(
       });
     } catch (err) {
       errors.push({
-        positionId: pos.id,
+        positionId: trade.id,
         error: err instanceof Error ? err.message : String(err),
       });
     }
   }
 
   logger.info(
-    `Marked ${marked.length} held-shares position(s), deferred ${deferred.length}, ${errors.length} error(s) for ${instanceId}/${date}`,
+    `Marked ${marked.length} held-shares position(s), ${errors.length} error(s) for ${date}`,
   );
-  return { instanceId, date, marked, deferred, errors };
+  return { date, marked, errors };
 }

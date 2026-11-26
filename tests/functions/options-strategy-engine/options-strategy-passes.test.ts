@@ -8,7 +8,7 @@ import {
   runOptionsSelectionPass,
   runOptionsOpenPass,
   runUnifiedMarkPass,
-  runSettlementForAllInstances,
+  runNightlySettlementChain,
 } from '../../../functions/src/options-strategy-engine/options-strategy-pass-orchestrators';
 import { PositionSpreadType, StrategyFrequency, OptionType } from '../../../shared/options-common';
 import { TradeSide } from '../../../shared/common';
@@ -297,53 +297,100 @@ describe('runUnifiedMarkPass', () => {
   });
 });
 
-describe('runSettlementForAllInstances', () => {
+describe('runNightlySettlementChain', () => {
   const marketDate = '2025-08-17';
 
-  it('runs settlement for every manageable instance', async () => {
-    const instance = makeInstance({ id: 'STOPPED-1', lifecycleState: LifecycleState.STOPPED });
+  it('runs settlement + held-shares once for the date — position-grain, no instance loop', async () => {
+    // #1714: the passes sweep all OPEN/ASSIGNED option trades themselves;
+    // instance enumeration is gone, so STOPPED-instance and zombie docs
+    // settle on the same nightly run.
     const settlementCalls: string[] = [];
     const heldSharesCalls: string[] = [];
 
-    const fakeSettlementPass = async (instanceId: string) => {
-      settlementCalls.push(instanceId);
-      return { instanceId, date: marketDate, settled: [], deferred: [], errors: [] };
-    };
-
-    const fakeHeldSharesPass = async (instanceId: string) => {
-      heldSharesCalls.push(instanceId);
-      return { instanceId, date: marketDate, marked: [], deferred: [], errors: [] };
-    };
-
     // The global passes run real Firestore deps by default — inject
     // trivial fakes to keep the test hermetic (same shapes as the
-    // eod-close ordering spec).
-    const fakeEvalPass = async () => ({
-      evaluated: 0, skipsNoMark: 0, governingCloses: 0, shadowExits: 0,
-      stateUpdates: 0, errors: [],
-    });
-    const fakePaperStats = async () => ({ scopesWritten: [], errors: [] });
-    const fakeSignalSettlement = async () => ({
-      marketDate, settled: 0, skipped: 0, errors: [],
-    });
-    const fakeEodClose = async () => ({
-      marketDate, stamped: 0, skipped: 0, skippedNoClose: 0, errors: [],
-    });
+    // eod-close ordering spec). Fakes are typed to the param signatures
+    // directly — no `as unknown as` casts.
+    const fakeSettlementPass: Parameters<typeof runNightlySettlementChain>[1] =
+      async (date: string) => {
+        settlementCalls.push(date);
+        return { date, settled: [], skippedNotExpired: 0, errors: [] };
+      };
 
-    await runSettlementForAllInstances(
+    const fakeHeldSharesPass: Parameters<typeof runNightlySettlementChain>[2] =
+      async (date: string) => {
+        heldSharesCalls.push(date);
+        return { date, marked: [], errors: [] };
+      };
+
+    const fakeEvalPass: Parameters<typeof runNightlySettlementChain>[3] =
+      async () => ({
+        evaluated: 0, skipsNoMark: 0, governingCloses: 0, shadowExits: 0,
+        stateUpdates: 0, errors: [],
+      });
+    const fakePaperStats: Parameters<typeof runNightlySettlementChain>[4] =
+      async () => ({ scopesWritten: [], errors: [] });
+    const fakeSignalSettlement: Parameters<typeof runNightlySettlementChain>[5] =
+      async () => ({
+        marketDate, settled: 0, skipped: 0, errors: [],
+      });
+    const fakeEodClose: Parameters<typeof runNightlySettlementChain>[6] =
+      async () => ({
+        marketDate, stamped: 0, skipped: 0, skippedNoClose: 0, errors: [],
+      });
+
+    const summary = await runNightlySettlementChain(
       marketDate,
-      async () => [instance],
-      fakeSettlementPass as unknown as Parameters<typeof runSettlementForAllInstances>[2],
-      fakeHeldSharesPass as unknown as Parameters<typeof runSettlementForAllInstances>[3],
-      fakeEvalPass as unknown as Parameters<typeof runSettlementForAllInstances>[4],
-      fakePaperStats as unknown as Parameters<typeof runSettlementForAllInstances>[5],
-      fakeSignalSettlement as unknown as Parameters<typeof runSettlementForAllInstances>[6],
-      fakeEodClose as unknown as Parameters<typeof runSettlementForAllInstances>[7],
+      fakeSettlementPass,
+      fakeHeldSharesPass,
+      fakeEvalPass,
+      fakePaperStats,
+      fakeSignalSettlement,
+      fakeEodClose,
     );
 
-    assert.equal(settlementCalls.length, 1);
-    assert.equal(settlementCalls[0], 'STOPPED-1');
-    assert.equal(heldSharesCalls.length, 1);
-    assert.equal(heldSharesCalls[0], 'STOPPED-1');
+    assert.deepEqual(settlementCalls, [marketDate]);
+    assert.deepEqual(heldSharesCalls, [marketDate]);
+    assert.deepEqual(summary, {
+      settled: 0,
+      held: 0,
+      errors: 0,
+    });
+  });
+
+  it('reports a rejecting pass honestly — sibling success is not discarded', async () => {
+    // allSettled: if settlement throws after held-shares committed work,
+    // the summary reports the real marked count and ONE attributed error —
+    // not two fabricated zeroed results.
+    const fakeSettlementPass: Parameters<typeof runNightlySettlementChain>[1] =
+      async () => {
+        throw new Error('firestore unavailable');
+      };
+
+    const fakeHeldSharesPass: Parameters<typeof runNightlySettlementChain>[2] =
+      async (date: string) => ({
+        date,
+        marked: [
+          { positionId: 'pos-9', underlyingClose: 97, currentValue: 9700, unrealizedPnl: -300, markedAt: 'x' },
+        ],
+        errors: [],
+      });
+
+    const summary = await runNightlySettlementChain(
+      marketDate,
+      fakeSettlementPass,
+      fakeHeldSharesPass,
+      async () => ({
+        evaluated: 0, skipsNoMark: 0, governingCloses: 0, shadowExits: 0,
+        stateUpdates: 0, errors: [],
+      }),
+      async () => ({ scopesWritten: [], errors: [] }),
+      async () => ({ marketDate, settled: 0, skipped: 0, errors: [] }),
+      async () => ({ marketDate, stamped: 0, skipped: 0, skippedNoClose: 0, errors: [] }),
+    );
+
+    assert.equal(summary.settled, 0);
+    assert.equal(summary.held, 1);
+    assert.equal(summary.errors, 1);
   });
 });

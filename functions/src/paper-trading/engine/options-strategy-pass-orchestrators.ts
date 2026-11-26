@@ -2,14 +2,16 @@
  * @topic #108 — Options Position Strategy Engine
  *
  * Orchestrator functions shared by the scheduled Cloud Functions and manual
- * HTTP callables. Each orchestrator loads strategy instances, runs the
- * corresponding domain pass for each one, and logs per-instance results.
+ * HTTP callables. Open-passes still enumerate strategy instances; mark,
+ * settlement, and held-shares are position-grain sweeps (#1712/#1714) —
+ * no instance enumeration, so legacy and STOPPED-instance docs run on the
+ * same cadence.
  */
 
 import type { StrategyInstanceConfig } from '@options-strategy-engine/contracts';
 
 import { getMarketDatePT } from '../../common/pt-date-utils';
-import { listActiveInstances, listManageableInstances } from './strategy-instance-repository';
+import { listActiveInstances } from './strategy-instance-repository';
 import { runEodNightlySelection } from './eod-orchestrator';
 import { runOpenPass } from './passes/open-pass';
 import {
@@ -170,38 +172,6 @@ export async function runOptionsOpenPass(
 
 // ── Mark / settlement pass orchestrators ──────────────────────────────────────
 
-/**
- * Run a pass for every manageable strategy instance (ACTIVE, PAUSED, or
- * STOPPED) so existing positions continue to be managed regardless of whether
- * new positions are being opened.
- */
-async function runPassForManageableInstances<T>(
-  passName: string,
-  pass: (instance: StrategyInstanceConfig) => Promise<T>,
-  listInstances: () => Promise<StrategyInstanceConfig[]> = listManageableInstances,
-): Promise<Record<string, T | { error: string }>> {
-  const results: Record<string, T | { error: string }> = {};
-  const instances = await listInstances();
-
-  for (const instance of instances) {
-    if (!instance.phases?.[0]) {
-      log.warn(`No phase configured for ${instance.id}`);
-      continue;
-    }
-
-    try {
-      results[instance.id] = await pass(instance);
-      log.info(`${passName} complete for ${instance.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      log.error(`${passName} failed for ${instance.id}: ${message}`);
-      results[instance.id] = { error: message };
-    }
-  }
-
-  return results;
-}
-
 type MarkPassSummary = {
   positions: number;
   errors: number;
@@ -275,25 +245,18 @@ type SettlementPassSummary = {
 };
 
 /**
- * Run settlement and held-shares marking for every manageable strategy
- * instance against the given market date. Triggered from
- * `checkSyncRunCompletion` after all nightly closing bars are available.
+ * Run the nightly settlement chain against the given market date.
+ * Triggered from `checkSyncRunCompletion` after all nightly closing bars
+ * are available. Settlement + held-shares are position-grain sweeps
+ * (#1714) — no instance enumeration, so legacy zombie docs and trades on
+ * STOPPED instances settle/mark on the same run.
  */
-export async function runSettlementForAllInstances(
+export async function runNightlySettlementChain(
   marketDate: string,
-  listInstances: () => Promise<StrategyInstanceConfig[]> = listManageableInstances,
-  settlementPass: (
-    instanceId: string,
-    date: string,
-    config: StrategyInstanceConfig,
-    deps: { getUnderlyingClose: typeof getUnderlyingCloseForDate },
-  ) => ReturnType<typeof runSettlementPass> = runSettlementPass,
-  heldSharesPass: (
-    instanceId: string,
-    date: string,
-    config: StrategyInstanceConfig,
-    deps: { getUnderlyingClose: typeof getUnderlyingCloseForDate },
-  ) => ReturnType<typeof runHeldSharesMarkPass> = runHeldSharesMarkPass,
+  settlementPass: (date: string) => ReturnType<typeof runSettlementPass> =
+    (date) => runSettlementPass(date, { getUnderlyingClose: getUnderlyingCloseForDate }),
+  heldSharesPass: (date: string) => ReturnType<typeof runHeldSharesMarkPass> =
+    (date) => runHeldSharesMarkPass(date, { getUnderlyingClose: getUnderlyingCloseForDate }),
   evalPass: (date: string) => Promise<ExitEvalSummary> =
     (date) => runExitEvalPass(date, defaultEvalDeps()),
   paperStatsPass: (date: string) => Promise<PaperStatsPassResult> =
@@ -302,7 +265,7 @@ export async function runSettlementForAllInstances(
     (date) => runSignalSettlementPass(date, defaultSignalSettlementDeps(paperDb)),
   signalEodClosePass: (date: string) => Promise<SignalEodClosePassSummary> =
     (date) => runSignalEodClosePass(date, defaultSignalEodCloseDeps(paperDb)),
-): Promise<Record<string, SettlementPassSummary | { error: string }>> {
+): Promise<SettlementPassSummary> {
   // Nightly chain: EOD close stamp → exit-variant eval → settlement →
   // stats. The close stamp runs first so signal trades' marks[date]
   // carries the official SDS close — not the last ~1 PM PT intraday
@@ -337,7 +300,7 @@ export async function runSettlementForAllInstances(
 
   // Signal-source trades have no instance — settle expired option legs
   // globally (#720) so they can't zombie past expiration. Own try/catch:
-  // a failure here must not skip the per-instance settlement loop.
+  // a failure here must not skip the settlement sweep.
   try {
     const sigSummary = await signalSettlementPass(marketDate);
     log.info(
@@ -350,29 +313,43 @@ export async function runSettlementForAllInstances(
     );
   }
 
-  const results = await runPassForManageableInstances(
-    'Settlement pass',
-    async (instance) => {
-      const getClose = getUnderlyingCloseForDate;
-      const [settlement, held] = await Promise.all([
-        settlementPass(instance.id, marketDate, instance, {
-          getUnderlyingClose: getClose,
-        }),
-        heldSharesPass(instance.id, marketDate, instance, {
-          getUnderlyingClose: getClose,
-        }),
-      ]);
-
-      const summary: SettlementPassSummary = {
-        settled: settlement.settled.length,
-        held: held.marked.length,
-        errors: settlement.errors.length + held.errors.length,
-      };
-
-      return summary;
-    },
-    listInstances,
+  // Position-grain sweeps (#1714): one call each over all OPEN/ASSIGNED
+  // option trades — instance enumeration retired so legacy zombies settle
+  // too. allSettled: a throw in one pass must not fabricate a result for
+  // the other — a sibling that committed work reports its real counts and
+  // the failed pass attributes the error once.
+  const toFailure = (reason: unknown, label: string) => ({
+    positionId: label,
+    error: reason instanceof Error ? reason.message : String(reason),
+  });
+  const [settleOutcome, heldOutcome] = await Promise.allSettled([
+    settlementPass(marketDate),
+    heldSharesPass(marketDate),
+  ]);
+  const settlement =
+    settleOutcome.status === 'fulfilled'
+      ? settleOutcome.value
+      : { date: marketDate, settled: [], skippedNotExpired: 0,
+          errors: [toFailure(settleOutcome.reason, '(settlement-sweep)')] };
+  const held =
+    heldOutcome.status === 'fulfilled'
+      ? heldOutcome.value
+      : { date: marketDate, marked: [],
+          errors: [toFailure(heldOutcome.reason, '(held-shares-sweep)')] };
+  if (settleOutcome.status === 'rejected' || heldOutcome.status === 'rejected') {
+    log.error(`Settlement sweep fault for ${marketDate}`);
+  }
+  log.info(
+    `Settlement pass for ${marketDate}: settled=${settlement.settled.length} ` +
+      `skipped=${settlement.skippedNotExpired} held=${held.marked.length} ` +
+      `errors=${settlement.errors.length + held.errors.length}`,
   );
+
+  const summary: SettlementPassSummary = {
+    settled: settlement.settled.length,
+    held: held.marked.length,
+    errors: settlement.errors.length + held.errors.length,
+  };
 
   // Paper-wide rollup scopes (all/inst/var/cohort/sig/sym) — runs once per
   // night after settlement, not per instance.
@@ -388,5 +365,5 @@ export async function runSettlementForAllInstances(
     );
   }
 
-  return results;
+  return summary;
 }

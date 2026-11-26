@@ -25,7 +25,7 @@ import {
   runSignalEodClosePass,
   type SignalEodClosePassDeps,
 } from '../../../functions/src/paper-trading/passes/signal-eod-close-pass';
-import { runSettlementForAllInstances } from '../../../functions/src/paper-trading/engine/options-strategy-pass-orchestrators';
+import { runNightlySettlementChain } from '../../../functions/src/paper-trading/engine/options-strategy-pass-orchestrators';
 
 const MARKET_DATE = '2026-10-15';
 
@@ -201,14 +201,22 @@ describe('runSignalEodClosePass', () => {
   });
 });
 
-describe('runSettlementForAllInstances — eod-close ordering', () => {
+describe('runNightlySettlementChain — eod-close ordering', () => {
   it('stamps EOD closes before the exit eval pass', async () => {
     const order: string[] = [];
-    await runSettlementForAllInstances(
+    await runNightlySettlementChain(
       MARKET_DATE,
-      async () => [], // no instances
-      undefined,      // settlementPass — never called with zero instances
-      undefined,      // heldSharesPass
+      // #1714: settlement + held-shares are position-grain sweeps — no
+      // instance enumeration; inject trivial fakes so the spec stays
+      // hermetic (the defaults hit real Firestore).
+      async () => {
+        order.push('settlement');
+        return { date: MARKET_DATE, settled: [], skippedNotExpired: 0, errors: [] };
+      },
+      async () => {
+        order.push('held-shares');
+        return { date: MARKET_DATE, marked: [], errors: [] };
+      },
       async () => {
         order.push('eval');
         return {
@@ -239,6 +247,13 @@ describe('runSettlementForAllInstances — eod-close ordering', () => {
         };
       },
     );
-    assert.deepEqual(order, ['eod-close', 'eval', 'signal-settlement', 'paper-stats']);
+    assert.deepEqual(order, [
+      'eod-close',
+      'eval',
+      'signal-settlement',
+      'settlement',
+      'held-shares',
+      'paper-stats',
+    ]);
   });
 });

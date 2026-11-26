@@ -9,7 +9,6 @@
 import { OptionType, StrategyFrequency } from '@options/common';
 import { TradeSide } from '@common';
 import { stratType } from './trade-adapter';
-import type { PositionLeg } from './types';
 
 /** Minimal config shape needed to build a position ID. */
 export interface PositionIdConfig {
@@ -47,9 +46,4 @@ export function buildLegId(
   const normalizedStrike = strike.toFixed(2);
   const typeLabel = type === OptionType.CALL ? 'CALL' : 'PUT';
   return `${typeLabel}-${normalizedStrike}-${expiration}`;
-}
-
-/** Find the primary leg (the one with a contractID) from a position's legs. */
-export function findPrimaryLeg(legs: PositionLeg[]): PositionLeg | undefined {
-  return legs.find((leg) => leg.contractID);
 }

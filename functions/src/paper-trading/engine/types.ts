@@ -59,6 +59,8 @@ export interface PositionAssignment {
 }
 
 export interface PositionShares {
+  /** Contracts held — NOT share count (×100 = shares). The name is a
+   *  legacy wart: the FE renders it raw, so "1" means 100 shares. */
   quantity: number;
   costBasis: number;
 }
@@ -142,6 +144,16 @@ export interface SettlementData {
   unrealizedPnl: number;
   assignment?: PositionAssignment;
   shares?: PositionShares;
+  /** Net delivered-strike cash in contract units (Σ sideSign×strike×qty over
+   *  assigned legs, + = shares delivered to the account). Booked as real cash
+   *  movement even when legs offset to flat — a fully-ITM spread pays the
+   *  width. Absent → derived from assignment.strikePrice × shares.quantity. */
+  deliveryCash?: number;
+  /** Order-level exit price per contract unit for the governing variant
+   *  run — net order intrinsic when legs deliver, 0 for pure worthless
+   *  expiry. Absent → derived from the first leg outcome (single-leg
+   *  convention). */
+  orderExitPrice?: number;
 }
 
 /** Leg outcome update written to each leg document at settlement. */

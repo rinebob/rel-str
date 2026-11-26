@@ -17,7 +17,7 @@ import { logger } from 'firebase-functions';
 import { startStRun } from '../common/st-orchestration';
 import {
   runOptionsSelectionPass,
-  runSettlementForAllInstances,
+  runNightlySettlementChain,
 } from '../options-strategy-engine/options-strategy-pass-orchestrators';
 
 interface ConsumerDispatchPayload {
@@ -51,7 +51,7 @@ export const sdsConsumerDispatch = onTaskDispatched<ConsumerDispatchPayload>(
       case 'settlement':
       case 'settlement-scoped':
         // Scoped variant runs full settlement for now.
-        await runSettlementForAllInstances(marketDate);
+        await runNightlySettlementChain(marketDate);
         logger.info('sds_consumer_dispatch_settlement_done', { consumer, marketDate });
         break;
 
