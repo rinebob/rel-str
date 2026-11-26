@@ -10,7 +10,7 @@
 **Type:** CODE-REVIEW  
 **Status:** Complete  
 **Created:** 2026-11-25  
-**Last Updated:** 2026-11-25  
+**Last Updated:** 2026-11-26  
 
 # Code Review — #1655: FE-IMPL chart + signal markers on /signals/symbol-review
 

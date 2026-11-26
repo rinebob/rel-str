@@ -10,7 +10,7 @@
 **Type:** UAT  
 **Status:** Complete  
 **Created:** 2026-11-25  
-**Last Updated:** 2026-11-25  
+**Last Updated:** 2026-11-26  
 
 # UAT — #1655 FE-IMPL: chart + signal markers on /signals/symbol-review (Phase 3)
 
