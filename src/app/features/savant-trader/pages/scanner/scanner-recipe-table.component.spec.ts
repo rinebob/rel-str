@@ -6,13 +6,18 @@
  * tracked badge, dedupe, and the click-cycle multi-sort.
  */
 import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 
 import { ScannerRecipeTableComponent } from './scanner-recipe-table.component';
+import { ScannerChartPopupComponent } from './scanner-chart-popup.component';
 import { ChartPopupController } from './chart-popup.controller';
 import { ScannerChartStore } from '../../stores/scanner-chart.store';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
+import { GalleryCardChartComponent } from '../../components/gallery-card-chart/gallery-card-chart.component';
+import type { GalleryCard } from '../../utils/gallery-cards.util';
 import type { RecipeRunState } from '../../stores/scanner.store';
 import {
   SCANNER_RECIPES,
@@ -23,6 +28,15 @@ import type {
   ScanResultRow,
 } from '@robinhood-mcp/contracts';
 import type { SymbolListDef } from '../../common/symbol-list-defs';
+
+@Component({
+  selector: 'app-gallery-card-chart',
+  standalone: true,
+  template: '',
+})
+class GalleryCardChartStub {
+  card = input.required<GalleryCard>();
+}
 
 /** The 6 exclusive triage lists in catalog order — the row menu's
  *  option set (#1306). */
@@ -124,8 +138,9 @@ describe('ScannerRecipeTableComponent', () => {
         provideZonelessChangeDetection(),
         provideNoopAnimations(),
         provideRouter([]),
-        // The popup injects ScannerChartStore (#1308) — stub it or DI
-        // would pull the real MCP/HttpClient graph when a popup opens.
+        // The popup injects ScannerChartStore (#1308) +
+        // GalleryCardChartStore (#1309) — stub both or DI would pull
+        // the real MCP/HttpClient graph when a popup opens.
         {
           provide: ScannerChartStore,
           useValue: {
@@ -136,8 +151,17 @@ describe('ScannerRecipeTableComponent', () => {
             clearError: jest.fn(),
           },
         },
+        { provide: GalleryCardChartStore, useValue: { ensureBars: jest.fn() } },
       ],
-    }).compileComponents();
+    })
+      // The tracked fork mounts the real card chart — stub it at the
+      // popup's component seam (Syncfusion + IntersectionObserver can't
+      // run under jsdom).
+      .overrideComponent(ScannerChartPopupComponent, {
+        remove: { imports: [GalleryCardChartComponent] },
+        add: { imports: [GalleryCardChartStub] },
+      })
+      .compileComponents();
   });
 
   it('renders the recipe header: title, blurb, N of M, sorted_by, ran-at', () => {
@@ -962,6 +986,19 @@ describe('ScannerRecipeTableComponent', () => {
       );
       expect(popups()).toHaveLength(0);
       open.mockRestore();
+    });
+
+    it('a tracked row mounts the gallery card chart fork (#1309)', () => {
+      mount(
+        GAINERS,
+        run({ result: result([wireRow('AAPL')]) }),
+        new Set(['AAPL']),
+      );
+      openPopup(bodyRows()[0]);
+      const popup = popups()[0];
+      expect(popup.querySelector('.popup-body')!.getAttribute('data-mode'))
+        .toBe('tracked');
+      expect(popup.querySelector('app-gallery-card-chart')).not.toBeNull();
     });
 
     it('destroying the table with a pending close does not throw or fire the timer', () => {

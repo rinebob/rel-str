@@ -1,11 +1,11 @@
 /**
- * ScannerChartPopupComponent spec (#1098/#1307+#1308) — the chart popup
- * chrome rendered inside the recipe table's cdkConnectedOverlay. Pins the
- * header (symbol + name), the tracked-mode fork, and the fetch-state
- * shells; the untracked fork's chart body is store-driven — the spec
- * stubs ScannerChartStore at the provider seam and FlexChartComponent at
- * the component seam (gallery-card-chart precedent — Syncfusion can't
- * run under jsdom).
+ * ScannerChartPopupComponent spec (#1098/#1307+#1308+#1309) — the chart
+ * popup chrome rendered inside the recipe table's cdkConnectedOverlay.
+ * Pins the header (symbol + name), both body forks, and the fetch-state
+ * shells; both chart bodies are store-driven — the spec stubs
+ * ScannerChartStore + GalleryCardChartStore at the provider seam and
+ * FlexChartComponent + GalleryCardChartComponent at the component seam
+ * (Syncfusion can't run under jsdom).
  */
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { Component, input } from '@angular/core';
@@ -14,6 +14,9 @@ import { By } from '@angular/platform-browser';
 
 import { ScannerChartPopupComponent } from './scanner-chart-popup.component';
 import { ScannerChartStore } from '../../stores/scanner-chart.store';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
+import { GalleryCardChartComponent } from '../../components/gallery-card-chart/gallery-card-chart.component';
+import type { GalleryCard } from '../../utils/gallery-cards.util';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import type {
   FlexChartConfig,
@@ -30,6 +33,15 @@ class FlexChartStub {
   chartData = input<FlexChartDataset | null>();
   config = input<FlexChartConfig>();
   height = input<string>();
+}
+
+@Component({
+  selector: 'app-gallery-card-chart',
+  standalone: true,
+  template: '',
+})
+class GalleryCardChartStub {
+  card = input.required<GalleryCard>();
 }
 
 const pb = (date: string, close: number): PriceBar => ({
@@ -52,6 +64,7 @@ describe('ScannerChartPopupComponent', () => {
     ensureBars: jest.Mock;
     clearError: jest.Mock;
   };
+  let cardStore: { ensureBars: jest.Mock };
 
   function mount(extras: {
     name?: string;
@@ -84,16 +97,18 @@ describe('ScannerChartPopupComponent', () => {
       ensureBars: jest.fn(),
       clearError: jest.fn(),
     };
+    cardStore = { ensureBars: jest.fn() };
     await TestBed.configureTestingModule({
       imports: [ScannerChartPopupComponent],
       providers: [
         provideZonelessChangeDetection(),
         { provide: ScannerChartStore, useValue: chartStore },
+        { provide: GalleryCardChartStore, useValue: cardStore },
       ],
     })
       .overrideComponent(ScannerChartPopupComponent, {
-        remove: { imports: [FlexChartComponent] },
-        add: { imports: [FlexChartStub] },
+        remove: { imports: [FlexChartComponent, GalleryCardChartComponent] },
+        add: { imports: [FlexChartStub, GalleryCardChartStub] },
       })
       .compileComponents();
   });
@@ -190,13 +205,9 @@ describe('ScannerChartPopupComponent', () => {
       expect(chartStore.ensureBars).toHaveBeenCalledWith('AAPL');
     });
 
-    it('does not fetch for tracked rows — the #1309 path stays untouched', () => {
+    it('does not fetch via the scanner store for tracked rows — the gallery store owns that path', () => {
       mount({ tracked: true });
       expect(chartStore.ensureBars).not.toHaveBeenCalled();
-      expect(el().querySelector('[data-testid="popup-chart"]')).toBeNull();
-      expect(
-        el().querySelector('.popup-body')!.textContent,
-      ).toContain('Loading chart');
     });
 
     it('settled bars mount the flex chart — candle dataset + three SMA lines', () => {
@@ -325,6 +336,68 @@ describe('ScannerChartPopupComponent', () => {
       expect(
         el().querySelector('.popup-body [role="progressbar"]'),
       ).not.toBeNull();
+    });
+  });
+
+  describe('tracked body (#1309)', () => {
+    const stub = () =>
+      fixture.debugElement.query(By.directive(GalleryCardChartStub))
+        ?.componentInstance as GalleryCardChartStub | undefined;
+
+    it('mounts app-gallery-card-chart on open — not the candle path', () => {
+      mount({ tracked: true });
+      expect(
+        el().querySelector('app-gallery-card-chart'),
+      ).not.toBeNull();
+      expect(
+        fixture.debugElement.query(By.directive(FlexChartStub)),
+      ).toBeNull();
+    });
+
+    it('calls GalleryCardChartStore.ensureBars with the symbol on open', () => {
+      mount({ tracked: true });
+      expect(cardStore.ensureBars).toHaveBeenCalledWith('AAPL');
+    });
+
+    it('feeds a fabricated minimal GalleryCard — scan key, symbol, no fake dots', () => {
+      mount({ tracked: true });
+      const card = stub()!.card();
+      expect(card.key).toBe('scan-AAPL');
+      expect(card.symbol).toBe('AAPL');
+      expect(card.allOccurrences).toEqual([]);
+      expect(card.occurrences).toEqual([]);
+    });
+
+    it('auth state still wins over the chart — the reauth affordance shows', () => {
+      mount({ tracked: true, state: 'auth' });
+      const body = el().querySelector('.popup-body')!;
+      expect(body.textContent).toContain('Re-authorize');
+      expect(el().querySelector('app-gallery-card-chart')).toBeNull();
+      let fired = 0;
+      fixture.componentInstance.reauth.subscribe(() => fired++);
+      body.querySelector<HTMLButtonElement>('button')!.click();
+      expect(fired).toBe(1);
+      // The tracked path has no per-symbol retry — the card remounts on
+      // state flip and its own mount effect re-ensures.
+      expect(chartStore.clearError).not.toHaveBeenCalled();
+    });
+
+    it('does not burn the gallery store slot under the auth shell — warms on release', () => {
+      mount({ tracked: true, state: 'auth' });
+      // A fetch fired into a dead session settles a terminal error/empty
+      // slot (no per-symbol clear on the gallery store) — the card's own
+      // post-reauth ensure would no-op on it forever.
+      expect(cardStore.ensureBars).not.toHaveBeenCalled();
+      fixture.componentRef.setInput('state', 'loading');
+      fixture.detectChanges();
+      expect(cardStore.ensureBars).toHaveBeenCalledWith('AAPL');
+    });
+
+    it('explicit error state renders the error shell, not the chart', () => {
+      mount({ tracked: true, state: 'error' });
+      const body = el().querySelector('.popup-body')!;
+      expect(body.textContent).toContain('Chart unavailable');
+      expect(el().querySelector('app-gallery-card-chart')).toBeNull();
     });
   });
 });

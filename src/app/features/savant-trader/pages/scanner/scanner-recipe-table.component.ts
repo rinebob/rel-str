@@ -298,11 +298,13 @@ export class ScannerRecipeTableComponent {
     window.open(url, '_blank');
   }
 
-  /** #1308/#1309 land the per-symbol fetch states — 'auth' (session-global
-   *  errorKind, the only failure shape reachable today) and 'loading' are
-   *  all the infra can produce; the 'error' shell and `error` input stay
-   *  dormant until those tasks. `requiresReauth` is deliberately not
-   *  wired — it's the dead single-run channel; auth is session-global. */
+  /** The infra's per-symbol fetch shells — 'auth' (session-global
+   *  errorKind, the only failure shape reachable here) and 'loading'.
+   *  The untracked fork refines 'loading' against its own store slots
+   *  (#1308); the tracked fork mounts the gallery card chart off it
+   *  (#1309) — the card renders its own placeholders. `requiresReauth`
+   *  is deliberately not wired — it's the dead single-run channel;
+   *  auth is session-global. */
   protected chartPopupStateFor(_row: ScanRow): ScannerChartPopupState {
     return this.chartAuth() ? 'auth' : 'loading';
   }

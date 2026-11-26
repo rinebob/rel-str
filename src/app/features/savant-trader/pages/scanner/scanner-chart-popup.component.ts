@@ -1,16 +1,19 @@
 /**
- * @topic #1098 — RH Scanner | @task #1307/#1308
+ * @topic #1098 — RH Scanner | @task #1307/#1308/#1309
  *
  * Scanner chart popup — chrome + chart body for the row `show_chart`
  * action. Rendered inside the recipe table's cdkConnectedOverlay
  * (chain-cell-popup precedent, #965): the table owns the anchor, hover
  * intent, and close grace.
  *
- * One `bodyView` switch drives the body — the tracked fork renders the
- * `state`-input shells until #1309 mounts the gallery card chart; the
- * untracked fork is ScannerChartStore-driven (loading → error/auth →
- * candle chart + SMA overlays). A session-level non-loading `state`
- * input wins over the store so the page's auth gate always shows.
+ * One `bodyView` switch drives the body — the tracked fork mounts
+ * `app-gallery-card-chart` on a fabricated minimal `GalleryCard`
+ * (tracked symbols already live in the gallery domain — bars, the
+ * per-card D/W chip, and the mount queue all come with it; the card's
+ * own loading/unavailable placeholders render inside). The untracked
+ * fork is ScannerChartStore-driven (loading → error/auth → candle
+ * chart + SMA overlays). A session-level non-loading `state` input
+ * wins over either fork so the page's auth gate always shows.
  * Auth failures are session-global (`errorKind: 'auth'` semantics) —
  * the popup emits `reauth` and the page runs the same flow as its
  * banner; untracked rows also clear + retry their own fetch so the
@@ -28,6 +31,7 @@ import {
 } from '@angular/core';
 
 import { BarsInterval } from '../../../../core/models/partner.types';
+import { GalleryCardChartComponent } from '../../components/gallery-card-chart/gallery-card-chart.component';
 import { FlexChartComponent } from '../../../shared/components/flex-chart/flex-chart.component';
 import {
   ChartIntervalKey,
@@ -36,6 +40,9 @@ import {
   type IndicatorConfig,
 } from '../../../shared/components/flex-chart/flex-chart.types';
 import { ScannerChartStore } from '../../stores/scanner-chart.store';
+import { GalleryCardChartStore } from '../../stores/gallery-card-chart.store';
+import { SignalDirection } from '../../../shared/constants/signal-direction';
+import type { GalleryCard } from '../../utils/gallery-cards.util';
 import { normScanSymbol } from '../../utils/scanner-rows.util';
 import {
   smaOverlays,
@@ -59,7 +66,7 @@ const POPUP_VISIBLE_BARS = 60;
 @Component({
   selector: 'app-scanner-chart-popup',
   standalone: true,
-  imports: [FlexChartComponent],
+  imports: [FlexChartComponent, GalleryCardChartComponent],
   template: `
     <div
       class="chart-popup"
@@ -90,11 +97,15 @@ const POPUP_VISIBLE_BARS = 60;
         @switch (bodyView()) {
           @case ('chart') {
             <div class="popup-chart" data-testid="popup-chart">
-              <app-flex-chart
-                [chartData]="popupDataset()"
-                [config]="popupConfig()"
-                height="100%"
-              ></app-flex-chart>
+              @if (tracked()) {
+                <app-gallery-card-chart [card]="scanCard()" />
+              } @else {
+                <app-flex-chart
+                  [chartData]="popupDataset()"
+                  [config]="popupConfig()"
+                  height="100%"
+                ></app-flex-chart>
+              }
             </div>
           }
           @case ('empty') {
@@ -210,6 +221,7 @@ const POPUP_VISIBLE_BARS = 60;
 export class ScannerChartPopupComponent {
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly chartStore = inject(ScannerChartStore);
+  private readonly cardStore = inject(GalleryCardChartStore);
 
   readonly symbol = input.required<string>();
   /** Row display name (wire 'Name' column) — blank for most recipes. */
@@ -232,19 +244,32 @@ export class ScannerChartPopupComponent {
   private readonly sym = computed(() => normScanSymbol(this.symbol()));
 
   constructor() {
-    // Untracked rows fetch on mount — ensureBars dedupes in-flight work
-    // and treats settled errors as terminal, so popup re-opens are free.
+    // Fetch on mount — each fork's store dedupes in-flight work and
+    // treats settled errors as terminal, so popup re-opens are free.
+    // For tracked rows this is only the render-warming prefetch; the
+    // card chart's own mount effect also ensures. Skip the warm call
+    // under the auth shell: the gallery store has no per-symbol clear
+    // (the untracked fork heals via the reauth click's clear+retry),
+    // so an ensure fired into a dead session settles an error/empty
+    // slot that strands the post-reauth mount on 'unavailable' — when
+    // state flips back, the effect refires and warms clean.
     effect(() => {
-      if (!this.tracked()) this.chartStore.ensureBars(this.sym());
+      if (this.tracked()) {
+        if (this.state() !== 'auth') this.cardStore.ensureBars(this.sym());
+      } else {
+        this.chartStore.ensureBars(this.sym());
+      }
     });
   }
 
-  /** One switch for both forks: tracked rows read the `state` input
-   *  outright (infra shells until #1309); untracked rows let an
+  /** One switch for both forks: tracked rows mount the card chart off
+   *  the infra's 'loading' default — the card renders its own loading/
+   *  unavailable placeholders internally — while explicit error/auth
+   *  inputs still win (the session-global gate); untracked rows let an
    *  explicit non-loading input win, then the store's settled slots. */
   readonly bodyView = computed<PopupBodyView>(() => {
     const s = this.state();
-    if (this.tracked()) return s;
+    if (this.tracked()) return s === 'loading' ? 'chart' : s;
     if (s !== 'loading') return s;
     const err = this.chartStore.error()[this.sym()];
     if (err) return err.auth ? 'auth' : 'error';
@@ -252,6 +277,23 @@ export class ScannerChartPopupComponent {
     if (bars === undefined) return 'loading';
     return bars.length > 0 ? 'chart' : 'empty';
   });
+
+  /** The tracked fork's fabricated card — the chart reads `symbol` (bar
+   *  lookups) and `allOccurrences` (card dots, intentionally empty — a
+   *  scan row has no signal membership). The rest is inert shape; the
+   *  card's own chrome (D/W chip, ±bars) still works off it. */
+  readonly scanCard = computed<GalleryCard>(() => ({
+    key: `scan-${this.sym()}`,
+    symbol: this.sym(),
+    side: 'buy',
+    direction: SignalDirection.LONG,
+    profile: { symbol: this.sym(), enabled: true, createdAt: '' },
+    occurrences: [],
+    allOccurrences: [],
+    status: 'pending',
+    allRejected: false,
+    actionedAt: '',
+  }));
 
   readonly storeError = computed(
     () => this.chartStore.error()[this.sym()]?.message ?? null,
@@ -319,7 +361,9 @@ export class ScannerChartPopupComponent {
   /** Re-authorize click — emit for the page flow AND clear+retry this
    *  symbol so the settled auth slot can't strand the view. A retry
    *  that lands before reauth completes just settles 'auth' again —
-   *  self-correcting, never stuck. */
+   *  self-correcting, never stuck. The tracked fork needs no retry:
+   *  the card unmounts under the auth shell and its mount effect
+   *  re-ensures when state flips back. */
   onReauth(): void {
     if (!this.tracked()) {
       this.chartStore.clearError(this.sym());
