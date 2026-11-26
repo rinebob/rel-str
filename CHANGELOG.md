@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-11-26]
+
+### Added
+- [SA IV Data] 1737-1747_SHARED-IMPL-IMP-VOL: @iv-metrics/contracts module + alias registration (Thread #1738, Blueprint #1745) — new shared/iv-metrics-contracts.ts exporting IvRankWindow (30|60|180|360 calendar-day windows), IV_RANK_WINDOWS const, IvMetricField, IvMetricsRequest/Row/Response, IvRankSortField, IvRankDirection, IvRankRequest/Row/Response, GetIvMetricsRequest/GetIvRankRequest type aliases; echo fields narrowed to IvMetricField[]/IvRankSortField/IvRankDirection; absent-key semantics preserved (ivN{W} optional on IvMetricsRow, required on IvRankRow; rank/pct optional everywhere); 22-pin spec imported via the @iv-metrics/contracts alias (registered in root tsconfig, functions tsconfig, jest moduleNameMapper)
+- [SA IV Data] 1737-1747_DOCS-IMP-VOL: PRD + IMPL/TEST (SHARED Complete; BE Draft for #1748–#1750) + CODE-REVIEW (PASS — 1 major + minors remediated in-gate: echo-field narrowing, calendar-day windows, type aliases, IV_RANK_WINDOWS pin) + UAT (Complete, #1755 — S1–S4 command-line verified incl. functions-side consumer compile) + changelog
+
 ## [2026-11-25]
 
 ### Added
