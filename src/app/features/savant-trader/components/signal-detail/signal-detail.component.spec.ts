@@ -518,3 +518,102 @@ describe('SignalDetailComponent — hoisted toolbar state (#1255)', () => {
     expect(toolbarState.activeChartInterval()).toBe(BarsInterval.MONTHLY);
   });
 });
+
+// =============================================================================
+// Review occurrence markers (#1655) — the symbol-review pane feeds its
+// occurrence scatter points in through the `reviewMarkers` input. They land
+// on the DAILY chart only (bundle occurrences are daily-signal scoped) and
+// are not an indicator-menu selection — always present when the host passes
+// points, absent when the input is empty.
+// =============================================================================
+
+describe('SignalDetailComponent — review occurrence markers (#1655)', () => {
+  let fixture: ComponentFixture<SignalDetailComponent>;
+  let toolbarState: ChartToolbarStateService;
+
+  const markers: { x: Date; y: number; color?: string }[] = [
+    { x: new Date('2026-11-14T00:00:00Z'), y: 350.69, color: '#8bc34a' },
+    { x: new Date('2026-11-09T00:00:00Z'), y: 341.0, color: '#4caf5059' },
+  ];
+
+  const mockChartStore = {
+    symbolDataVersion: signal('v1'),
+    dailyData: signal({ bars: [bar] }),
+    weeklyData: signal({ bars: [bar] }),
+    monthlyData: signal({ bars: [bar] }),
+    loading: signal(false),
+    error: signal(null),
+    clearCharts: jest.fn(),
+    loadCharts: jest.fn(),
+  };
+
+  const mockUiState = {
+    chartLayout: signal(ChartLayout.TRIPLE),
+    fullscreen: signal(false),
+    toggleChartLayout: jest.fn(),
+    toggleFullscreen: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    mockUiState.chartLayout.set(ChartLayout.TRIPLE);
+    await TestBed.configureTestingModule({
+      imports: [SignalDetailComponent],
+      providers: [
+        ChartToolbarStateService,
+        { provide: ChartStore, useValue: mockChartStore },
+        { provide: SymbolHistoryStore, useValue: { loadSignalHistory: jest.fn() } },
+        { provide: IndicatorSeriesStore, useValue: { responseFor: () => () => undefined, loadIfNeeded: jest.fn() } },
+        { provide: UiStateService, useValue: mockUiState },
+      ],
+    })
+      .overrideComponent(SignalDetailComponent, {
+        remove: { imports: [FlexChartComponent, ChartToolbarComponent, SymbolListActionsComponent] },
+        add: { imports: [MockFlexChartComponent, MockChartToolbarComponent, MockSymbolListActionsComponent] },
+      })
+      .compileComponents();
+
+    toolbarState = TestBed.inject(ChartToolbarStateService);
+    fixture = TestBed.createComponent(SignalDetailComponent);
+    fixture.componentRef.setInput('manualSymbol', 'QQQ');
+    fixture.componentRef.setInput('listCatalog', []);
+    fixture.detectChanges();
+  });
+
+  function chartConfigs(): FlexChartConfig[] {
+    return fixture.debugElement
+      .queryAll(By.directive(MockFlexChartComponent))
+      .map((el) => el.componentInstance.config());
+  }
+
+  // Triple DOM order: weekly, monthly, daily.
+  const REVIEW_ID = 'st-review-occurrence-dots';
+  const hasReview = (c: FlexChartConfig) => c.indicators.some((i) => i.id === REVIEW_ID);
+
+  it('injects the markers onto the daily chart only in triple layout', () => {
+    fixture.componentRef.setInput('reviewMarkers', markers);
+    fixture.detectChanges();
+
+    expect(hasReview(chartConfigs()[0])).toBe(false); // weekly
+    expect(hasReview(chartConfigs()[1])).toBe(false); // monthly
+    const daily = chartConfigs()[2].indicators.find((i) => i.id === REVIEW_ID);
+    expect(daily?.pane).toBe('overlay');
+    expect(daily?.data).toEqual(markers);
+  });
+
+  it('empty input adds no series — the chart stays base-config', () => {
+    expect(chartConfigs().every((c) => !hasReview(c))).toBe(true);
+  });
+
+  it('single-mode daily config carries the series; weekly does not', () => {
+    fixture.componentRef.setInput('reviewMarkers', markers);
+    mockUiState.chartLayout.set(ChartLayout.SINGLE);
+    toolbarState.setInterval(BarsInterval.DAILY);
+    fixture.detectChanges();
+    expect(chartConfigs()).toHaveLength(1);
+    expect(hasReview(chartConfigs()[0])).toBe(true);
+
+    toolbarState.setInterval(BarsInterval.WEEKLY);
+    fixture.detectChanges();
+    expect(hasReview(chartConfigs()[0])).toBe(false);
+  });
+});

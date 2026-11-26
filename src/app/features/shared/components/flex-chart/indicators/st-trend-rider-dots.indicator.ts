@@ -109,9 +109,10 @@ export interface UptickDotResult {
 export type UptickDotsIbsFilter = IbsFilterContext;
 
 /**
- * Compute a simple ATR(14) for offset sizing.
+ * Compute a simple ATR(14) for offset sizing — the shared dot-placement
+ * yardstick (zone dots BE-side use the same seed+smoothing math).
  */
-function computeATR(bars: PriceBar[], period = 14): number[] {
+export function computeATR(bars: PriceBar[], period = 14): number[] {
   const atr: number[] = new Array(bars.length).fill(0);
   if (bars.length < 2) return atr;
 
@@ -138,7 +139,7 @@ function computeATR(bars: PriceBar[], period = 14): number[] {
   return atr;
 }
 
-const ATR_OFFSET_MULT = 2.5;
+export const ATR_OFFSET_MULT = 2.5;
 
 /** Shared bar lookup + ATR offset context for dot placement. */
 interface DotPlacementContext {

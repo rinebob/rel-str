@@ -151,6 +151,28 @@ export function addSuppressedDots(
   return [...indicators.filter(i => i.id !== cfg.id), cfg];
 }
 
+/** The symbol-review occurrence overlay's indicator id (#1655) — a
+ *  sibling of the uptick-dots family (same scatter type, own id so it
+ *  upserts independently of any selected dots series). */
+export const REVIEW_OCCURRENCE_DOTS_ID = 'st-review-occurrence-dots';
+
+/** Add the symbol-review occurrence dots, returning a new indicator list.
+ *  Not a menu-selectable extra — the host page feeds points directly, so
+ *  this builder is invoked by input rather than by ChartExtras. Upserts by
+ *  id (same `addSuppressedDots` pattern — distinct id, shared scatter type). */
+export function addReviewMarkers(
+  indicators: IndicatorConfig[],
+  data: ChartScatterPoint[],
+): IndicatorConfig[] {
+  if (data.length === 0) return indicators;
+  const cfg = buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR);
+  cfg.id = REVIEW_OCCURRENCE_DOTS_ID;
+  cfg.options = { ...cfg.options, name: 'Review signals' };
+  cfg.pane = 'overlay';
+  cfg.data = data;
+  return [...indicators.filter(i => i.id !== cfg.id), cfg];
+}
+
 /** Add the Trigger Bands pullback/breakout dots, returning a new indicator list. Upserts by id. */
 export function addTriggerBandsDots(
   indicators: IndicatorConfig[],

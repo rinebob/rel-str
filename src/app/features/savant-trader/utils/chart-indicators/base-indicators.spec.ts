@@ -1,5 +1,12 @@
 import { ChartIntervalKey, StIndicator } from '../../../shared/components/flex-chart/flex-chart.types';
-import { addChartExtras, buildBaseIndicators, buildConfigForId, type ChartScatterPoint } from './base-indicators';
+import {
+  addChartExtras,
+  addReviewMarkers,
+  buildBaseIndicators,
+  buildConfigForId,
+  REVIEW_OCCURRENCE_DOTS_ID,
+  type ChartScatterPoint,
+} from './base-indicators';
 import {
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
   ST_ZONE_V2_UPTICK_DOTS_INDICATOR,
@@ -59,5 +66,41 @@ describe('addChartExtras — IBS-suppressed dots series (#1679)', () => {
     });
     expect(out.some(c => c.id === 'st-zone-v1-uptick-dots-default-suppressed')).toBe(true);
     expect(out.some(c => c.id === 'st-zone-v2-uptick-dots-default-suppressed')).toBe(true);
+  });
+});
+
+describe('addReviewMarkers — symbol-review occurrence dots (#1655)', () => {
+  const dots: ChartScatterPoint[] = [
+    { x: new Date('2026-11-14T00:00:00Z'), y: 350.69, color: ST_UPTICK_DOT_COLORS.v2Long },
+    { x: new Date('2026-11-09T00:00:00Z'), y: 341.0, color: ST_UPTICK_DOT_COLORS.v1Long + '59' },
+  ];
+  const base = [buildDefaultConfig(ST_ZONE_V1_UPTICK_DOTS_INDICATOR)];
+
+  it('appends one overlay series under its own id with the points verbatim', () => {
+    const out = addReviewMarkers(base, dots);
+    const cfg = out.find(c => c.id === REVIEW_OCCURRENCE_DOTS_ID);
+    expect(cfg).toBeTruthy();
+    expect(cfg!.pane).toBe('overlay');
+    expect(cfg!.data).toEqual(dots);
+    // Same scatter type as the uptick-dots family — the renderer draws
+    // dots; the distinct id keeps it a sibling, never a merge.
+    expect(cfg!.type).toBe(StIndicator.ZONE_UPTICK_DOTS);
+  });
+
+  it('returns the list unchanged when the marker set is empty', () => {
+    expect(addReviewMarkers(base, [])).toBe(base);
+  });
+
+  it('upserts by id — a second call replaces the series, never duplicates', () => {
+    const once = addReviewMarkers(base, dots);
+    const twice = addReviewMarkers(once, [{ x: new Date('2026-11-20T00:00:00Z'), y: 360 }]);
+    const series = twice.filter(c => c.id === REVIEW_OCCURRENCE_DOTS_ID);
+    expect(series).toHaveLength(1);
+    expect(series[0].data).toHaveLength(1);
+  });
+
+  it('leaves the sibling uptick-dots series untouched', () => {
+    const out = addReviewMarkers(base, dots);
+    expect(out.find(c => c.id === ST_ZONE_V1_UPTICK_DOTS_INDICATOR.id + '-default')).toBe(base[0]);
   });
 });

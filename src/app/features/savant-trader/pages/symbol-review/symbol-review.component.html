@@ -41,33 +41,46 @@
     </aside>
 
     <section class="detail-wrapper">
-      @if (store.bundleLoading()) {
-        <div class="pane-placeholder"><span class="dse-spinner"></span> Loading {{ store.selectedSymbol() }}…</div>
-      } @else if (store.selectedSymbol() === null) {
+      @if (!store.selectedSymbol()) {
         <div class="pane-placeholder">Select a symbol to review its signals.</div>
-      } @else if (store.bundle(); as bundle) {
-        @if (bundle.symbol === store.selectedSymbol()) {
-          @if (bundle.occurrences.length === 0) {
-            <div class="pane-placeholder">No un-groomed signals for {{ bundle.symbol }}.</div>
-          } @else {
-            <!-- Phase 3 lands the chart stack beside this list. -->
-            <app-occurrence-list
-              [occurrences]="bundle.occurrences"
-              [dividerIndex]="store.dividerIndex()"
-              [togglePending]="store.togglePending()"
-              [rowErrors]="store.rowErrors()"
-              (toggle)="onToggle($event)" />
-          }
-        } @else {
-          <!-- Kept bundle is keyed to another symbol — a failed select left
-               it behind. Never render it under the new selection. -->
-          <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
-        }
       } @else {
-        <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
-      }
-      @if (store.bundleError(); as berr) {
-        <div class="error-banner">{{ berr }}</div>
+        <div class="list-pane">
+          @if (store.bundleLoading()) {
+            <div class="pane-placeholder"><span class="dse-spinner"></span> Loading {{ store.selectedSymbol() }}…</div>
+          } @else if (store.bundle(); as bundle) {
+            @if (bundle.symbol === store.selectedSymbol()) {
+              @if (bundle.occurrences.length === 0) {
+                <div class="pane-placeholder">No un-groomed signals for {{ bundle.symbol }}.</div>
+              } @else {
+                <app-occurrence-list
+                  [occurrences]="bundle.occurrences"
+                  [dividerIndex]="store.dividerIndex()"
+                  [togglePending]="store.togglePending()"
+                  [rowErrors]="store.rowErrors()"
+                  (toggle)="onToggle($event)" />
+              }
+            } @else {
+              <!-- Kept bundle is keyed to another symbol — a failed select left
+                   it behind. Never render it under the new selection. -->
+              <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
+            }
+          } @else {
+            <div class="pane-placeholder">Could not load {{ store.selectedSymbol() }}.</div>
+          }
+          @if (store.bundleError(); as berr) {
+            <div class="error-banner">{{ berr }}</div>
+          }
+        </div>
+        <!-- Chart mounts the moment a symbol is selected — bar/indicator
+             loads run in parallel with the bundle fetch; markers fill in
+             as the bundle lands. -->
+        <app-signal-detail
+          class="chart-pane"
+          [manualSymbol]="store.selectedSymbol()"
+          [listCatalog]="[]"
+          [showToolbar]="false"
+          [reviewMarkers]="reviewMarkers()">
+        </app-signal-detail>
       }
     </section>
   </div>

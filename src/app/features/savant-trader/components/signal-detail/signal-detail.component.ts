@@ -38,7 +38,9 @@ import {
   buildBaseIndicators,
   buildConfigForId,
   addChartExtras,
+  addReviewMarkers,
   createExtrasSignals,
+  type ChartScatterPoint,
   ST_ZONE_WINDOW_MONTHLY_INDICATOR,
   ST_ZONE_WINDOW_WEEKLY_INDICATOR,
   ST_ZONE_V1_UPTICK_DOTS_INDICATOR,
@@ -188,6 +190,12 @@ export class SignalDetailComponent {
    *  its own merged toolbar bound to the same `ChartToolbarStateService`
    *  (chart-view, #1232/#1255). Charts are unaffected. */
   showToolbar = input(true);
+  /** Host-fed overlay dots for the daily chart (#1655 — the symbol-review
+   *  page passes its occurrence markers; chart-view passes nothing).
+   *  Daily-scoped: review bundle occurrences are daily-signal rows, and
+   *  they're not an indicator-menu selection — appended after the extras
+   *  whenever points exist. */
+  reviewMarkers = input<ChartScatterPoint[]>([]);
 
   /** Emits when the user toggles the active symbol's list membership. */
   toggleList = output<{ symbol: string; listKey: string }>();
@@ -351,7 +359,7 @@ export class SignalDetailComponent {
    */
   private dailyIndicators = computed<IndicatorConfig[]>(() => {
     const sel = this.selectedIdsByInterval()[ChartIntervalKey.DAILY];
-    return addChartExtras(SignalDetailComponent.baseIndicatorsFor(
+    return addReviewMarkers(addChartExtras(SignalDetailComponent.baseIndicatorsFor(
       ChartIntervalKey.DAILY, sel, this.indicatorResponse(), this.chartData()?.bars,
       this.tbDailyIntervalData(),
     ), {
@@ -364,7 +372,7 @@ export class SignalDetailComponent {
       triggerBandsDots: sel.has(ST_TRIGGER_BANDS_DOTS_INDICATOR.id)
         ? convertTriggerBandsDotMarkers(this.tbDailyIntervalData())
         : undefined,
-    });
+    }), this.reviewMarkers());
   });
 
   /** Full weekly indicator config list: base ST indicators filtered by user selection,
